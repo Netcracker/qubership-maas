@@ -1,7 +1,4 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
-name: Go
+name: Build and Publish
 
 on:
   push:
@@ -11,12 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: tag
-        run: |
-          echo "tag=$(echo ${{github.ref_name}} | tr -cs 'a-zA-Z0-9' '-')$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}" >> $GITHUB_OUTPUT
-          echo "repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "tag=$(echo ${{github.ref_name}} | tr -cs 'a-zA-Z0-9' '-')$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}" >> $GITHUB_OUTPUT
+      - id: repo
+        run: echo "repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      repo: ${{ steps.tag.outputs.repo }}
+      repo: ${{ steps.repo.outputs.repo }}
   build:
     runs-on: ubuntu-latest
     steps:
