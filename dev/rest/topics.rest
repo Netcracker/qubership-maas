@@ -1,0 +1,20 @@
+### Search
+POST {{host}}/api/v1/kafka/topic/search
+Authorization: Basic {{username}} {{password}}
+X-Origin-Namespace: {{namespace}}
+
+{
+  "namespace": "{{namespace}}"
+}
+
+### Create topic
+POST {{host}}/api/v1/kafka/topic
+Authorization: Basic {{username}} {{password}}
+X-Origin-Namespace: {{namespace}}
+
+{
+  "classifier": {
+    "name": "test1",
+    "namespace": "{{namespace}}"
+    }
+}

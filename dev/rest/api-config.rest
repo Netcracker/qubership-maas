@@ -1,0 +1,52 @@
+### Send config to MaaS
+POST {{host}}/api/v2/config
+Authorization: Basic {{username}} {{password}}
+X-Origin-Namespace: cloud-dev
+Content-Type: application/x-yaml
+
+apiVersion: nc.maas.config/v2
+kind: config
+spec:
+  version: v1
+  namespace: cloud-dev
+  services:
+  - serviceName: kafka-demo-quarkus
+    config: |
+      apiVersion: nc.maas.kafka/v1
+      kind: topic
+      spec:
+        classifier:
+          name: orders
+          namespace: cloud-dev
+        name: cloud-dev-orders
+        numPartitions: 20
+
+
+### Send config to MaaS
+POST {{host}}/api/v2/config
+Authorization: Basic {{username}} {{password}}
+X-Origin-Namespace: cloud-dev
+Content-Type: application/x-yaml
+
+apiVersion: nc.maas.config/v2
+kind: config
+spec:
+  version: v1
+  namespace: cloud-dev
+  services:
+    - serviceName: kafka-demo-quarkus
+      config: |
+        apiVersion: nc.maas.kafka/v2
+        kind: topic-delete
+        spec:
+          classifier:
+            name: orders
+            namespace: cloud-dev
+        ---
+        apiVersion: nc.maas.kafka/v1
+        kind: topic
+        spec:
+          classifier:
+            name: orders-2
+            namespace: cloud-dev
+          name: cloud-dev-orders

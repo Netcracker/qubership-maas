@@ -1,0 +1,40 @@
+microservice: maas-service
+log:
+  level: info
+http:
+  server:
+    bind: ":8080"
+  client:
+    retry:
+      maxAttempts: 5
+      attemptDelay: 2s
+
+db:
+  postgresql:
+    address: localhost:5432
+    database: postgres
+    username: postgres
+    password: postgres
+    tls:
+      enabled: false
+      skipverify: false
+  pool:
+    size: 10
+  connection:
+    ttl: 60m
+  cache:
+    enabled: true
+    fullResyncInterval: 10m
+  cipher:
+    key: thisis32bitlongpassphraseimusing
+
+
+# DR mode defaults
+execution.mode: active
+
+# defaults for dev mode, but on cloud it is overridden by env value
+production.mode: false
+
+#kafka.topics.update.timeout: 10s - deprecated property
+kafka.client.timeout: 10s
+health.check.interval: 5s

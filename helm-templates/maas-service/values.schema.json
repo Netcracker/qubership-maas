@@ -1,0 +1,282 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "title": "The maas scheme",
+  "default": {},
+  "definitions": {
+    "integerOrString": {
+      "anyOf": [
+        { "type": "integer" },
+        { "type": "string" }
+      ]
+    }
+  },
+  "properties": {
+    "properties": {
+      "SERVICE_NAME": {
+        "$id": "#/properties/SERVICE_NAME",
+        "type": "string",
+        "title": "The SERVICE_NAME schema",
+        "description": "Name of a service.",
+        "examples": [
+          "maas-service"
+        ],
+        "internal": true
+      },
+      "CPU_REQUEST": {
+        "$id": "#/properties/CPU_REQUEST",
+        "$ref": "#/definitions/integerOrString",
+        "title": "The CPU_REQUEST scheme",
+        "internal": true,
+        "envSpecific": true
+      },
+      "CPU_LIMIT": {
+        "$id": "#/properties/CPU_LIMIT",
+        "$ref": "#/definitions/integerOrString",
+        "title": "The CPU_LIMIT scheme",
+        "internal": true,
+        "envSpecific": true
+      },
+      "MEMORY_LIMIT": {
+        "$id": "#/properties/MEMORY_LIMIT",
+        "type": "string",
+        "title": "The MEMORY_LIMIT scheme",
+        "internal": true,
+        "envSpecific": true
+      },
+      "IMAGE_REPOSITORY": {
+        "$id": "#/properties/IMAGE_REPOSITORY",
+        "type": "string",
+        "title": "The IMAGE_REPOSITORY scheme",
+        "internal": true
+      },
+      "NAMESPACE": {
+        "$id": "#/properties/NAMESPACE",
+        "type": "string",
+        "title": "The NAMESPACE scheme",
+        "description": "The namespace it is going to be deployed.",
+        "internal": true
+      },
+      "REPLICAS": {
+        "$id": "#/properties/REPLICAS",
+        "$ref": "#/definitions/integerOrString",
+        "title": "The REPLICAS scheme",
+        "internal": true,
+        "envSpecific": true
+      },
+      "TAG": {
+        "$id": "#/properties/TAG",
+        "type": "string",
+        "title": "The TAG scheme",
+        "internal": true
+      },
+      "DBAAS_AGGREGATOR_ADDRESS": {
+        "$id": "#/properties/DBAAS_AGGREGATOR_ADDRESS",
+        "type": "string",
+        "title": "The DBAAS_AGGREGATOR_ADDRESS scheme",
+        "description": "Dbaas aggregator address",
+        "examples": [
+          "https://aggregator-dbaas-cpq.paas-apps8.openshift.sdntest.qubership.org"
+        ]
+      },
+      "DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME": {
+        "$id": "#/properties/DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME",
+        "type": "string",
+        "title": "The DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME scheme",
+        "description": "Dbaas username",
+        "examples": [
+          "username"
+        ]
+      },
+      "DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD": {
+        "$id": "#/properties/DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD",
+        "type": "string",
+        "title": "The DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD scheme",
+        "description": "Dbaas password",
+        "examples": [
+          "password"
+        ]
+      },
+      "DB_POSTGRESQL_ADDRESS": {
+        "$id": "#/properties/DB_POSTGRESQL_ADDRESS",
+        "type": "string",
+        "title": "The DB_POSTGRESQL_ADDRESS scheme",
+        "description": "Pg address",
+        "examples": [
+          "pg-cpq-common.cpq-postgresql:5432"
+        ]
+      },
+      "DB_POSTGRESQL_DATABASE": {
+        "$id": "#/properties/DB_POSTGRESQL_DATABASE",
+        "type": "string",
+        "title": "The DB_POSTGRESQL_DATABASE scheme",
+        "description": "Pg database name",
+        "examples": [
+          "dbaas_6e4ada938f5b403d809c687dc64c0bb0"
+        ]
+      },
+      "DB_POSTGRESQL_USERNAME": {
+        "$id": "#/properties/DB_POSTGRESQL_USERNAME",
+        "type": "string",
+        "title": "The DB_POSTGRESQL_USERNAME scheme",
+        "description": "Pg username",
+        "examples": [
+          "username"
+        ]
+      },
+      "DB_POSTGRESQL_PASSWORD": {
+        "$id": "#/properties/DB_POSTGRESQL_PASSWORD",
+        "type": "string",
+        "title": "The DB_POSTGRESQL_PASSWORD scheme",
+        "description": "Pg password",
+        "examples": [
+          "password"
+        ]
+      },
+      "DB_POSTGRESQL_TLS_ENABLED": {
+        "$id": "#/properties/DB_POSTGRESQL_TLS_ENABLED",
+        "type": "boolean",
+        "title": "The DB_POSTGRESQL_TLS_ENABLED scheme",
+        "description": "is Pg tls enabled",
+        "examples": [
+          "true"
+        ],
+        "default": false
+      },
+      "DB_POSTGRESQL_TLS_SKIPVERIFY": {
+        "$id": "#/properties/DB_POSTGRESQL_TLS_SKIPVERIFY",
+        "type": "boolean",
+        "title": "The DB_POSTGRESQL_TLS_SKIPVERIFY scheme",
+        "description": "is Pg tls skip verify",
+        "examples": [
+          "true"
+        ],
+        "default": false
+      },
+      "DB_POOL_SIZE": {
+        "$id": "#/properties/DB_POOL_SIZE",
+        "type": "integer",
+        "title": "Size of db connection pool",
+        "description": "Size of db connection pool. By default there are 10 active connections",
+        "examples": [
+          10
+        ],
+        "envSpecific": true
+      },
+      "MAAS_ACCOUNT_MANAGER_USERNAME": {
+        "$id": "#/properties/MAAS_ACCOUNT_MANAGER_USERNAME",
+        "type": "string",
+        "title": "The MAAS_ACCOUNT_MANAGER_USERNAME scheme",
+        "description": "Manager account username",
+        "examples": [
+          "manager"
+        ]
+      },
+      "MAAS_ACCOUNT_MANAGER_PASSWORD": {
+        "$id": "#/properties/MAAS_ACCOUNT_MANAGER_PASSWORD",
+        "type": "string",
+        "title": "The MAAS_ACCOUNT_MANAGER_PASSWORD scheme",
+        "description": "Manager account password",
+        "examples": [
+          "24002eadbc"
+        ]
+      },
+      "MAAS_DEPLOYER_CLIENT_USERNAME": {
+        "$id": "#/properties/MAAS_DEPLOYER_CLIENT_USERNAME",
+        "type": "string",
+        "title": "The MAAS_DEPLOYER_CLIENT_USERNAME scheme",
+        "description": "Deployer client username",
+        "examples": [
+          "client"
+        ]
+      },
+      "MAAS_DEPLOYER_CLIENT_PASSWORD": {
+        "$id": "#/properties/MAAS_DEPLOYER_CLIENT_PASSWORD",
+        "type": "string",
+        "title": "The MAAS_DEPLOYER_CLIENT_PASSWORD scheme",
+        "description": "Deployer client password",
+        "examples": [
+          "client"
+        ]
+      },
+      "EXECUTION_MODE": {
+        "$id": "#/properties/EXECUTION_MODE",
+        "type": "string",
+        "title": "Disaster Recovery execution mode",
+        "description": "The flag allows to set Disaster Recovery execution mode",
+        "examples": [
+          "active"
+        ]
+      },
+      "MAAS_KAFKA_INSTANCE_BODY": {
+        "$id": "#/properties/MAAS_KAFKA_INSTANCE_BODY",
+        "type": "string",
+        "title": "MaaS kafka instance registration body",
+        "description": "Allows to send request to MaaS to register Kafka instance during deployment",
+        "examples": [
+          "{\"default\":true,\"id\":\"kafka-ci\",\"addresses\":{\"SASL_PLAINTEXT\":[\"kafka.maas-ci-kafka:9092\"]},\"maasProtocol\":\"SASL_PLAINTEXT\",\"credentials\":{\"admin\":[{\"type\":\"SCRAM\",\"username\":\"adminuser\",\"password\":\"plain:adminpass\"}],\"client\":[{\"type\":\"SCRAM\",\"username\":\"clientuser\",\"password\":\"plain:clientpass\"}]}}"
+        ]
+      },
+      "MAAS_RABBIT_INSTANCE_BODY": {
+        "$id": "#/properties/MAAS_RABBIT_INSTANCE_BODY",
+        "type": "string",
+        "title": "MaaS Rabbit instance registration body",
+        "description": "Allows to send request to MaaS to register Rabbit instance during deployment",
+        "examples": [
+          "{\"apiUrl\":\"http://rabbitmq.maas-ci-rabbitmq:15672/api\",\"amqpUrl\":\"amqp://rabbitmq.maas-ci-rabbitmq:5672\",\"user\":\"admin\",\"password\":\"admin\",\"default\":true}"
+        ]
+      },
+      "READONLY_CONTAINER_FILE_SYSTEM_ENABLED": {
+        "$id": "#/properties/READONLY_CONTAINER_FILE_SYSTEM_ENABLED",
+        "type": "boolean",
+        "title": "The READONLY_CONTAINER_FILE_SYSTEM_ENABLED schema",
+        "description": "Read-only container file system is enabled",
+        "examples": [
+          false
+        ]
+      },
+      "CLOUD_TOPOLOGY_KEY": {
+        "$id": "#/properties/CLOUD_TOPOLOGY_KEY",
+        "type": "string",
+        "title": "The CLOUD_TOPOLOGY_KEY schema",
+        "description": "Affinity key.",
+        "examples": [
+          "kubernetes.io/hostname"
+        ]
+      },
+      "KAFKA_CLIENT_TIMEOUT": {
+        "$id": "#/properties/KAFKA_CLIENT_TIMEOUT",
+        "type": "string",
+        "title": "Client timeout for Kafka",
+        "description": "Client side timeout for requests from MaaS to Kafka",
+        "examples": [
+          "60s"
+        ],
+        "default": "10s"
+      },
+      "LOG_LEVEL": {
+        "$id": "#/properties/LOG_LEVEL",
+        "type": "string",
+        "title": "The LOG_LEVEL schema",
+        "description": "Log level for service.",
+        "default": "info",
+        "examples": [
+          "info", "debug", "warn"
+        ]
+      },
+      "DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES":
+      {
+        "$id": "#/properties/DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES",
+        "type": "string",
+        "title": "Dbaas namespace autobalance rules",
+        "description": "In some cases you might have several physical databases of the same type, and you might want to specify explicitly in which one of them logical databases must be created.",
+        "default": "None",
+        "examples":
+        [
+          "postgresql=>postgresql-sample||mongodb=>mongo-sample;"
+        ]
+      }
+    }
+  }
+}

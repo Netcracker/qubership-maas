@@ -1,0 +1,43 @@
+### Register Kafka instance
+POST {{host}}/api/v1/kafka/instance
+Authorization: Basic {{username}} {{password}}
+
+{
+  "id": "local",
+  "addresses": { "PLAINTEXT": ["localhost:9092"] },
+  "maasProtocol": "PLAINTEXT"
+}
+
+### Register RabbitMQ instance
+POST {{host}}/api/v1/rabbit/instance
+Authorization: Basic {{username}} {{password}}
+
+{
+  "id" : "local",
+  "apiUrl": "http://localhost:15672/api/",
+  "amqpUrl": "amqp://localhost:5672",
+  "user": "admin",
+  "password": "admin"
+}
+
+### Delete RabitMQ instance
+DELETE {{host}}/api/v1/rabbit/instance
+Authorization: Basic {{username}} {{password}}
+
+{
+  "id" : "local",
+  "apiUrl": "http://localhost:15672/api/",
+  "amqpUrl": "amqp://localhost:5672",
+  "user": "admin",
+  "password": "admin"
+}
+
+
+### List all Kafka instances
+GET {{host}}/api/v1/kafka/instances
+Authorization: Basic {{username}} {{password}}
+
+
+### List all RabbiMQ instances
+GET {{host}}/api/v1/rabbit/instances
+Authorization: Basic {{username}} {{password}}

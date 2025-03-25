@@ -1,0 +1,70 @@
+@origin={{namespace}}-origin
+@peer={{namespace}}-peer
+@controller={{namespace}}-controller
+
+### Init BG Domain
+POST {{host}}/api/bluegreen/v1/operation/init-domain
+Authorization: Basic {{username}} {{password}}
+
+{
+    "BGState": {
+      "controllerNamespace": "{{controller}}",
+      "originNamespace": {
+            "name": "{{origin}}",
+            "state": "active",
+            "version": "v1"
+        },
+      "peerNamespace": {
+            "name": "{{peer}}",
+            "state": "idle",
+            "version": null
+        },
+        "updateTime": "2024-07-07T10:00:54Z"
+    }
+}
+
+### Warmup BG Domain
+POST {{host}}/api/bluegreen/v1/operation/warmup
+Authorization: Basic {{username}} {{password}}
+
+{
+    "BGState": {
+      "controllerNamespace": "{{controller}}",
+      "originNamespace": {
+            "name": "{{origin}}",
+            "state": "active",
+            "version": "v1"
+        },
+      "peerNamespace": {
+            "name": "{{peer}}",
+            "state": "candidate",
+            "version": "v3"
+        },
+        "updateTime": "2024-07-07T11:00:54Z"
+    }
+}
+
+### Commit BG Domain
+POST {{host}}/api/bluegreen/v1/operation/commit
+Authorization: Basic {{username}} {{password}}
+
+{
+    "BGState": {
+      "controllerNamespace": "{{controller}}",
+      "originNamespace": {
+            "name": "{{origin}}",
+            "state": "active",
+            "version": "v1"
+        },
+      "peerNamespace": {
+            "name": "{{peer}}",
+            "state": "idle",
+            "version": null
+        },
+        "updateTime": "2024-07-07T12:00:54Z"
+    }
+}
+
+### List BG Domains
+GET {{host}}/api/bluegreen/v1/operation/list-domains
+Authorization: Basic {{username}} {{password}}

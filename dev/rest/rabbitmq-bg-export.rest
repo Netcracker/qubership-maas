@@ -1,0 +1,39 @@
+### Cleanup namespace
+DELETE {{host}}/api/v1/namespace
+Authorization: Basic {{username}} {{password}}
+
+{
+  "namespace": "{{origin}}"
+}
+
+### Send config to MaaS
+POST {{host}}/api/v2/config
+Authorization: Basic {{username}} {{password}}
+X-Origin-Namespace: cloud-dev
+Content-Type: application/x-yaml
+
+apiVersion: nc.maas.config/v2
+kind: config
+spec:
+  version: v1
+  namespace: {{origin}}
+  services:
+    - serviceName: kafka-demo-quarkus
+      config: |
+        apiVersion: nc.maas.rabbit/v2
+        kind: vhost
+        spec:
+          classifier:
+            name: public2
+            namespace: {{origin}}
+          entities:
+            exchanges:
+            - name: ex1
+              exported: true
+            queues:
+            - name: orders
+              durable: true
+              exported: true
+
+
+

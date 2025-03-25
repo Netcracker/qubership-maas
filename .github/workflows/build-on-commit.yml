@@ -1,0 +1,71 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
+
+on:
+  push:
+
+jobs:
+  prepare-variables:
+    runs-on: ubuntu-latest
+    steps:
+      - id: tag
+        run: |
+          echo "tag=$(echo ${{github.ref_name}} | tr -cs 'a-zA-Z0-9' '-')$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      repo: ${{ steps.tag.outputs.repo }}
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Build
+      run: |
+        cd maas-service
+        go build -v ./...
+
+    - name: Test with coverage
+      run: |
+        cd maas-service
+        go test -v ./... -coverprofile coverage.out
+
+    - name: Upload coverage report to SonarCloud
+      uses: SonarSource/sonarcloud-github-action@v2
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
+          -Dsonar.go.coverage.reportPaths=coverage.out
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push core-image
+      uses: docker/build-push-action@v6
+      with:
+        push: true
+        tags: |
+          ghcr.io/${{repo}}:${{ needs.prepare-variables.outputs.tag }}
+          ghcr.io/${{repo}}:latest
+        platforms: linux/amd64

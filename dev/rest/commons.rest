@@ -1,0 +1,42 @@
+# MaaS Initialization
+### Create manager User
+POST {{host}}/api/v1/auth/account/manager
+
+{ "username":"admin", "password": "admin" }
+
+### Create deployer accout
+POST {{host}}/api/v1/auth/account/client
+Authorization: Basic admin admin
+
+{
+  "username": "client",
+  "password": "client",
+  "namespace": "_GLOBAL",
+  "roles": ["manager", "agent", "bgoperator"]
+}
+
+### Create maas-agent sample account
+POST {{host}}/api/v1/auth/account/client
+Authorization: Basic {{username}} {{password}}
+
+{
+  "username": "maas-agent",
+  "password": "maas-agent",
+  "namespace": "cloud-dev",
+  "roles": ["agent"]
+}
+
+### Health
+GET {{host}}/health
+
+
+### Cleanup namespace
+DELETE {{host}}/api/v1/namespace
+Authorization: Basic {{username}} {{password}} 
+
+{
+  "namespace": "{{namespace}}"
+}
+
+### Prometheus metrics
+GET {{host}}/prometheus

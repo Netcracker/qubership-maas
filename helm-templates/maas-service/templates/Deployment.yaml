@@ -1,0 +1,157 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: "{{ .Values.SERVICE_NAME }}"
+  labels:
+    name: "{{ .Values.SERVICE_NAME }}"
+    qubership.cloud/disaster-recovery.manageable: 'true'
+  annotations:
+    qubership.cloud/start.stage: '0'
+spec:
+  selector:
+    matchLabels:
+      name: {{ .Values.SERVICE_NAME }}
+  replicas: {{ .Values.REPLICAS }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  template:
+    metadata:
+      labels:
+        name: "{{ .Values.SERVICE_NAME }}"
+    spec:
+      serviceAccountName: '{{ .Values.SERVICE_NAME }}'
+      volumes:
+        - name: "maas-instance-registrations"
+          secret:
+            secretName: "maas-instance-registrations"
+        - name: "maas-accounts"
+          secret:
+            secretName: "maas-accounts"
+{{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
+        - name: sslcerts
+          emptyDir: {}
+        - name: cacerts
+          emptyDir: {}
+{{ end }}
+      containers:
+        - name: "{{ .Values.SERVICE_NAME }}"
+          image: "{{ .Values.IMAGE_REPOSITORY}}:{{ .Values.TAG }}"
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+          args:
+            - /app/maas
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /health
+              port: web
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 5
+          env:
+            - name: CLOUD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: EXECUTION_MODE
+              value: "{{ .Values.EXECUTION_MODE }}"
+            - name: DB_POSTGRESQL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: "maas-db-postgresql-credentials-secret"
+                  key: pg_address
+            - name: DB_POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: "maas-db-postgresql-credentials-secret"
+                  key: dbname
+            - name: DB_POSTGRESQL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: "maas-db-postgresql-credentials-secret"
+                  key: username
+            - name: DB_POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "maas-db-postgresql-credentials-secret"
+                  key: password
+            - name: DB_POSTGRESQL_TLS_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: "maas-db-postgresql-credentials-secret"
+                  key: tls
+            - name: DB_POSTGRESQL_TLS_SKIPVERIFY
+              value: "{{ .Values.DB_POSTGRESQL_TLS_SKIPVERIFY }}"
+            - name: DB_POOL_SIZE
+              value: "{{ .Values.DB_POOL_SIZE }}"
+            - name: DB_CIPHER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: "maas-db-cipher-key-secret"
+                  key: key
+            - name: KAFKA_CLIENT_TIMEOUT
+              value: "{{ .Values.KAFKA_CLIENT_TIMEOUT }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.LOG_LEVEL }}"
+{{ if .Values.MEMORY_LIMIT }}
+{{- $memLimitMiB := include "to_MiB" .Values.MEMORY_LIMIT }}
+            - name: GOMEMLIMIT
+              value: "{{ sub  $memLimitMiB (mulf $memLimitMiB 0.2) }}MiB"
+{{ end }}
+          resources:
+            requests:
+              cpu: "{{ .Values.CPU_REQUEST }}"
+              memory: "{{ .Values.MEMORY_LIMIT }}"
+            limits:
+              cpu: "{{ .Values.CPU_LIMIT }}"
+              memory: "{{ .Values.MEMORY_LIMIT }}"
+          securityContext:
+                  {{ if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
+            runAsGroup: 10001
+                  {{ end }}
+            readOnlyRootFilesystem: {{ and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: "maas-instance-registrations"
+              mountPath: "/etc/maas/maas-instance-registrations"
+            - name: "maas-accounts"
+              mountPath: "/etc/maas/maas-accounts"
+{{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
+            - name: sslcerts
+              mountPath: /etc/ssl/certs
+            - name: cacerts
+              mountPath: /usr/local/share/ca-certificates
+{{ end }}
+      topologySpreadConstraints:
+{{- if .Values.CLOUD_TOPOLOGIES }}
+{{- range $v := .Values.CLOUD_TOPOLOGIES }}
+        - topologyKey: {{ $v.topologyKey }}
+          maxSkew: {{ $v.maxSkew | default 1 }}
+          whenUnsatisfiable: {{ $v.whenUnsatisfiable | default "ScheduleAnyway" }}
+          labelSelector:
+            matchLabels:
+              name: "{{ .Values.SERVICE_NAME }}"
+{{- end }}
+{{- else }}
+            - maxSkew: 1
+              topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  name: "{{ .Values.SERVICE_NAME }}"
+{{- end }}
