@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: |
         cd maas-service
-        go build -v ./...
+        go build -o maas-service
 
     - name: Test with coverage
       run: |
