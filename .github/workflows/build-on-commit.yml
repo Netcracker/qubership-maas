@@ -35,11 +35,11 @@ jobs:
         cd maas-service
         go test -v ./... -coverprofile coverage.out
 
-   - name: Upload coverage report to SonarCloud
-     uses: SonarSource/sonarcloud-github-action@v2
-     env:
+    - name: Upload coverage report to SonarCloud
+      uses: SonarSource/sonarcloud-github-action@v2
+      env:
        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-     with:
+      with:
        args: >
          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
