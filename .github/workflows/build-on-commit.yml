@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: |
         cd maas-service
-        go build -o maas-service
+        CGO_ENABLE=0 go build -o maas-service
 
     - name: Test with coverage
       run: |
