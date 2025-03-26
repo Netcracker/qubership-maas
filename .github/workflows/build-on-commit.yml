@@ -41,10 +41,11 @@ jobs:
        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
        args: >
+         -Dproject.settings=maas-service/sonar-project.properties
          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
-         -Dsonar.go.coverage.reportPaths=coverage.out
+         -Dsonar.go.coverage.reportPaths=maas-service/coverage.out
 
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v2
