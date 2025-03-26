@@ -1,6 +1,6 @@
-# MaaS
-[[_TOC_]]
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?metric=coverage&project=Netcracker_qubership-maas)](https://sonarcloud.io/summary/overall?id=Netcracker_qubership-maas)
 
+# MaaS
 MaaS stands for Messaging as a Service. It offers to create and manage entites on RabbitMQ and Kafka brokers: 
 * RabbitMQ - vhosts, exchanges, queues and bindings
 * Kafka - topics  
