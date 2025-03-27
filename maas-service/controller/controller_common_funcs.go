@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
@@ -335,4 +337,16 @@ func WithBody[T any](bodyParser func(data []byte, v any) error, next func(*fiber
 		}
 		return next(ctx, &body)
 	}
+}
+
+func MigrateOldCrApi(ctx *fiber.Ctx) error {
+	oldCrApi := configloader.GetKoanf().String("old.cr.api")
+	if oldCrApi == "" {
+		return ctx.Next()
+	}
+
+	body := ctx.Body()
+	modifiedBody := bytes.ReplaceAll(body, []byte(oldCrApi), []byte("core.qubership.org/v1"))
+	ctx.Request().SetBody(modifiedBody)
+	return ctx.Next()
 }

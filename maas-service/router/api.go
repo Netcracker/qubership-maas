@@ -188,7 +188,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiBGV1.Delete("/operation/destroy-domain", roles(model.AnonymousRole, model.BgOperatorRole), controller.WithJson(controllers.Bg2Controller.DestroyDomain))
 
 	// custom resources api
-	apiCRV1.Post("/apply", roles(model.AgentRole), controller.WithYaml(controllers.CustomResource.Create))
+	apiCRV1.Post("/apply", roles(model.AgentRole), controller.MigrateOldCrApi, controller.WithYaml(controllers.CustomResource.Create))
 	apiCRV1.Delete("/apply", roles(model.AgentRole), controller.WithYaml(controllers.CustomResource.Delete))
 	apiCRV1.Get("/operation/:trackingId/status", roles(model.AgentRole), controllers.CustomResource.Status)
 	apiCRV1.Post("/operation/:trackingId/terminate", roles(model.AgentRole), controllers.CustomResource.Terminate)
