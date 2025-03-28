@@ -181,10 +181,10 @@ func (k KafkaInstancesDaoImpl) RemoveInstanceRegistration(ctx context.Context, i
 			var err error
 			instance, err = k.GetInstanceById(ctx, instanceId)
 			if err != nil {
-				return fmt.Errorf("error search instance `%v': %w", instance.GetId(), err)
+				return fmt.Errorf("error search instance `%v': %w", instanceId, err)
 			}
 			if instance == nil {
-				return fmt.Errorf("instance `%s' not found in database: %w", instance.GetId(), msg.NotFound)
+				return fmt.Errorf("instance `%s' not found in database: %w", instanceId, msg.NotFound)
 			}
 
 			registrations, err := k.GetKafkaInstanceRegistrations(ctx)
@@ -215,7 +215,11 @@ func (k KafkaInstancesDaoImpl) RemoveInstanceRegistration(ctx context.Context, i
 	})
 
 	if err != nil {
-		return instance, utils.LogError(log, ctx, "Error removing %s instance by registration id: '%s' err: %w", instance.BrokerType(), instance.GetId(), err)
+		if instance == nil {
+			return nil, utils.LogError(log, ctx, "Error removing instance by registration id: '%s' err: %w", instanceId, err)
+		} else {
+			return instance, utils.LogError(log, ctx, "Error removing %s instance by registration id: '%s' err: %w", instance.BrokerType(), instance.GetId(), err)
+		}
 	}
 
 	log.InfoC(ctx, "Instance was deleted successfully by registration id: %v", instance.GetId())
