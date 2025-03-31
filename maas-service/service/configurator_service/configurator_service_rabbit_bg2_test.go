@@ -3,6 +3,8 @@ package configurator_service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/mock/gomock"
 	"github.com/jucardi/go-streams/v2/streams"
 	_ "github.com/proullon/ramsql/driver"
@@ -633,9 +635,9 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 				},
 			}
 
-			_, err := configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err := applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost2, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost2, originNamespace)
 			assertion.NoError(err)
 
 			vhostExported1, err := rabbitWithHelper.FindVhostByClassifier(originCtx, &classifierExported1)
@@ -655,7 +657,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
 
 			entities, err := rabbitWithHelper.GetConfig(originCtx, classifierExported1)
@@ -679,7 +681,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
 
 			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported1)
@@ -740,7 +742,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
 
 			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported1)
@@ -765,7 +767,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			configVhost1.Spec.Entities = &rabbitEntitites
 			configVhost1.Spec.Classifier.Namespace = peerNamespace
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(peerCtx, configVhost1, peerNamespace)
+			_, err = applyRabbitConfigurationWithRetry(peerCtx, configVhost1, peerNamespace)
 			assertion.NoError(err)
 
 			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported1)
@@ -808,9 +810,9 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 				},
 			}
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, peerNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost1, peerNamespace)
 			assertion.NoError(err)
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost2, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost2, originNamespace)
 			assertion.NoError(err)
 
 			//phase 9 - commit
@@ -889,7 +891,7 @@ func TestRegistrationService_ExportedVhostExchanges(t *testing.T) {
 				},
 			}
 
-			_, err := configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err := applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
 
 			vhostExported1, err := rabbitWithHelper.FindVhostByClassifier(originCtx, &classifierExported1)
@@ -903,7 +905,7 @@ func TestRegistrationService_ExportedVhostExchanges(t *testing.T) {
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
 
 			entities, err := rabbitWithHelper.GetConfig(originCtx, classifierExported1)
@@ -1062,7 +1064,7 @@ func TestRegistrationService_ExportedVhostExchanges(t *testing.T) {
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
 
-			_, err = configWithRabbit.ApplyRabbitConfiguration(originCtx, configVhost1, originNamespace)
+			_, err = applyRabbitConfigurationWithRetry(originCtx, configVhost1, originNamespace)
 			assertion.NoError(err)
 
 			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported1)
@@ -1122,4 +1124,32 @@ func convertBindingsToTypedArray(entities *model.RabbitEntities) []Binding {
 			}
 		})
 	return bindings
+}
+
+func applyRabbitConfigurationWithRetry(ctx context.Context, cfg interface{}, namespace string) (interface{}, error) {
+	var result interface{}
+	var err error
+	attemptNumber := 1
+
+	operation := func() error {
+		log.InfoC(ctx, "Try to apply rabbit configuration with retry. Attempt number: %d", attemptNumber)
+		attemptNumber++
+		result, err = configWithRabbit.ApplyRabbitConfiguration(ctx, cfg, namespace)
+		if err != nil {
+			log.ErrorC(ctx, "Attempt to apply rabbit configuration is failed.", err.Error())
+			return err
+		}
+		log.InfoC(ctx, "Configuration successfully applied")
+		return nil
+	}
+
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxElapsedTime = 5 * time.Second
+	err = backoff.Retry(operation, bo)
+
+	if err != nil {
+		return nil, fmt.Errorf("after %d attempts, apply configuration operation still failed: %v", attemptNumber, err)
+	}
+
+	return result, nil
 }
