@@ -3,8 +3,6 @@ package configurator_service
 import (
 	"context"
 	"errors"
-	"fmt"
-	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/mock/gomock"
 	"github.com/jucardi/go-streams/v2/streams"
 	_ "github.com/proullon/ramsql/driver"
@@ -24,6 +22,7 @@ import (
 	mock_rabbit_helper "maas/maas-service/service/rabbit_service/helper/mock"
 	mock_rabbit_service "maas/maas-service/service/rabbit_service/mock"
 	"maas/maas-service/testharness"
+	"maas/maas-service/utils"
 	"testing"
 	"time"
 )
@@ -1127,29 +1126,8 @@ func convertBindingsToTypedArray(entities *model.RabbitEntities) []Binding {
 }
 
 func applyRabbitConfigurationWithRetry(ctx context.Context, cfg interface{}, namespace string) (interface{}, error) {
-	var result interface{}
-	var err error
-	attemptNumber := 1
-
-	operation := func() error {
-		log.InfoC(ctx, "Try to apply rabbit configuration with retry. Attempt number: %d", attemptNumber)
-		attemptNumber++
-		result, err = configWithRabbit.ApplyRabbitConfiguration(ctx, cfg, namespace)
-		if err != nil {
-			log.ErrorC(ctx, "Attempt to apply rabbit configuration is failed.", err.Error())
-			return err
-		}
-		log.InfoC(ctx, "Configuration successfully applied")
-		return nil
-	}
-
-	bo := backoff.NewExponentialBackOff()
-	bo.MaxElapsedTime = 5 * time.Second
-	err = backoff.Retry(operation, bo)
-
-	if err != nil {
-		return nil, fmt.Errorf("after %d attempts, apply configuration operation still failed: %v", attemptNumber, err)
-	}
-
-	return result, nil
+	log.DebugC(ctx, "Apply rabbit configuration with retry")
+	return utils.RetryValue(ctx, 1*time.Minute, 5*time.Second, func(ctx context.Context) (interface{}, error) {
+		return configWithRabbit.ApplyRabbitConfiguration(ctx, cfg, namespace)
+	})
 }

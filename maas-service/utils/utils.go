@@ -99,7 +99,10 @@ func RetryValue[T any](ctx context.Context,
 	// try first, may be there is no need for retry after timeout?
 	result, err = operation(ctx)
 	if err == nil {
+		log.DebugC(ctx, "Operation completed successfully without retry")
 		return result, nil
+	} else {
+		log.WarnC(ctx, "Operation failed with error: %v. Retry operation", err)
 	}
 
 	// start retry
@@ -118,7 +121,10 @@ func RetryValue[T any](ctx context.Context,
 		case <-ticker.C:
 			result, err = operation(ctx)
 			if err == nil {
+				log.DebugC(ctx, "Operation completed successfully")
 				return result, nil
+			} else {
+				log.WarnC(ctx, "Operation failed with error: %v. Retry operation", err)
 			}
 		}
 	}
