@@ -94,10 +94,16 @@ func (s *AuthServiceImpl) DeleteUserAccount(ctx context.Context, username string
 }
 
 func (s *AuthServiceImpl) IsFirstAccountManager(ctx context.Context) (bool, error) {
-	if accounts, err := s.dao.FindAccountByRoleAndNamespace(ctx, model.ManagerRole, model.ManagerAccountNamespace); err != nil {
+	accounts, err := s.dao.FindAccountByRoleAndNamespace(ctx, model.ManagerRole, model.ManagerAccountNamespace)
+	if err != nil {
 		return false, err
+	}
+
+	if accounts == nil || len(accounts) == 0 {
+		log.InfoC(ctx, "Manager account not found")
+		return false, nil
 	} else {
-		log.DebugC(ctx, "Manager account already registered: %+v", accounts)
+		log.InfoC(ctx, "Manager account already registered: %+v", accounts)
 		return true, nil
 	}
 }
