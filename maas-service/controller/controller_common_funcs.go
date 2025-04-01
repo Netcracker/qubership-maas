@@ -339,8 +339,8 @@ func WithBody[T any](bodyParser func(data []byte, v any) error, next func(*fiber
 	}
 }
 
-func MigrateOldCrApi(ctx *fiber.Ctx) error {
-	oldCrApi := configloader.GetKoanf().String("old.cr.api")
+func FallbackCrApiVersion(ctx *fiber.Ctx) error {
+	oldCrApi := configloader.GetKoanf().String("fallback.cr.api.version")
 	if oldCrApi == "" {
 		return ctx.Next()
 	}
