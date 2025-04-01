@@ -40,4 +40,4 @@ kafka.client.timeout: 10s
 health.check.interval: 5s
 
 # Migrate cr
-old.cr.api: ""
+fallback.cr.api.version: ""
