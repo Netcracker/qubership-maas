@@ -340,13 +340,11 @@ func WithBody[T any](bodyParser func(data []byte, v any) error, next func(*fiber
 
 func FallbackCrApiVersion(oldCrApi string) func(*fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
-		if oldCrApi == "" {
-			return ctx.Next()
+		if oldCrApi != "" {
+			body := ctx.Body()
+			modifiedBody := bytes.ReplaceAll(body, []byte(oldCrApi), []byte("core.qubership.org/v1"))
+			ctx.Request().SetBody(modifiedBody)
 		}
-
-		body := ctx.Body()
-		modifiedBody := bytes.ReplaceAll(body, []byte(oldCrApi), []byte("core.qubership.org/v1"))
-		ctx.Request().SetBody(modifiedBody)
 		return ctx.Next()
 	}
 }

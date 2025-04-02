@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 	"io"
 	"maas/maas-service/dao"
 	"maas/maas-service/model"
@@ -18,6 +15,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestSecurityMiddleware_Anonymous(t *testing.T) {
@@ -150,4 +151,38 @@ func TestWithBody(t *testing.T) {
 	req = httptest.NewRequest("GET", "/yaml", strings.NewReader(`{"first": "firstVal", "second": {"k1": "v1", "k2": "v2"}}`))
 	_, err = app.Test(req)
 	assert.NoError(t, err)
+}
+
+func TestFallbackCrApiVersion(t *testing.T) {
+	testData := []struct {
+		config      string
+		input       string
+		expectation string
+	}{
+		{
+			config:      "old.api.version/v1",
+			input:       `{"apiVersion": "old.api.version/v1", "kind": "Test"}`,
+			expectation: `{"apiVersion": "core.qubership.org/v1", "kind": "Test"}`,
+		},
+		{
+			config:      "",
+			input:       `{"apiVersion": "abc.qubership.org/v1", "kind": "Test"}`,
+			expectation: `{"apiVersion": "abc.qubership.org/v1", "kind": "Test"}`,
+		},
+	}
+
+	for _, tt := range testData {
+		app := fiber.New()
+		app.Post("/", FallbackCrApiVersion(tt.config), func(c *fiber.Ctx) error {
+			return c.Send(c.Body())
+		})
+
+		req := httptest.NewRequest("POST", "/", strings.NewReader(tt.input))
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+
+		body, err := io.ReadAll(resp.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, tt.expectation, string(body))
+	}
 }
