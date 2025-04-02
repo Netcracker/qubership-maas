@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"github.com/gofiber/fiber/v2"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/prometheus/client_golang/prometheus"
 	"maas/maas-service/controller"
@@ -59,6 +60,8 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 		WriteTimeout: 30 * time.Second,
 		ReadTimeout:  130 * time.Second,
 	})
+
+	fallbackCrApiVersion := configloader.GetKoanf().String("fallback.cr.apiVersion")
 
 	// propagate root context to
 	app.Use(propagateContext(ctx))
@@ -188,7 +191,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiBGV1.Delete("/operation/destroy-domain", roles(model.AnonymousRole, model.BgOperatorRole), controller.WithJson(controllers.Bg2Controller.DestroyDomain))
 
 	// custom resources api
-	apiCRV1.Post("/apply", roles(model.AgentRole), controller.FallbackCrApiVersion, controller.WithYaml(controllers.CustomResource.Create))
+	apiCRV1.Post("/apply", roles(model.AgentRole), controller.FallbackCrApiVersion(fallbackCrApiVersion), controller.WithYaml(controllers.CustomResource.Create))
 	apiCRV1.Delete("/apply", roles(model.AgentRole), controller.WithYaml(controllers.CustomResource.Delete))
 	apiCRV1.Get("/operation/:trackingId/status", roles(model.AgentRole), controllers.CustomResource.Status)
 	apiCRV1.Post("/operation/:trackingId/terminate", roles(model.AgentRole), controllers.CustomResource.Terminate)
