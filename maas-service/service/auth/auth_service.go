@@ -101,10 +101,10 @@ func (s *AuthServiceImpl) IsFirstAccountManager(ctx context.Context) (bool, erro
 
 	if accounts == nil || len(accounts) == 0 {
 		log.InfoC(ctx, "Manager account not found")
-		return false, nil
+		return true, nil
 	} else {
 		log.InfoC(ctx, "Manager account already registered: %+v", accounts)
-		return true, nil
+		return false, nil
 	}
 }
 

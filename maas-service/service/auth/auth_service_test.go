@@ -106,7 +106,7 @@ func TestAuthServiceImpl_UpdateUserPassword(t *testing.T) {
 		{
 			managerExists, err := authService.IsFirstAccountManager(ctx)
 			assert.NoError(t, err)
-			assert.False(t, managerExists)
+			assert.True(t, managerExists)
 		}
 
 		_, err := authService.CreateNewManager(ctx, &model.ManagerAccountDto{
@@ -129,7 +129,7 @@ func TestAuthServiceImpl_UpdateUserPassword(t *testing.T) {
 		{
 			managerExists, err := authService.IsFirstAccountManager(ctx)
 			assert.NoError(t, err)
-			assert.True(t, managerExists)
+			assert.False(t, managerExists)
 		}
 
 		assert.NotEqual(t, managerPassword, accountBeforeUpdate.Password)
