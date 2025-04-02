@@ -3,7 +3,6 @@ package controller
 import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"maas/maas-service/model"
 	"maas/maas-service/service/auth"
 	"maas/maas-service/service/configurator_service"
@@ -13,12 +12,6 @@ import (
 type ConfiguratorController struct {
 	configuratorService configurator_service.ConfiguratorService
 	authService         auth.AuthService
-}
-
-var cLog logging.Logger
-
-func init() {
-	cLog = logging.GetLogger("entity-controller")
 }
 
 func NewConfiguratorController(s configurator_service.ConfiguratorService, a auth.AuthService) *ConfiguratorController {

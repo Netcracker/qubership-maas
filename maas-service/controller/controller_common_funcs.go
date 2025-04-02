@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -334,5 +335,16 @@ func WithBody[T any](bodyParser func(data []byte, v any) error, next func(*fiber
 			return err
 		}
 		return next(ctx, &body)
+	}
+}
+
+func FallbackCrApiVersion(oldCrApi string) func(*fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
+		if oldCrApi != "" {
+			body := ctx.Body()
+			modifiedBody := bytes.ReplaceAll(body, []byte(oldCrApi), []byte("core.qubership.org/v1"))
+			ctx.Request().SetBody(modifiedBody)
+		}
+		return ctx.Next()
 	}
 }
