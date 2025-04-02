@@ -103,6 +103,12 @@ func TestAuthServiceImpl_UpdateUserPassword(t *testing.T) {
 		dao := NewAuthDao(baseDao)
 		authService := NewAuthService(dao, nil, nil)
 
+		{
+			managerExists, err := authService.IsFirstAccountManager(ctx)
+			assert.NoError(t, err)
+			assert.True(t, managerExists)
+		}
+
 		_, err := authService.CreateNewManager(ctx, &model.ManagerAccountDto{
 			Username: managerName,
 			Password: managerPassword,
@@ -123,7 +129,7 @@ func TestAuthServiceImpl_UpdateUserPassword(t *testing.T) {
 		{
 			managerExists, err := authService.IsFirstAccountManager(ctx)
 			assert.NoError(t, err)
-			assert.True(t, managerExists)
+			assert.False(t, managerExists)
 		}
 
 		assert.NotEqual(t, managerPassword, accountBeforeUpdate.Password)
