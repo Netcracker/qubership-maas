@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -150,4 +151,39 @@ func TestWithBody(t *testing.T) {
 	req = httptest.NewRequest("GET", "/yaml", strings.NewReader(`{"first": "firstVal", "second": {"k1": "v1", "k2": "v2"}}`))
 	_, err = app.Test(req)
 	assert.NoError(t, err)
+}
+
+func TestFallbackCrApiVersion(t *testing.T) {
+	testBody := []byte(`
+apiVersion: core.microservices.com/v1
+kind: MaaS
+subKind: Topic
+metadata:
+  name: name
+  namespace: namespace
+  labels:
+    app.kubernetes.io/instance: 'test-microservice'
+    app.kubernetes.io/managed-by: operator
+    deployer.cleanup/allow: 'true'
+    app.kubernetes.io/part-of: Cloud-Core
+    app.kubernetes.io/managed-by-operator: core-operator
+spec:
+  replicationFactor: inherit
+`)
+
+	app := fiber.New()
+	app.Use(FallbackCrApiVersion("core.microservices.com/v1"))
+	app.Post("/", func(c *fiber.Ctx) error {
+		return c.Send(c.Body())
+	})
+	req := httptest.NewRequest("POST", "/", bytes.NewReader(testBody))
+	req.Header.Set("Content-Type", "application/yaml")
+
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+
+	respBody, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.Contains(t, string(respBody), `core.qubership.org/v1`)
+	assert.NotContains(t, string(respBody), `core.microservices.com/v1`)
 }
