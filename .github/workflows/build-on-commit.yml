@@ -2,6 +2,9 @@ name: Build and Publish
 
 on:
   push:
+    branches: [ "main" ]
+  pull_request:
+    types: [ opened, synchronize, reopened ]
 
 jobs:
   prepare-variables:
@@ -22,6 +25,8 @@ jobs:
     needs: prepare-variables
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -39,7 +44,7 @@ jobs:
         go test -v ./... -coverprofile coverage.out
 
     - name: Upload coverage report to SonarCloud
-      uses: SonarSource/sonarcloud-github-action@v2
+      uses: SonarSource/sonarqube-scan-action@v5
       env:
        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:

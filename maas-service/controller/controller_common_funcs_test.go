@@ -5,9 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 	"io"
 	"maas/maas-service/dao"
 	"maas/maas-service/model"
@@ -19,6 +16,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestSecurityMiddleware_Anonymous(t *testing.T) {
@@ -154,36 +155,35 @@ func TestWithBody(t *testing.T) {
 }
 
 func TestFallbackCrApiVersion(t *testing.T) {
-	testBody := []byte(`
-apiVersion: core.microservices.com/v1
-kind: MaaS
-subKind: Topic
-metadata:
-  name: name
-  namespace: namespace
-  labels:
-    app.kubernetes.io/instance: 'test-microservice'
-    app.kubernetes.io/managed-by: operator
-    deployer.cleanup/allow: 'true'
-    app.kubernetes.io/part-of: Cloud-Core
-    app.kubernetes.io/managed-by-operator: core-operator
-spec:
-  replicationFactor: inherit
-`)
+	testData := []struct {
+		config      string
+		input       string
+		expectation string
+	}{
+		{
+			config:      "old.api.version/v1",
+			input:       `{"apiVersion": "old.api.version/v1", "kind": "Test"}`,
+			expectation: `{"apiVersion": "core.qubership.org/v1", "kind": "Test"}`,
+		},
+		{
+			config:      "",
+			input:       `{"apiVersion": "abc.qubership.org/v1", "kind": "Test"}`,
+			expectation: `{"apiVersion": "abc.qubership.org/v1", "kind": "Test"}`,
+		},
+	}
 
-	app := fiber.New()
-	app.Use(FallbackCrApiVersion("core.microservices.com/v1"))
-	app.Post("/", func(c *fiber.Ctx) error {
-		return c.Send(c.Body())
-	})
-	req := httptest.NewRequest("POST", "/", bytes.NewReader(testBody))
-	req.Header.Set("Content-Type", "application/yaml")
+	for _, tt := range testData {
+		app := fiber.New()
+		app.Post("/", FallbackCrApiVersion(tt.config), func(c *fiber.Ctx) error {
+			return c.Send(c.Body())
+		})
 
-	resp, err := app.Test(req)
-	assert.NoError(t, err)
+		req := httptest.NewRequest("POST", "/", strings.NewReader(tt.input))
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
 
-	respBody, err := io.ReadAll(resp.Body)
-	assert.NoError(t, err)
-	assert.Contains(t, string(respBody), `core.qubership.org/v1`)
-	assert.NotContains(t, string(respBody), `core.microservices.com/v1`)
+		body, err := io.ReadAll(resp.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, tt.expectation, string(body))
+	}
 }
