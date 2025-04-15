@@ -200,15 +200,6 @@ func startPProf() {
 	}()
 }
 
-func startPProfTest() {
-	go func() {
-		app := fiber.New(fiber.Config{DisableStartupMessage: true})
-		app.Use(pprof.New())
-		log.Debugf("run pprof on 127.0.0.1:6060")
-		app.Listen("127.0.0.1:6060")
-	}()
-}
-
 func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Duration) dao.BaseDao {
 	configSection := configloader.GetKoanf()
 	dbConfig := db.Config{
