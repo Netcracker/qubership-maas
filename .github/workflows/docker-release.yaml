@@ -11,7 +11,7 @@
 # Please find detailed instructions:
 # https://github.com/Netcracker/qubership-workflow-hub?tab=readme-ov-file#docker-project-release-workflow
 
-name: Release And Deploy Docker Artifact
+name: Release And Publish Docker Artifact
 
 on:
   workflow_dispatch:
