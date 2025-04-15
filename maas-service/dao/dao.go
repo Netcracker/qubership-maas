@@ -178,6 +178,14 @@ func (d *BaseDaoImpl) WithLock(ctx context.Context, lockId string, f func(ctx co
 
 		return f(ctx)
 	})
+
+	return d.WithTx(ctx, func(ctx context.Context, conn *gorm.DB) error {
+		if err := conn.Exec("select pg_advisory_xact_lock(?)", h.Sum32()).Error; err != nil {
+			return utils.LogError(log, ctx, "error acquire lock: %w", err)
+		}
+
+		return f(ctx)
+	})
 }
 
 func (d *BaseDaoImpl) Close() {
