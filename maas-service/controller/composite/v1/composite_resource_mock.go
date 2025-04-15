@@ -6,7 +6,7 @@ package v1
 
 import (
 	context "context"
-	composite "maas/maas-service/service/composite"
+	composite "github.com/netcracker/qubership-maas/service/composite"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

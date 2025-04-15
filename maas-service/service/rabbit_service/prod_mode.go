@@ -2,9 +2,9 @@ package rabbit_service
 
 import (
 	"context"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 type ProdMode struct {

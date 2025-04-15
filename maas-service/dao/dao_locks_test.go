@@ -2,12 +2,12 @@ package dao
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao/db"
+	"github.com/netcracker/qubership-maas/dr"
+	"github.com/netcracker/qubership-maas/testharness"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"maas/maas-service/dao/db"
-	"maas/maas-service/dr"
-	"maas/maas-service/testharness"
-	"maas/maas-service/utils"
 	"sync"
 	"sync/atomic"
 	"testing"

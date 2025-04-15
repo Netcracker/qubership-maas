@@ -3,12 +3,12 @@ package instance
 import (
 	"context"
 	"errors"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/rabbit_service/helper"
-	"maas/maas-service/utils"
-	"maas/maas-service/utils/broadcast"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/rabbit_service/helper"
+	"github.com/netcracker/qubership-maas/utils"
+	"github.com/netcracker/qubership-maas/utils/broadcast"
 )
 
 //go:generate mockgen -source=rabbit_instances_service.go -destination=mock/rabbit_instances_service.go

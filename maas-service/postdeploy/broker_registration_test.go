@@ -2,9 +2,9 @@ package postdeploy
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/model"
 	"github.com/stretchr/testify/assert"
 	"io"
-	"maas/maas-service/model"
 	"os"
 	"testing"
 )

@@ -6,7 +6,7 @@ package mock_watchdog
 
 import (
 	context "context"
-	model "maas/maas-service/model"
+	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

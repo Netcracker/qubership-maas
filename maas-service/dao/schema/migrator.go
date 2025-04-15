@@ -5,8 +5,8 @@ import (
 	core_tls "crypto/tls"
 	"github.com/go-pg/migrations/v8"
 	pgv10 "github.com/go-pg/pg/v10"
-	"maas/maas-service/dao/db"
-	"maas/maas-service/dao/pg"
+	"github.com/netcracker/qubership-maas/dao/db"
+	"github.com/netcracker/qubership-maas/dao/pg"
 	"time"
 )
 

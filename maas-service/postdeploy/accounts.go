@@ -2,8 +2,8 @@ package postdeploy
 
 import (
 	"context"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 	"path/filepath"
 )
 

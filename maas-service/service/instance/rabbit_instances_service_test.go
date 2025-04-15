@@ -3,11 +3,11 @@ package instance
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	mock_instance "github.com/netcracker/qubership-maas/service/instance/mock"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	mock_instance "maas/maas-service/service/instance/mock"
 	"testing"
 )
 

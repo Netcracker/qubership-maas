@@ -2,10 +2,10 @@ package tenant
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
 )
 
 type TenantServiceDaoImpl struct {

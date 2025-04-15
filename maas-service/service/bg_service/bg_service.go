@@ -3,9 +3,9 @@ package bg_service
 import (
 	"context"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
-	"maas/maas-service/utils/broadcast"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
+	"github.com/netcracker/qubership-maas/utils/broadcast"
 	"time"
 )
 

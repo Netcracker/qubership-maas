@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"maas/maas-service/model"
+	"github.com/netcracker/qubership-maas/model"
 	"time"
 )
 

@@ -3,8 +3,8 @@ package eventbus
 import (
 	"context"
 	"fmt"
+	"github.com/netcracker/qubership-maas/dao"
 	"gorm.io/gorm"
-	"maas/maas-service/dao"
 )
 
 type EventBusDao interface {

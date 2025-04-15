@@ -3,8 +3,8 @@ package schema
 import (
 	"github.com/go-pg/migrations/v8"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
-	"maas/maas-service/encryption"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/encryption"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 func init() {

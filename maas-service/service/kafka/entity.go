@@ -1,7 +1,7 @@
 package kafka
 
 import (
-	"maas/maas-service/model"
+	"github.com/netcracker/qubership-maas/model"
 )
 
 type TopicClassifierEntity struct {

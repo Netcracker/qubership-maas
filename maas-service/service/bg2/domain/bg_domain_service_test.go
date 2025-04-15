@@ -2,13 +2,13 @@ package domain
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/dao/db"
+	"github.com/netcracker/qubership-maas/dr"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/testharness"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
-	"maas/maas-service/dao/db"
-	"maas/maas-service/dr"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	"maas/maas-service/testharness"
 	"testing"
 	"time"
 )

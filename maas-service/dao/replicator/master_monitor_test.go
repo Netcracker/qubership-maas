@@ -3,11 +3,11 @@ package replicator
 import (
 	"context"
 	"fmt"
+	"github.com/netcracker/qubership-maas/testharness"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"maas/maas-service/testharness"
-	"maas/maas-service/utils"
 	"testing"
 	"time"
 )

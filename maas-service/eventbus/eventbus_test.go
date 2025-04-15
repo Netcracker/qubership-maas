@@ -2,11 +2,11 @@ package eventbus
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/testharness"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
 	"log"
-	"maas/maas-service/dao"
-	"maas/maas-service/testharness"
-	"maas/maas-service/utils"
 	"strconv"
 	"sync/atomic"
 	"testing"

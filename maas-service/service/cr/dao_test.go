@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/netcracker/qubership-maas/dao"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
 	"math/rand"
 	"testing"
 )

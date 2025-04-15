@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/netcracker/qubership-maas/msg"
 	"golang.org/x/exp/slices"
-	"maas/maas-service/msg"
 	"strings"
 )
 

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"github.com/mitchellh/mapstructure"
-	"maas/maas-service/model"
-	"maas/maas-service/service/configurator_service"
-	"maas/maas-service/service/kafka"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/configurator_service"
+	"github.com/netcracker/qubership-maas/service/kafka"
+	"github.com/netcracker/qubership-maas/utils"
 	"reflect"
 )
 

@@ -1,6 +1,6 @@
 package v1
 
-import "maas/maas-service/service/bg2/domain"
+import "github.com/netcracker/qubership-maas/service/bg2/domain"
 
 type BGStateOperation struct {
 	BGState *domain.BGState `json:"BGState"`

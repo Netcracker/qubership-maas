@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/lib/pq"
+	"github.com/netcracker/qubership-maas/utils"
 	"golang.org/x/exp/slices"
-	"maas/maas-service/utils"
 	"regexp"
 	"strings"
 )

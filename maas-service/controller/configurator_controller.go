@@ -3,9 +3,9 @@ package controller
 import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"maas/maas-service/model"
-	"maas/maas-service/service/auth"
-	"maas/maas-service/service/configurator_service"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/auth"
+	"github.com/netcracker/qubership-maas/service/configurator_service"
 	"net/http"
 )
 

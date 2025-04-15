@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/controller"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/bg2/domain"
-	"maas/maas-service/service/rabbit_service"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
+	"github.com/netcracker/qubership-maas/service/rabbit_service"
+	"github.com/netcracker/qubership-maas/utils"
 	"net/http"
 )
 

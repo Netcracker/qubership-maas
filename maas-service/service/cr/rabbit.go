@@ -2,9 +2,9 @@ package cr
 
 import (
 	"context"
-	"maas/maas-service/model"
-	"maas/maas-service/service/configurator_service"
-	"maas/maas-service/service/rabbit_service"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/configurator_service"
+	"github.com/netcracker/qubership-maas/service/rabbit_service"
 )
 
 type RabbitVhostConfigSpec struct {

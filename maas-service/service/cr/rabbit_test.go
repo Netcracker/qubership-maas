@@ -1,8 +1,8 @@
 package cr
 
 import (
+	"github.com/netcracker/qubership-maas/model"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/model"
 	"testing"
 )
 

@@ -2,10 +2,10 @@ package controller
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"maas/maas-service/model"
-	"maas/maas-service/service/auth"
-	"maas/maas-service/service/tenant"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/auth"
+	"github.com/netcracker/qubership-maas/service/tenant"
+	"github.com/netcracker/qubership-maas/utils"
 	"net/http"
 )
 

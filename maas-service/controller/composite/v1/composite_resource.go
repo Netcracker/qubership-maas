@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/composite"
 	"golang.org/x/exp/slices"
-	"maas/maas-service/controller"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/composite"
 	"net/http"
 )
 

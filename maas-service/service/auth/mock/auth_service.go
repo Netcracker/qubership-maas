@@ -6,9 +6,9 @@ package mock_auth
 
 import (
 	context "context"
-	model "maas/maas-service/model"
-	composite "maas/maas-service/service/composite"
-	utils "maas/maas-service/utils"
+	model "github.com/netcracker/qubership-maas/model"
+	composite "github.com/netcracker/qubership-maas/service/composite"
+	utils "github.com/netcracker/qubership-maas/utils"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

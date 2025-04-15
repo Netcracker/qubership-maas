@@ -3,8 +3,8 @@ package kafka
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/msg"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/msg"
 	"testing"
 )
 

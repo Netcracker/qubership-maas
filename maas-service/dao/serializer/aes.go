@@ -3,9 +3,9 @@ package serializer
 import (
 	"context"
 	"fmt"
+	"github.com/netcracker/qubership-maas/encryption"
+	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm/schema"
-	"maas/maas-service/encryption"
-	"maas/maas-service/utils"
 	"reflect"
 )
 

@@ -2,9 +2,9 @@ package composite
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/utils"
 	"golang.org/x/exp/slices"
-	"maas/maas-service/dao"
-	"maas/maas-service/utils"
 )
 
 //go:generate mockgen -source=service.go -destination=service_mock.go -package composite

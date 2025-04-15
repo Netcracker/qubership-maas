@@ -1,7 +1,7 @@
 package watchdog
 
 import (
-	"maas/maas-service/model"
+	"github.com/netcracker/qubership-maas/model"
 )
 
 type HealthAggregator struct {

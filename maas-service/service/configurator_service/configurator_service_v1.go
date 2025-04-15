@@ -2,11 +2,11 @@ package configurator_service
 
 import (
 	"context"
-	"maas/maas-service/model"
-	"maas/maas-service/service/bg_service"
-	"maas/maas-service/service/instance"
-	"maas/maas-service/service/kafka"
-	"maas/maas-service/service/rabbit_service"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/bg_service"
+	"github.com/netcracker/qubership-maas/service/instance"
+	"github.com/netcracker/qubership-maas/service/kafka"
+	"github.com/netcracker/qubership-maas/service/rabbit_service"
 )
 
 type ConfiguratorServiceV1 struct {

@@ -2,9 +2,9 @@ package dao
 
 import (
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
-	"maas/maas-service/dao/db"
-	"maas/maas-service/dr"
-	"maas/maas-service/testharness"
+	"github.com/netcracker/qubership-maas/dao/db"
+	"github.com/netcracker/qubership-maas/dr"
+	"github.com/netcracker/qubership-maas/testharness"
 	"testing"
 )
 

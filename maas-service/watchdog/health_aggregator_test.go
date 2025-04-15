@@ -2,8 +2,8 @@ package watchdog
 
 import (
 	"github.com/go-errors/errors"
+	"github.com/netcracker/qubership-maas/model"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/model"
 	"testing"
 )
 

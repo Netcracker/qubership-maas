@@ -3,12 +3,12 @@ package cr
 import (
 	"context"
 	"fmt"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/configurator_service"
-	"maas/maas-service/service/kafka"
-	"maas/maas-service/service/rabbit_service"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/configurator_service"
+	"github.com/netcracker/qubership-maas/service/kafka"
+	"github.com/netcracker/qubership-maas/service/rabbit_service"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 type Action int

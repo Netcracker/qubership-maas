@@ -3,10 +3,10 @@ package postdeploy
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
 	"io"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
 	"os"
 	"path/filepath"
 	"testing"

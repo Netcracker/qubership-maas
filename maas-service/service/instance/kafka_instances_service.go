@@ -5,12 +5,12 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
-	kafka_helper "maas/maas-service/service/kafka/helper"
-	"maas/maas-service/utils"
-	"maas/maas-service/utils/broadcast"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	kafka_helper "github.com/netcracker/qubership-maas/service/kafka/helper"
+	"github.com/netcracker/qubership-maas/utils"
+	"github.com/netcracker/qubership-maas/utils/broadcast"
 )
 
 var log logging.Logger

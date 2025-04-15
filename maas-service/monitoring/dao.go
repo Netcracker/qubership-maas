@@ -2,10 +2,10 @@ package monitoring
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"maas/maas-service/dao"
-	"maas/maas-service/utils"
 	"time"
 )
 

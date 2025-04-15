@@ -2,7 +2,7 @@ package schema
 
 import (
 	"github.com/go-pg/migrations/v8"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 func init() {

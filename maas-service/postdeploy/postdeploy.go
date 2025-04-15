@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/model"
-	"maas/maas-service/service/instance"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/instance"
 	"os"
 )
 
