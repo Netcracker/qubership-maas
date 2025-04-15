@@ -40,6 +40,6 @@ jobs:
       uses: netcracker/qubership-workflow-hub/actions/docker-action@main
       with:
         ref: ${{ github.head_ref || github.ref_name }}
-        platforms: linux/amd64
+        platforms: linux/amd64, linux/arm64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
