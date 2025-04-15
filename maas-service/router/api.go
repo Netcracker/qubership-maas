@@ -61,7 +61,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 		ReadTimeout:  130 * time.Second,
 	})
 
-	fallbackCrApiVersion := configloader.GetKoanf().String("fallback.cr.apiVersion")
+	fallbackCrApiVersion := configloader.GetKoanf().String("fallback.cr.apiversion")
 
 	// propagate root context to
 	app.Use(propagateContext(ctx))
