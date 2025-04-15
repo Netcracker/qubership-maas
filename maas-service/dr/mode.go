@@ -37,15 +37,3 @@ func ModeFromString(mode string) Mode {
 	}
 	panic(fmt.Sprintf("unknown mode: %s", mode))
 }
-
-func ModeFromStringTest(mode string) Mode {
-	switch mode {
-	case "active":
-		return Active
-	case "standby":
-		return Standby
-	case "disabled":
-		return Disabled
-	}
-	panic(fmt.Sprintf("unknown mode: %s", mode))
-}
