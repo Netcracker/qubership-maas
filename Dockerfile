@@ -6,8 +6,10 @@ COPY maas-service/ .
 
 RUN go mod download
 RUN go build -o maas-service .
+RUN go test -v ./...
 
-FROM ghcr.io/netcracker/qubership/core-base:main-20250415163057-52 AS run
+
+FROM ghcr.io/netcracker/qubership/core-base:main-20250325181638-12 AS run
 
 COPY --chown=10001:0 --chmod=555 --from=build app/maas-service /app/maas
 COPY --chown=10001:0 --chmod=444 --from=build app/application.yaml /app/
