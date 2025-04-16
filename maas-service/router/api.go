@@ -53,7 +53,7 @@ type ApiControllers struct {
 }
 
 func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService) *fiber.App {
-	log.InfoC(ctx, "Create API controller")
+	log.InfoC(ctx, "Creating API controller")
 	app := fiber.New(fiber.Config{
 		IdleTimeout:  30 * time.Second,
 		ErrorHandler: controller.TmfErrorHandler,
@@ -62,6 +62,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	})
 
 	fallbackCrApiVersion := configloader.GetKoanf().String("fallback.cr.apiversion")
+	log.InfoC(ctx, "Fallback CR API version: %s", fallbackCrApiVersion)
 
 	// propagate root context to
 	app.Use(propagateContext(ctx))
