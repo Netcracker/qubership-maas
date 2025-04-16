@@ -18,7 +18,7 @@ jobs:
       tag_build_number: ${{ steps.tag_build_number.outputs.tag }}
       tag_snapshot: ${{ steps.tag_snapshot.outputs.tag }}
       repo: ${{ steps.repo.outputs.repo }}
-  build-amd64:
+  build:
     runs-on: ubuntu-latest
     needs: prepare-variables
     steps:
@@ -53,45 +53,6 @@ jobs:
       with:
         ref: ${{ github.head_ref || github.ref_name }}
         tags: ${{ needs.prepare-variables.outputs.tag_snapshot }},${{ needs.prepare-variables.outputs.tag_build_number }}
-        platforms: linux/amd64
+        platforms: linux/amd64,linux/arm64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-arm64:
-    runs-on: ubuntu-24.04-arm
-    needs: prepare-variables
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.22'
-
-      - name: Test with coverage
-        run: |
-          cd maas-service
-          go test -v ./... -coverprofile coverage.out
-
-      - name: Upload coverage report to SonarCloud
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dproject.settings=maas-service/sonar-project.properties
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-            -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
-            -Dsonar.go.coverage.reportPaths=maas-service/coverage.out
-
-      - name: Build and Publish Docker Image
-        uses: netcracker/qubership-workflow-hub/actions/docker-action@main
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          tags: ${{ needs.prepare-variables.outputs.tag_snapshot }},${{ needs.prepare-variables.outputs.tag_build_number }}
-          platforms: linux/arm64
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
