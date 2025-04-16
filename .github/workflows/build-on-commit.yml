@@ -53,6 +53,6 @@ jobs:
       with:
         ref: ${{ github.head_ref || github.ref_name }}
         tags: ${{ needs.prepare-variables.outputs.tag_snapshot }},${{ needs.prepare-variables.outputs.tag_build_number }}
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
