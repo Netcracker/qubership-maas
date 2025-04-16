@@ -6,8 +6,6 @@ COPY maas-service/ .
 
 RUN go mod download
 RUN go build -o maas-service .
-#RUN go test -v ./...
-
 
 FROM ghcr.io/netcracker/qubership/core-base:main-20250325181638-12 AS run
 
