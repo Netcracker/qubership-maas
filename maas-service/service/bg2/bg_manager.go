@@ -3,10 +3,10 @@ package bg2
 import (
 	"context"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/dao"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/bg2/domain"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 var log = logging.GetLogger("bg-manager")

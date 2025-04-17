@@ -4,9 +4,9 @@ import (
 	"context"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
-	"maas/maas-service/dao"
-	"maas/maas-service/utils"
 )
 
 var log logging.Logger

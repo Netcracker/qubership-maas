@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
-	"maas/maas-service/controller"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/cr"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/cr"
 	"net/http"
 	"strconv"
 )

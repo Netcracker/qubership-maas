@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/utils"
-	"maas/maas-service/utils/broadcast"
+	"github.com/netcracker/qubership-maas/utils"
+	"github.com/netcracker/qubership-maas/utils/broadcast"
 	"sync"
 )
 

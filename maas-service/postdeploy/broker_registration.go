@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/utils"
 	"path/filepath"
 	"reflect"
 )

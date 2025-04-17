@@ -6,8 +6,8 @@ package mock_bg_service
 
 import (
 	context "context"
-	model "maas/maas-service/model"
-	bg_service "maas/maas-service/service/bg_service"
+	model "github.com/netcracker/qubership-maas/model"
+	bg_service "github.com/netcracker/qubership-maas/service/bg_service"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

@@ -2,10 +2,10 @@ package v1
 
 import (
 	"encoding/json"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/service/configurator_service"
+	"github.com/netcracker/qubership-maas/service/cr"
 	"io"
-	"maas/maas-service/controller"
-	"maas/maas-service/service/configurator_service"
-	"maas/maas-service/service/cr"
 	"net/http"
 	"net/http/httptest"
 	"strings"

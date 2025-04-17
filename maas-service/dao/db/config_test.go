@@ -2,8 +2,8 @@ package db
 
 import (
 	"fmt"
+	"github.com/netcracker/qubership-maas/dr"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dr"
 	"testing"
 	"time"
 )

@@ -6,8 +6,8 @@ package mock
 
 import (
 	context "context"
-	model "maas/maas-service/model"
-	composite "maas/maas-service/service/composite"
+	model "github.com/netcracker/qubership-maas/model"
+	composite "github.com/netcracker/qubership-maas/service/composite"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"

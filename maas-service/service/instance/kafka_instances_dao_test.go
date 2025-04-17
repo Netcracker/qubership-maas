@@ -2,10 +2,10 @@ package instance
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/service/bg2/domain"
 	"testing"
 )
 

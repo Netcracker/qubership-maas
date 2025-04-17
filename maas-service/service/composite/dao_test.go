@@ -2,8 +2,8 @@ package composite
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
 	"testing"
 )
 

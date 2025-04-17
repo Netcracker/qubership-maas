@@ -6,9 +6,9 @@ package kafka
 
 import (
 	context "context"
-	eventbus "maas/maas-service/eventbus"
-	model "maas/maas-service/model"
-	domain "maas/maas-service/service/bg2/domain"
+	eventbus "github.com/netcracker/qubership-maas/eventbus"
+	model "github.com/netcracker/qubership-maas/model"
+	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
 	reflect "reflect"
 	time "time"
 

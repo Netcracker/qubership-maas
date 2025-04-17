@@ -3,8 +3,8 @@ package cleanup
 import (
 	"context"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/dao"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/utils"
 	"reflect"
 	"runtime"
 )

@@ -3,9 +3,9 @@ package bg_service
 import (
 	"context"
 	"errors"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
 	"gorm.io/gorm"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
 )
 
 //go:generate mockgen -source=bg_service_dao.go -destination=mock/bg_service_dao.go

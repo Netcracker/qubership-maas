@@ -2,10 +2,10 @@ package pg
 
 import (
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/netcracker/qubership-maas/dr"
+	"github.com/netcracker/qubership-maas/testharness"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"maas/maas-service/dr"
-	"maas/maas-service/testharness"
 	"testing"
 )
 

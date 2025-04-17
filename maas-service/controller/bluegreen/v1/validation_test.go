@@ -2,10 +2,10 @@ package v1
 
 import (
 	"fmt"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
+	"github.com/netcracker/qubership-maas/validator"
 	_assert "github.com/stretchr/testify/assert"
-	"maas/maas-service/model"
-	"maas/maas-service/service/bg2/domain"
-	"maas/maas-service/validator"
 	"testing"
 )
 

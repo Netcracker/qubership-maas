@@ -1,7 +1,7 @@
 package monitoring
 
 import (
-	"maas/maas-service/watchdog"
+	"github.com/netcracker/qubership-maas/watchdog"
 	"time"
 )
 

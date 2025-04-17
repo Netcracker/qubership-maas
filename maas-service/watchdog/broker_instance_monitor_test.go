@@ -3,10 +3,10 @@ package watchdog
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
+	mock_watchdog "github.com/netcracker/qubership-maas/watchdog/mock"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
-	mock_watchdog "maas/maas-service/watchdog/mock"
 	"testing"
 	"time"
 )

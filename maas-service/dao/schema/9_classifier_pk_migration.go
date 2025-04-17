@@ -3,8 +3,8 @@ package schema
 import (
 	"errors"
 	"github.com/go-pg/migrations/v8"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 func init() {

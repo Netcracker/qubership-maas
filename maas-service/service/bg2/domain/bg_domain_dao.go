@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"maas/maas-service/dao"
-	"maas/maas-service/msg"
-	"maas/maas-service/utils"
 	"time"
 )
 

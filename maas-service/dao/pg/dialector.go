@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/netcracker/qubership-maas/dr"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
-	"maas/maas-service/dr"
 	"regexp"
 )
 

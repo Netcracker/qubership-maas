@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/msg"
 	"testing"
 )
 

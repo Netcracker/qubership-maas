@@ -3,8 +3,8 @@ package validator
 import (
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
+	"github.com/netcracker/qubership-maas/model"
 	_assert "github.com/stretchr/testify/assert"
-	"maas/maas-service/model"
 	"reflect"
 	"testing"
 )

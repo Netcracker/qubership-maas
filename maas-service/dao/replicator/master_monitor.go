@@ -3,9 +3,9 @@ package replicator
 import (
 	"context"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"gorm.io/gorm"
-	"maas/maas-service/utils"
 	"sync"
 	"time"
 )

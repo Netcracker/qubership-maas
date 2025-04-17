@@ -11,11 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: tag_build_number
-        run: echo "tag=$(echo ${{github.ref_name}} | tr -cs 'a-zA-Z0-9' '-')$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}" >> $GITHUB_OUTPUT
+        run: echo "tag=$(echo ${{ github.head_ref || github.ref_name }} | tr -cs 'a-zA-Z0-9' '-')$(date +'%Y%m%d%H%M%S')-${{ github.run_number }}" >> $GITHUB_OUTPUT
       - id: tag_snapshot
-        run: echo "tag=$(echo ${{github.ref_name}} | tr -cs 'a-zA-Z0-9' '-')snapshot" >> $GITHUB_OUTPUT
-      - id: repo
-        run: echo "repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        run: echo "tag=$(echo ${{ github.head_ref || github.ref_name }} | tr -cs 'a-zA-Z0-9' '-')snapshot" >> $GITHUB_OUTPUT
     outputs:
       tag_build_number: ${{ steps.tag_build_number.outputs.tag }}
       tag_snapshot: ${{ steps.tag_snapshot.outputs.tag }}
@@ -32,11 +30,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.22'
-
-    - name: Build
-      run: |
-        cd maas-service
-        CGO_ENABLED=0 go build -o maas-service
 
     - name: Test with coverage
       run: |
@@ -55,25 +48,11 @@ jobs:
          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
          -Dsonar.go.coverage.reportPaths=maas-service/coverage.out
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
+    - name: Build and Publish Docker Image
+      uses: netcracker/qubership-workflow-hub/actions/docker-action@c07a5bf430a3c0120e189e6b54061b9bb8dde362
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build and push core-image
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        tags: |
-          ghcr.io/${{ needs.prepare-variables.outputs.repo }}:${{ needs.prepare-variables.outputs.tag_build_number }}
-          ghcr.io/${{ needs.prepare-variables.outputs.repo }}:${{ needs.prepare-variables.outputs.tag_snapshot }}
+        ref: ${{ github.head_ref || github.ref_name }}
+        tags: ${{ needs.prepare-variables.outputs.tag_snapshot }},${{ needs.prepare-variables.outputs.tag_build_number }}
         platforms: linux/amd64
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

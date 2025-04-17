@@ -3,12 +3,12 @@ package bg2
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
+	mock_domain "github.com/netcracker/qubership-maas/service/bg2/domain/mock"
+	mock_bg2 "github.com/netcracker/qubership-maas/service/bg2/mock"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/dao"
-	"maas/maas-service/msg"
-	"maas/maas-service/service/bg2/domain"
-	mock_domain "maas/maas-service/service/bg2/domain/mock"
-	mock_bg2 "maas/maas-service/service/bg2/mock"
 	"testing"
 	"time"
 )

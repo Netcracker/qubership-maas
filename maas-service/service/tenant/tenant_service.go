@@ -3,9 +3,9 @@ package tenant
 import (
 	"context"
 	"encoding/json"
-	"maas/maas-service/dao"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 const TENANT_EXTERNAL_ID = "externalId"

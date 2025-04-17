@@ -3,7 +3,7 @@ package model
 import (
 	"database/sql"
 	"fmt"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/utils"
 	"strings"
 )
 

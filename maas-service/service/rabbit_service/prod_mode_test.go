@@ -3,9 +3,9 @@ package rabbit_service
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/msg"
+	mock_rabbit_service "github.com/netcracker/qubership-maas/service/rabbit_service/mock"
 	"github.com/stretchr/testify/assert"
-	"maas/maas-service/msg"
-	mock_rabbit_service "maas/maas-service/service/rabbit_service/mock"
 	"testing"
 )
 

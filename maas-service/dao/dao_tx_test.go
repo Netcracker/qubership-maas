@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/netcracker/qubership-maas/testharness"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
-	"maas/maas-service/testharness"
 	"testing"
 	"time"
 )

@@ -6,7 +6,7 @@ package mock_helper
 
 import (
 	context "context"
-	model "maas/maas-service/model"
+	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	sarama "github.com/IBM/sarama"

@@ -2,8 +2,8 @@ package router
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"maas/maas-service/controller"
-	"maas/maas-service/model"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/model"
 )
 
 // DEPRECATED

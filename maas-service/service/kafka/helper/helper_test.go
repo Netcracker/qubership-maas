@@ -5,9 +5,9 @@ import (
 	"errors"
 	"github.com/IBM/sarama"
 	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/model"
+	mock_sarama "github.com/netcracker/qubership-maas/service/kafka/helper/mock"
 	_assert "github.com/stretchr/testify/assert"
-	"maas/maas-service/model"
-	mock_sarama "maas/maas-service/service/kafka/helper/mock"
 	"testing"
 	"time"
 )

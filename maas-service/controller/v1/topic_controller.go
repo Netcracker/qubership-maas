@@ -2,10 +2,10 @@ package v1
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"maas/maas-service/controller"
-	"maas/maas-service/model"
-	"maas/maas-service/service/auth"
-	"maas/maas-service/service/kafka"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/service/auth"
+	"github.com/netcracker/qubership-maas/service/kafka"
 )
 
 type TopicController struct {

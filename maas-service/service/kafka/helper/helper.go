@@ -7,9 +7,9 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"maas/maas-service/model"
-	"maas/maas-service/utils"
 	"strings"
 	"time"
 )

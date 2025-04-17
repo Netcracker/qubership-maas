@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"maas/maas-service/utils"
+	"github.com/netcracker/qubership-maas/utils"
 	"sync"
 	"time"
 )

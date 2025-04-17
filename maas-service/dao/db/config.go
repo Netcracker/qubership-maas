@@ -2,9 +2,9 @@ package db
 
 import (
 	"fmt"
+	"github.com/netcracker/qubership-maas/dr"
+	"github.com/netcracker/qubership-maas/utils"
 	"log"
-	"maas/maas-service/dr"
-	"maas/maas-service/utils"
 	"strconv"
 	"strings"
 	"time"

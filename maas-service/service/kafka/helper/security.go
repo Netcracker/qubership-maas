@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/sarama"
-	"maas/maas-service/model"
+	"github.com/netcracker/qubership-maas/model"
 	"strings"
 )
 
