@@ -73,7 +73,6 @@ jobs:
     with:
       artifact-id: ${{ github.event.repository.name }}
       ref: v${{ inputs.version }}
-      download-artifact: false
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
       platforms: linux/amd64,linux/arm64
 
