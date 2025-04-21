@@ -1,0 +1,10 @@
+{
+    "components": [
+        {
+            "name": "maas-service",
+            "file": "./Dockerfile",
+            "context": "maas-service"
+        }
+    ],
+    "platforms": "linux/amd64,linux/arm64"
+}
