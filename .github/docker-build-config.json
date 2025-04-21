@@ -3,7 +3,7 @@
         {
             "name": "maas-service",
             "file": "./Dockerfile",
-            "context": "maas-service"
+            "context": "./"
         }
     ],
     "platforms": "linux/amd64,linux/arm64"
