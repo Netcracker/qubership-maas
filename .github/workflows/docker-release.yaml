@@ -1,84 +1,135 @@
----
-
-# This GitHub Actions workflow is designed to be triggered when a release is marked as a full release.
-# The workflow performs the following tasks:
-# 1. Checks if the tag already exists.
-# 2. Tags the commit with the release version.
-# 3. Builds and publishes a Docker image.
-# 4. Creates a GitHub release.
-
-# To make it work for your project, you need to adjust the pom.xml and add configuration file for GitHub release.
-# Please find detailed instructions:
-# https://github.com/Netcracker/qubership-workflow-hub?tab=readme-ov-file#docker-project-release-workflow
-
-name: Release And Publish Docker Artifact
+name: Maas Release
 
 on:
   workflow_dispatch:
     inputs:
       version:
+        description: 'Version'
         required: true
-        default: '1.0.0'
-        type: string
-        description: 'Release version (e.g., 1.0.0)'
       dry-run:
-        required: false
         type: boolean
-        default: false
         description: 'Dry run'
-permissions:
-  contents: write
-  packages: write
+        required: false
+        default: true
+      path-to-chart:
+        description: 'Path to chart'
+        required: true
+        default: './helm-templates/maas-service/Chart.yaml'
 
 jobs:
   check-tag:
     runs-on: ubuntu-latest
     steps:
-      - name: Input parameters
-        run: |
-          echo "Version: ${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Check if tag exists
         id: check_tag
-        uses: netcracker/qubership-workflow-hub/actions/tag-checker@c07a5bf430a3c0120e189e6b54061b9bb8dde362
+        uses: netcracker/qubership-workflow-hub/actions/tag-action@main
         with:
-          tag: 'v${{ github.event.inputs.version }}'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
+          check-tag: 'true'
+          create-tag: 'false'
+          tag-name: v${{ github.event.inputs.version }}
 
-      - name: Output result
-        run: |
-          echo "Tag exists: ${{ steps.check_tag.outputs.exists }}"
-          echo "Tag name: v${{ github.event.inputs.version }}"
-
-      - name: Fail if tag exists
-        if: steps.check_tag.outputs.exists == 'true'
-        run: |
-          echo "Tag already exists: v${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "Tag already exists: v${{ github.event.inputs.version }}"
-          exit 1
-
-  tag:
+  load-docker-build-components:
     needs: [check-tag]
-    uses: netcracker/qubership-workflow-hub/.github/workflows/tag-creator.yml@c07a5bf430a3c0120e189e6b54061b9bb8dde362
-    with:
-      tag-name: v${{ github.event.inputs.version }}
+    runs-on: ubuntu-latest
+    outputs:
+      component: ${{ steps.load_component.outputs.components }}
+      platforms: ${{ steps.load_component.outputs.platforms }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-  docker-build-publish:
-    needs: [tag]
-    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@c07a5bf430a3c0120e189e6b54061b9bb8dde362
-    with:
-      artifact-id: ${{ github.event.repository.name }}
-      ref: v${{ inputs.version }}
-      dry-run: ${{ github.event.inputs.dry-run == 'true' }}
-      platforms: linux/amd64,linux/arm64
+    - name: Load Docker Configuration
+      id: load_component
+      run:  |
+        verify=$(cat "$GITHUB_WORKSPACE/.github/docker-build-config.json" | jq '
+        def verify_structure:
+        .components as $components
+        | .platforms as $platforms
+        | ($components | type == "array")
+        and (all($components[]; has("name") and has("file") and has("context")))
+        and ($platforms | type == "string");
+        verify_structure
+        | if . then true else false end
+        ')
+        if [ ${verify} == 'true' ]; then
+          echo "✅ $GITHUB_WORKSPACE/.github/docker-build-config.json file is valid"
+          components=$(jq -c ".components" "$GITHUB_WORKSPACE/.github/docker-build-config.json")
+          platforms=$(jq -c ".platforms" "$GITHUB_WORKSPACE/.github/docker-build-config.json")
+        else
+          echo "❗ $GITHUB_WORKSPACE/.github/docker-build-config.json file is invalid"
+          echo "❗ $GITHUB_WORKSPACE/.github/docker-build-config.json file is invalid" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        echo "components=${components}" >> $GITHUB_OUTPUT
+        echo "platforms=${platforms}" >> $GITHUB_OUTPUT
+
+#   Temporarily disabled chart version update
+
+  prepare-chart-and-tag:
+      permissions:
+        contents: write
+      needs: [check-tag]
+      runs-on: ubuntu-latest
+      steps:
+      - name: Change Chart Version Action
+        uses: netcracker/qubership-workflow-hub/actions/chart-version@main
+        with:
+          new-chart-version: ${{ github.event.inputs.version }}
+          chart-yaml-path: ${{ github.event.inputs.path-to-chart }}
+
+      - name: Run Commit and Push Action
+        uses: Netcracker/qubership-workflow-hub/actions/commit-and-push@main
+        with:
+          commit_message: "Update chart version to v${{ github.event.inputs.version }}"
+
+      - name: "Create release tag"
+        uses: netcracker/qubership-workflow-hub/actions/tag-action@main
+        with:
+          ref: ${{ github.ref }}
+          check-tag: 'false'
+          create-tag: 'true'
+          tag-name: v${{ github.event.inputs.version }}
+
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: ${{ fromJson(needs.load-docker-build-components.outputs.component) }}
+
+    needs: [check-tag, load-docker-build-components]
+    steps:
+      - name: "Docker Build"
+        id: docker_build
+        uses: netcracker/qubership-workflow-hub/actions/docker-action@main
+        with:
+          ref: v${{ inputs.version }}
+          download-artifact: false
+          dry-run: ${{ inputs.dry-run }}
+          component: ${{ toJson(matrix.component) }}
+          platforms: ${{ needs.load-docker-build-components.outputs.platforms }}
 
   github-release:
-    needs: [tag]
-    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@c07a5bf430a3c0120e189e6b54061b9bb8dde362
+    needs: [check-tag, docker-build]
+    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@main
     with:
       version: ${{ github.event.inputs.version }}
       publish: false
+
+  upload-assets:
+    needs: [github-release]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Archive and Upload Assets
+      uses: netcracker/qubership-workflow-hub/actions/archive-and-upload-assets@main
+      with:
+        config-path: './.github/assets-config.yml'
+        dist-path: './dist'
+        upload: true
+        ref: v${{ github.event.inputs.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
