@@ -17,10 +17,10 @@ on:
         required: false
         default: false
       # Uncomment the following lines to enable helm chart publication
-      # path-to-chart:
-      #   description: 'Path to chart'
-      #   required: true
-      #   default: './helm-templates/maas-service/Chart.yaml'
+      path-to-chart:
+        description: 'Path to chart'
+        required: true
+        default: './helm-templates/maas-service/Chart.yaml'
 
 jobs:
   check-tag:
@@ -77,16 +77,16 @@ jobs:
       needs: [check-tag]
       runs-on: ubuntu-latest
       steps:
-  #     - name: Change Chart Version Action
-  #       uses: netcracker/qubership-workflow-hub/actions/chart-version@main
-  #       with:
-  #         new-chart-version: ${{ github.event.inputs.version }}
-  #         chart-yaml-path: ${{ github.event.inputs.path-to-chart }}
+      - name: Change Chart Version Action
+        uses: netcracker/qubership-workflow-hub/actions/chart-version@main
+        with:
+          new-chart-version: ${{ github.event.inputs.version }}
+          chart-yaml-path: ${{ github.event.inputs.path-to-chart }}
 
-  #     - name: Run Commit and Push Action
-  #       uses: Netcracker/qubership-workflow-hub/actions/commit-and-push@main
-  #       with:
-  #         commit_message: "Update chart version to v${{ github.event.inputs.version }}"
+      - name: Run Commit and Push Action
+        uses: Netcracker/qubership-workflow-hub/actions/commit-and-push@main
+        with:
+          commit_message: "Update chart version to v${{ github.event.inputs.version }}"
 
       - name: "Create release tag"
         uses: netcracker/qubership-workflow-hub/actions/tag-action@main
@@ -126,19 +126,19 @@ jobs:
       publish: false
 # Uncomment the following lines to enable helm chart publication
 
-  # upload-assets:
-  #   needs: [github-release]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout code
-  #     uses: actions/checkout@v4
+  upload-assets:
+    needs: [github-release]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-  #   - name: Archive and Upload Assets
-  #     uses: netcracker/qubership-workflow-hub/actions/archive-and-upload-assets@main
-  #     with:
-  #       config-path: './.github/assets-config.yml'
-  #       dist-path: './dist'
-  #       upload: true
-  #       ref: v${{ github.event.inputs.version }}
-  #     env:
-  #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Archive and Upload Assets
+      uses: netcracker/qubership-workflow-hub/actions/archive-and-upload-assets@main
+      with:
+        config-path: './.github/assets-config.yml'
+        dist-path: './dist'
+        upload: true
+        ref: v${{ github.event.inputs.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
