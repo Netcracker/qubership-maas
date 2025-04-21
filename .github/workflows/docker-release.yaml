@@ -11,6 +11,11 @@ on:
         description: 'Dry run'
         required: false
         default: true
+      force-create-tag:
+        type: boolean
+        description: 'Enforce tag creation'
+        required: false
+        default: false
       # Uncomment the following lines to enable helm chart publication
       # path-to-chart:
       #   description: 'Path to chart'
@@ -89,6 +94,7 @@ jobs:
           ref: ${{ github.ref }}
           check-tag: 'false'
           create-tag: 'true'
+          force-create: ${{ github.event.inputs.force-create-tag }}
           tag-name: v${{ github.event.inputs.version }}
 
   docker-build:
