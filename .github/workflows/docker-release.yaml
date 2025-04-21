@@ -77,7 +77,7 @@ jobs:
       platforms: linux/amd64,linux/arm64
 
   github-release:
-    needs: [tag]
+    needs: [docker-build-publish]
     uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@c07a5bf430a3c0120e189e6b54061b9bb8dde362
     with:
       version: ${{ github.event.inputs.version }}
