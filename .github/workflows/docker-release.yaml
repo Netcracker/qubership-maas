@@ -11,10 +11,11 @@ on:
         description: 'Dry run'
         required: false
         default: true
-      path-to-chart:
-        description: 'Path to chart'
-        required: true
-        default: './helm-templates/maas-service/Chart.yaml'
+      # Uncomment the following lines to enable helm chart publication
+      # path-to-chart:
+      #   description: 'Path to chart'
+      #   required: true
+      #   default: './helm-templates/maas-service/Chart.yaml'
 
 jobs:
   check-tag:
@@ -64,32 +65,31 @@ jobs:
         echo "components=${components}" >> $GITHUB_OUTPUT
         echo "platforms=${platforms}" >> $GITHUB_OUTPUT
 
-#   Temporarily disabled chart version update
+# Uncomment the following lines to enable helm chart publication
+  # prepare-chart-and-tag:
+  #     permissions:
+  #       contents: write
+  #     needs: [check-tag]
+  #     runs-on: ubuntu-latest
+  #     steps:
+  #     - name: Change Chart Version Action
+  #       uses: netcracker/qubership-workflow-hub/actions/chart-version@main
+  #       with:
+  #         new-chart-version: ${{ github.event.inputs.version }}
+  #         chart-yaml-path: ${{ github.event.inputs.path-to-chart }}
 
-  prepare-chart-and-tag:
-      permissions:
-        contents: write
-      needs: [check-tag]
-      runs-on: ubuntu-latest
-      steps:
-      - name: Change Chart Version Action
-        uses: netcracker/qubership-workflow-hub/actions/chart-version@main
-        with:
-          new-chart-version: ${{ github.event.inputs.version }}
-          chart-yaml-path: ${{ github.event.inputs.path-to-chart }}
+  #     - name: Run Commit and Push Action
+  #       uses: Netcracker/qubership-workflow-hub/actions/commit-and-push@main
+  #       with:
+  #         commit_message: "Update chart version to v${{ github.event.inputs.version }}"
 
-      - name: Run Commit and Push Action
-        uses: Netcracker/qubership-workflow-hub/actions/commit-and-push@main
-        with:
-          commit_message: "Update chart version to v${{ github.event.inputs.version }}"
-
-      - name: "Create release tag"
-        uses: netcracker/qubership-workflow-hub/actions/tag-action@main
-        with:
-          ref: ${{ github.ref }}
-          check-tag: 'false'
-          create-tag: 'true'
-          tag-name: v${{ github.event.inputs.version }}
+  #     - name: "Create release tag"
+  #       uses: netcracker/qubership-workflow-hub/actions/tag-action@main
+  #       with:
+  #         ref: ${{ github.ref }}
+  #         check-tag: 'false'
+  #         create-tag: 'true'
+  #         tag-name: v${{ github.event.inputs.version }}
 
   docker-build:
     runs-on: ubuntu-latest
