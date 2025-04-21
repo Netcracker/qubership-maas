@@ -1,7 +1,7 @@
 archives:
-# - source: charts
-#   outputName: helm-charts
-#   archiveType: tar.gz
+- source: helm-templates
+  outputName: helm-charts
+  archiveType: tar.gz
 - source: docs
   outputName: docs
   archiveType: tar

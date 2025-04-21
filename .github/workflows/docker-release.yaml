@@ -124,20 +124,21 @@ jobs:
     with:
       version: ${{ github.event.inputs.version }}
       publish: false
+# Uncomment the following lines to enable helm chart publication
 
-  upload-assets:
-    needs: [github-release]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  # upload-assets:
+  #   needs: [github-release]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
 
-    - name: Archive and Upload Assets
-      uses: netcracker/qubership-workflow-hub/actions/archive-and-upload-assets@main
-      with:
-        config-path: './.github/assets-config.yml'
-        dist-path: './dist'
-        upload: true
-        ref: v${{ github.event.inputs.version }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #   - name: Archive and Upload Assets
+  #     uses: netcracker/qubership-workflow-hub/actions/archive-and-upload-assets@main
+  #     with:
+  #       config-path: './.github/assets-config.yml'
+  #       dist-path: './dist'
+  #       upload: true
+  #       ref: v${{ github.event.inputs.version }}
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
