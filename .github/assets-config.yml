@@ -2,6 +2,6 @@ archives:
 - source: helm-templates
   outputName: helm-charts
   archiveType: tar.gz
-- source: docs
-  outputName: docs
-  archiveType: tar
+# - source: docs
+#   outputName: docs
+#   archiveType: tar
