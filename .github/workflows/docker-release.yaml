@@ -109,6 +109,8 @@ jobs:
           dry-run: ${{ inputs.dry-run }}
           component: ${{ toJson(matrix.component) }}
           platforms: ${{ needs.load-docker-build-components.outputs.platforms }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   github-release:
     needs: [check-tag, docker-build]
