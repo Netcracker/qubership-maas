@@ -47,6 +47,10 @@ func Migrate(dbConfig *db.Config) {
 	log.Info("Run db evolutions on: %s...", dbConfig.Addr)
 
 	if dbConfig.DrMode.IsActive() {
+		if _, _, err := migrations.Run(dbPg, "init"); err != nil {
+			log.Panic("Error run init db: %v", err.Error())
+		}
+
 		if oldVersion, newVersion, err := migrations.Run(dbPg, "up"); err != nil {
 			log.Panic("Error run db evolution: %v, dr-mode: %v", err.Error(), dbConfig.DrMode)
 		} else if oldVersion != newVersion {
