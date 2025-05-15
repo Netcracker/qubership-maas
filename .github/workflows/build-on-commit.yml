@@ -31,22 +31,24 @@ jobs:
       with:
         go-version: '1.22'
 
+    - name: Install Sonar Scanner
+      run: npm install -g sonar-scanner
+
     - name: Test with coverage
-      run: |
-        cd maas-service
-        go test -v ./... -coverprofile coverage.out
+      working-directory: maas-service
+      run: go test -v ./... -coverprofile coverage.out
 
     - name: Upload coverage report to SonarCloud
-      uses: SonarSource/sonarqube-scan-action@v5
+      working-directory: maas-service
+      run: |
+        sonar-scanner \
+          -Dproject.settings=sonar-project.properties \
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }} \
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} \
+          -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} \
+          -Dsonar.go.coverage.reportPaths=coverage.out
       env:
-       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-       args: >
-         -Dproject.settings=maas-service/sonar-project.properties
-         -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-         -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-         -Dsonar.host.url=${{ vars.SONAR_HOST_URL }}
-         -Dsonar.go.coverage.reportPaths=maas-service/coverage.out
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     - name: Build and Publish Docker Image
       uses: netcracker/qubership-workflow-hub/actions/docker-action@c07a5bf430a3c0120e189e6b54061b9bb8dde362
