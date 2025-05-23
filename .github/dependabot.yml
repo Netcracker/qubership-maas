@@ -36,7 +36,6 @@ updates:
           - '[5.11.0,]'
   - package-ecosystem: "gomod"
     directories:
-      - "/"
       - ...
     schedule:
       interval: weekly
