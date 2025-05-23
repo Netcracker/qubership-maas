@@ -35,13 +35,15 @@ updates:
         versions:
           - '[5.11.0,]'
   - package-ecosystem: "gomod"
-    directory: ...
+    directories:
+      - /
+      - ...
     schedule:
       interval: weekly
     groups:
       qubership:
         patterns:
-          - "github.com/netcracker/*"
+          - github.com/netcracker/*
   - package-ecosystem: docker
     directory: /
     schedule:
