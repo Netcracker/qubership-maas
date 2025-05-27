@@ -78,7 +78,7 @@ func newTestDatabase(t *testing.T) *TestDatabase {
 	defer cancel()
 
 	pg, err := pgcontainer.Run(ctx,
-		"docker.io/postgres:15-alpine",
+		"docker.io/postgres:16-alpine",
 		pgcontainer.WithDatabase(tdb.dbname),
 		pgcontainer.WithUsername(tdb.user),
 		pgcontainer.WithPassword(tdb.password),
