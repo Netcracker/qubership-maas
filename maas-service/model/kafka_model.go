@@ -3,6 +3,7 @@ package model
 import (
 	"database/sql"
 	"fmt"
+
 	"github.com/lib/pq"
 	"github.com/netcracker/qubership-maas/utils"
 )
@@ -191,6 +192,23 @@ type TopicRegistration struct {
 	TenantId          sql.NullInt64  `gorm:"default:NULL"`
 	CreateReq         string         `pg:"create_req" gorm:"default:{}"`
 	InstanceRef       *KafkaInstance `gorm:"-"`
+}
+
+func (topic *TopicRegistration) String() string {
+	if topic == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("TopicRegistration{Classifier: %s, Topic: %s, Instance: %s, Namespace: %s, ExternallyManaged: %t, TopicSettings: %s, Template: %v, Dirty: %t, TenantId: %v}",
+		topic.Classifier,
+		topic.Topic,
+		topic.Instance,
+		topic.Namespace,
+		topic.ExternallyManaged,
+		topic.TopicSettings.String(),
+		topic.Template,
+		topic.Dirty,
+		topic.TenantId)
 }
 
 func (TopicRegistration) TableName() string {
