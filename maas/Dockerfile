@@ -2,7 +2,7 @@ FROM golang:1.22 AS build
 
 WORKDIR /app
 
-COPY maas-service/ .
+COPY maas-service .
 
 RUN go mod download
 RUN go build -o maas-service .

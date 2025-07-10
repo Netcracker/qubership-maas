@@ -1,118 +1,118 @@
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  annotations:
-    "helm.sh/hook": "pre-install, pre-upgrade"
-    "helm.sh/hook-weight": "-150"
-    "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"
-  name: '{{ .Values.SERVICE_NAME }}-sa'
-  namespace: '{{ .Values.NAMESPACE }}'
-  labels:
-    app.kubernetes.io/instance: "{{ .Values.SERVICE_NAME }}"
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: maas-prehook-role
-  namespace: {{ .Values.NAMESPACE }}
-  annotations:
-    "helm.sh/hook": "pre-install,pre-upgrade"
-    "helm.sh/hook-weight": "-140"
-    "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"
-  labels:
-    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
-    app.kubernetes.io/part-of: maas
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-      - serviceaccounts
-      - configmaps
-    verbs:
-      - get
-      - list
-      - create
-      - update
-      - patch
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: maas-prehook-role-binding
-  namespace: {{ .Values.NAMESPACE }}
-  annotations:
-    "helm.sh/hook": "pre-install, pre-upgrade"
-    "helm.sh/hook-weight": "-130"
-    "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"
-  labels:
-    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
-    app.kubernetes.io/part-of: maas
-subjects:
-  - kind: ServiceAccount
-    name: {{ .Values.SERVICE_NAME }}-sa
-    namespace: {{ .Values.NAMESPACE }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: maas-prehook-role
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ .Values.SERVICE_NAME }}-env-variables
-  annotations:
-    helm.sh/hook: "pre-install,pre-upgrade"
-    helm.sh/hook-weight: "-120"
-    helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
-  labels:
-    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    app.kubernetes.io/managed-by: "helm"
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
-stringData:
-  NAMESPACE: {{ .Values.NAMESPACE }}
-  SERVICE_NAME: {{ .Values.SERVICE_NAME | quote }}
-  DB_POSTGRESQL_ADDRESS: {{ .Values.DB_POSTGRESQL_ADDRESS | quote }}
-  DB_POSTGRESQL_DATABASE: {{ .Values.DB_POSTGRESQL_DATABASE | quote }}
-  DB_POSTGRESQL_USERNAME: {{ .Values.DB_POSTGRESQL_USERNAME | quote }}
-  DB_POSTGRESQL_PASSWORD: {{ .Values.DB_POSTGRESQL_PASSWORD | quote }}
-  DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES: {{ .Values.DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES | quote }}
-  DBAAS_AGGREGATOR_ADDRESS:  {{ .Values.DBAAS_AGGREGATOR_ADDRESS | quote }}
-  DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME:  {{ .Values.DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME | quote }}
-  DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD:  {{ .Values.DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD | quote }}
-  MAAS_ACCOUNT_MANAGER_USERNAME: {{ .Values.MAAS_ACCOUNT_MANAGER_USERNAME | quote }}
-  MAAS_ACCOUNT_MANAGER_PASSWORD: {{ .Values.MAAS_ACCOUNT_MANAGER_PASSWORD | quote }}
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ .Values.SERVICE_NAME }}-pre-hook
-  annotations:
-    helm.sh/hook: "pre-install, pre-upgrade"
-    helm.sh/hook-weight: "-110"
-    helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
-  labels:
-    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
-    app.kubernetes.io/part-of: maas
-spec:
-  backoffLimit: 1
-  template:
-    metadata:
-      name: {{ .Values.SERVICE_NAME }}-pre-hook
-    spec:
-      serviceAccountName: '{{ .Values.SERVICE_NAME }}-sa'
-      terminationGracePeriodSeconds: 10
-      containers:
-        - name: validation-hook-{{ .Values.SERVICE_NAME }}
-          image: {{ .Values.DECLARATIVE_HOOK_IMAGE }}
-          command: ["/bootstrap.sh"]
-          imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: {{ .Values.SERVICE_NAME }}-env-variables
-      restartPolicy: Never
+{{/*---*/}}
+{{/*apiVersion: v1*/}}
+{{/*kind: ServiceAccount*/}}
+{{/*metadata:*/}}
+{{/*  annotations:*/}}
+{{/*    "helm.sh/hook": "pre-install, pre-upgrade"*/}}
+{{/*    "helm.sh/hook-weight": "-150"*/}}
+{{/*    "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"*/}}
+{{/*  name: '{{ .Values.SERVICE_NAME }}-sa'*/}}
+{{/*  namespace: '{{ .Values.NAMESPACE }}'*/}}
+{{/*  labels:*/}}
+{{/*    app.kubernetes.io/instance: "{{ .Values.SERVICE_NAME }}"*/}}
+{{/*    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}*/}}
+{{/*---*/}}
+{{/*kind: Role*/}}
+{{/*apiVersion: rbac.authorization.k8s.io/v1*/}}
+{{/*metadata:*/}}
+{{/*  name: maas-prehook-role*/}}
+{{/*  namespace: {{ .Values.NAMESPACE }}*/}}
+{{/*  annotations:*/}}
+{{/*    "helm.sh/hook": "pre-install,pre-upgrade"*/}}
+{{/*    "helm.sh/hook-weight": "-140"*/}}
+{{/*    "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"*/}}
+{{/*  labels:*/}}
+{{/*    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}*/}}
+{{/*    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}*/}}
+{{/*    app.kubernetes.io/part-of: maas*/}}
+{{/*rules:*/}}
+{{/*  - apiGroups:*/}}
+{{/*      - ""*/}}
+{{/*    resources:*/}}
+{{/*      - secrets*/}}
+{{/*      - serviceaccounts*/}}
+{{/*      - configmaps*/}}
+{{/*    verbs:*/}}
+{{/*      - get*/}}
+{{/*      - list*/}}
+{{/*      - create*/}}
+{{/*      - update*/}}
+{{/*      - patch*/}}
+{{/*---*/}}
+{{/*kind: RoleBinding*/}}
+{{/*apiVersion: rbac.authorization.k8s.io/v1*/}}
+{{/*metadata:*/}}
+{{/*  name: maas-prehook-role-binding*/}}
+{{/*  namespace: {{ .Values.NAMESPACE }}*/}}
+{{/*  annotations:*/}}
+{{/*    "helm.sh/hook": "pre-install, pre-upgrade"*/}}
+{{/*    "helm.sh/hook-weight": "-130"*/}}
+{{/*    "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"*/}}
+{{/*  labels:*/}}
+{{/*    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}*/}}
+{{/*    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}*/}}
+{{/*    app.kubernetes.io/part-of: maas*/}}
+{{/*subjects:*/}}
+{{/*  - kind: ServiceAccount*/}}
+{{/*    name: {{ .Values.SERVICE_NAME }}-sa*/}}
+{{/*    namespace: {{ .Values.NAMESPACE }}*/}}
+{{/*roleRef:*/}}
+{{/*  apiGroup: rbac.authorization.k8s.io*/}}
+{{/*  kind: Role*/}}
+{{/*  name: maas-prehook-role*/}}
+{{/*---*/}}
+{{/*apiVersion: v1*/}}
+{{/*kind: Secret*/}}
+{{/*metadata:*/}}
+{{/*  name: {{ .Values.SERVICE_NAME }}-env-variables*/}}
+{{/*  annotations:*/}}
+{{/*    helm.sh/hook: "pre-install,pre-upgrade"*/}}
+{{/*    helm.sh/hook-weight: "-120"*/}}
+{{/*    helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"*/}}
+{{/*  labels:*/}}
+{{/*    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}*/}}
+{{/*    app.kubernetes.io/managed-by: "helm"*/}}
+{{/*    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}*/}}
+{{/*stringData:*/}}
+{{/*  NAMESPACE: {{ .Values.NAMESPACE }}*/}}
+{{/*  SERVICE_NAME: {{ .Values.SERVICE_NAME | quote }}*/}}
+{{/*  DB_POSTGRESQL_ADDRESS: {{ .Values.DB_POSTGRESQL_ADDRESS | quote }}*/}}
+{{/*  DB_POSTGRESQL_DATABASE: {{ .Values.DB_POSTGRESQL_DATABASE | quote }}*/}}
+{{/*  DB_POSTGRESQL_USERNAME: {{ .Values.DB_POSTGRESQL_USERNAME | quote }}*/}}
+{{/*  DB_POSTGRESQL_PASSWORD: {{ .Values.DB_POSTGRESQL_PASSWORD | quote }}*/}}
+{{/*  DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES: {{ .Values.DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES | quote }}*/}}
+{{/*  DBAAS_AGGREGATOR_ADDRESS:  {{ .Values.DBAAS_AGGREGATOR_ADDRESS | quote }}*/}}
+{{/*  DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME:  {{ .Values.DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME | quote }}*/}}
+{{/*  DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD:  {{ .Values.DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD | quote }}*/}}
+{{/*  MAAS_ACCOUNT_MANAGER_USERNAME: {{ .Values.MAAS_ACCOUNT_MANAGER_USERNAME | quote }}*/}}
+{{/*  MAAS_ACCOUNT_MANAGER_PASSWORD: {{ .Values.MAAS_ACCOUNT_MANAGER_PASSWORD | quote }}*/}}
+{{/*---*/}}
+{{/*apiVersion: batch/v1*/}}
+{{/*kind: Job*/}}
+{{/*metadata:*/}}
+{{/*  name: {{ .Values.SERVICE_NAME }}-pre-hook*/}}
+{{/*  annotations:*/}}
+{{/*    helm.sh/hook: "pre-install, pre-upgrade"*/}}
+{{/*    helm.sh/hook-weight: "-110"*/}}
+{{/*    helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"*/}}
+{{/*  labels:*/}}
+{{/*    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}*/}}
+{{/*    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}*/}}
+{{/*    app.kubernetes.io/part-of: maas*/}}
+{{/*spec:*/}}
+{{/*  backoffLimit: 1*/}}
+{{/*  template:*/}}
+{{/*    metadata:*/}}
+{{/*      name: {{ .Values.SERVICE_NAME }}-pre-hook*/}}
+{{/*    spec:*/}}
+{{/*      serviceAccountName: '{{ .Values.SERVICE_NAME }}-sa'*/}}
+{{/*      terminationGracePeriodSeconds: 10*/}}
+{{/*      containers:*/}}
+{{/*        - name: validation-hook-{{ .Values.SERVICE_NAME }}*/}}
+{{/*          image: {{ .Values.DECLARATIVE_HOOK_IMAGE }}*/}}
+{{/*          command: ["/bootstrap.sh"]*/}}
+{{/*          imagePullPolicy: IfNotPresent*/}}
+{{/*          envFrom:*/}}
+{{/*            - secretRef:*/}}
+{{/*                name: {{ .Values.SERVICE_NAME }}-env-variables*/}}
+{{/*      restartPolicy: Never*/}}
