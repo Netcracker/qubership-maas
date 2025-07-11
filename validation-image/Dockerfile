@@ -3,6 +3,7 @@ LABEL maintainer="qubership"
 
 ADD ./install /tmp/
 
+USER root
 RUN chmod +x /tmp/install.sh && /tmp/install.sh
 USER 1000
 
