@@ -1,4 +1,4 @@
-name: Go build
+name: '[MaaS] Go build'
 
 on:
   push:
