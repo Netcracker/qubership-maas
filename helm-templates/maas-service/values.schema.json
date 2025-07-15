@@ -179,7 +179,7 @@
         "title": "The MAAS_ACCOUNT_MANAGER_PASSWORD scheme",
         "description": "Manager account password",
         "examples": [
-          "24002eadbc"
+          "password"
         ]
       },
       "MAAS_DEPLOYER_CLIENT_USERNAME": {
