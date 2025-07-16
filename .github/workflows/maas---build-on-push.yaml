@@ -15,7 +15,7 @@ jobs:
     with:
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-      go-module-dir: maas
+      go-module-dir: maas/maas-service
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
 
