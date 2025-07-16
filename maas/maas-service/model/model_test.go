@@ -12,7 +12,7 @@ import (
 
 func TestMatchClassifiersWithNamespaceAndName(t *testing.T) {
 	filter2 := Classifier{Name: "dictionary-changed", Namespace: "cloudbss-kube-dev1"}
-	source2 := Classifier{Name: "metamodel-changed", Namespace: "cloudbss-kube-pim-qa1"}
+	source2 := Classifier{Name: "metamodel-changed", Namespace: "cloudbss-kube-qa1"}
 	if reflect.DeepEqual(source2, filter2) {
 		t.Fatal("Different name and namespace returns true")
 	}
