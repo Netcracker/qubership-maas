@@ -164,11 +164,11 @@ You can get current release version via special API (see [rest_api.md](docs/rest
 # Client Libraries 
 ## Plain Java Client 
 Library contains module with MaaS API Client, Kafka Blue/Green Consumer, Kafka Streams Support and context propagation utilities
-https://git.qubership.org/PROD.Platform.Cloud_Core/libs/maas-client
+https://github.com/Netcracker/qubership-maas-client
 
 ## Java Declarative clients
-For Spring: https://git.qubership.org/PROD.Platform.Cloud_Core/maas-group/maas-declarative-client-spring
-For Quarkus:https://git.qubership.org/PROD.Platform.Cloud_Core/maas-group/maas-declarative-client-quarkus
+For Spring: https://github.com/Netcracker/qubership-maas-declarative-client-spring
+For Quarkus: https://github.com/Netcracker/qubership-maas-declarative-client-quarkus
 
 ## Go MaaS Client
-https://git.qubership.org/PROD.Platform.Cloud_Core/libs/go/maas/client/
+https://github.com/Netcracker/qubership-core-lib-go-maas-client
