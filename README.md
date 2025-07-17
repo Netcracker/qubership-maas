@@ -7,16 +7,16 @@
 
 
 # MaaS
-MaaS stands for Messaging as a Service. It offers to create and manage entites on RabbitMQ and Kafka brokers: 
+MaaS stands for Messaging as a Service. It offers to create and manage entities on RabbitMQ and Kafka brokers: 
 * RabbitMQ - vhosts, exchanges, queues and bindings
 * Kafka - topics  
 
 Entities can be added using declarative configuration or via direct REST API calls. Also MaaS intended to help support Blue/Green application deployments.
 
 # Architecture
-MaaS should be installed in cloud in its own namespace. MaaS requires PostgresSQL database to persist its data. After installation, operations team should register RabbitMQ and Kafka instances in MaaS either using REST API or ENV variables during installation. Application that planning to use MaaS is need to enable MaaS integration in CMDB for its namespace. Application microiservices shouldn't interact with MaaS service directly, it must use maas-agent as security proxy and perfrom all request with M2M token. 
+MaaS should be installed in cloud in its own namespace. MaaS requires PostgresSQL database to persist its data. After installation, operations team should register RabbitMQ and Kafka instances in MaaS either using REST API or ENV variables during installation. Application that planning to use MaaS is need to enable MaaS integration in CMDB for its namespace. Application microservices shouldn't interact with MaaS service directly, it must use maas-agent as security proxy and perform all request with M2M token. 
 
-MaaS service DOES NOT proxies or tunneling connections from microcervice to message brokers. Application microiservices receives from MaaS only metainformation about vhost/topic with host address and credentials to target broker. Then miscroservice establish direct connection to message broker using provided parameters from MaaS.   
+MaaS service DOES NOT proxies or tunneling connections from microcervice to message brokers. Application microservices receives from MaaS only metainformation about vhost/topic with host address and credentials to target broker. Then miscroservice establish direct connection to message broker using provided parameters from MaaS.   
 
 ![](./docs/img/maas-architecture.png)
 
@@ -26,12 +26,12 @@ There are two roles in MaaS:
     * grants ability to create/delete user accounts in MaaS
     * register RabbitMQ and Kafka instances
 * `agent`
-    * role grants all API oprations except listed above tor `manager` role, like create/delete VHost objects in RabbitMQ, create/delete topics in Kafka, etc 
+    * role grants all API operations except listed above for `manager` role, like create/delete VHost objects in RabbitMQ, create/delete topics in Kafka, etc 
 
-Deployer during MaaS installation creates one mandatory user account - `admin` that responsible for user management. Its account only has `manager` role. Its account intended for use only by operatioons team.
+Deployer during MaaS installation creates one mandatory user account - `admin` that responsible for user management. Its account only has `manager` role. Its account intended for use only by operations team.
 
 Also in typical MaaS installation we recommend creating account for deployer with both roles: `manager` and `agent` assigned to it. We need both because:
-* `manager` role is needed to create dedicated user for maas-agent attached to specific namespace. Secondly deployer use this role to create RabbitMQ VHost's as way to isolate entities between namespaces. 
+* `manager` role is needed to create dedicated user for maas-agent attached to specific namespace. Secondly deployer use this role to create RabbitMQ VHost as way to isolate entities between namespaces. 
 * `agent` role is needed to create low level entities in RabbitMQ and Kafka such as: exchanges, queue and topics. Its role will be used by deployer if you intend to use `declarative approach` to create your entities in deploy time via config files in `deployment/maas-configuration.yaml`.
 
 # Classifier
@@ -71,8 +71,8 @@ spec:
 For Rabbit vhosts rules are similar, more you can see in vhost registration [docs/rest_api.md](docs/rest_api.md#create-rabbit-virtual-host)
 
 # RabbitMQ/Kafka entities creation
-There are two approaches to create and manipulate entites in RabbitMQ and Kafka using MaaS.You can choose better suited for your case or even use both at the same time: 
-* declarative approach - suitable if you have static set of entities well-known on application deployment time. Big advantage is that it's mush simpler to declare entities in config file that write management code in Java/Go/Other lang via REST API. How to use declarative approach is described [here](docs/declarative_approach.md).
+There are two approaches to create and manipulate entities in RabbitMQ and Kafka using MaaS.You can choose better suited for your case or even use both at the same time: 
+* declarative approach - suitable if you have static set of entities well-known on application deployment time. Big advantage is that it's much simpler to declare entities in config file that write management code in Java/Go/Other lang via REST API. How to use declarative approach is described [here](docs/declarative_approach.md).
 * dynamic/lazy - it's the only way for you if you don't know your entities set on deploy time. One of use cases is multitenant solutions. At the moment, use MaaS Rest API to manipulate your entities in runtime. Later core team plan to release MaaS client lib for Java and Go to simplify your life.
 
 ## Manual entities management restriction 
@@ -141,7 +141,7 @@ There is also api that allow you to get or delete instance designator of particu
 
 Examples of config types structure is in [declarative_approach.md](docs/declarative_approach.md)
 
-Same rules are forking for RabbitMQ instance designators, but you should use `apiVersion: nc.maas.rabbit/v2`
+Same rules are working for RabbitMQ instance designators, but you should use `apiVersion: nc.maas.rabbit/v2`
 
 You can read about instance update using designators in [maintenance.md](./docs/maintenance.md)
 
