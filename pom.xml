@@ -11,4 +11,19 @@
     <modules>
         <module>maas-integration-tests</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/*</url>
+            <snapshots/>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/qubership-maas</url>
+        </repository>
+    </distributionManagement>
 </project>
