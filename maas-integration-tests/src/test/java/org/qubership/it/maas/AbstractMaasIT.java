@@ -3,8 +3,6 @@ package org.qubership.it.maas;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.google.common.collect.Lists;
 import com.google.common.net.MediaType;
 import com.google.gson.GsonBuilder;
@@ -23,7 +21,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
-import org.qubership.cloud.junit.cloudcore.extension.annotations.EnableExtension;
 import org.qubership.it.maas.entity.Account;
 import org.qubership.it.maas.entity.ConfigV2Req;
 import org.qubership.it.maas.entity.ConfigV2Resp;
@@ -47,7 +44,6 @@ import static org.qubership.it.maas.AbstractMaasWithInitsIT.*;
 import static org.qubership.it.maas.MaasITHelper.*;
 
 @Slf4j
-@EnableExtension
 public abstract class AbstractMaasIT {
 
     public static OkHttpClient okHttpClient = new OkHttpClient.Builder()
