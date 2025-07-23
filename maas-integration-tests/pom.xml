@@ -179,4 +179,11 @@
             </plugin>
         </plugins>
     </build>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/netcracker/qubership-maas</url>
+        </repository>
+    </distributionManagement>
 </project>
