@@ -4,43 +4,43 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import com.google.common.net.MediaType;
 import com.google.gson.GsonBuilder;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.*;
-import com.netcracker.cloud.junit.cloudcore.extension.client.PlatformClient;
-import com.netcracker.cloud.junit.cloudcore.extension.service.PortForwardService;
-import com.netcracker.it.maas.entity.SearchCriteria;
 import com.netcracker.it.maas.entity.Account;
 import com.netcracker.it.maas.entity.ConfigV2Req;
 import com.netcracker.it.maas.entity.ConfigV2Resp;
+import com.netcracker.it.maas.entity.SearchCriteria;
 import com.netcracker.it.maas.entity.kafka.*;
 import com.netcracker.it.maas.entity.rabbit.*;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-import io.fabric8.kubernetes.api.model.*;
-import io.fabric8.kubernetes.client.KubernetesClientException;
 import lombok.extern.slf4j.Slf4j;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
-import okhttp3.*;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpStatus;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.qubership.cloud.junit.cloudcore.extension.annotations.EnableExtension;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.netcracker.it.maas.AbstractMaasWithInitsIT.*;
 import static com.netcracker.it.maas.MaasITHelper.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -57,7 +57,7 @@ public abstract class AbstractMaasIT {
     protected static final String TOPIC_NAME = "KafkaTopicBasicOperationsIT";
     protected static final String MAAS_SERVICE_NAME = "maas-service";
     public static String NAMESPACE = "namespace";
-    public static String MAAS_MANAGER_ACCOUNT_AUTH_STR = getBasicAuthStr("manager", "24002eadbc");
+    public static String MAAS_MANAGER_ACCOUNT_AUTH_STR = getBasicAuthStr("manager", "manager");
     public static Account agentAccount = new Account("MaasAgentAccountIT", "MaasAgentIT_password",
             new ArrayList<>() {{
                 add("agent");
@@ -95,18 +95,7 @@ public abstract class AbstractMaasIT {
                         lastFailure.getClass().getSimpleName() + " - " + lastFailure.getMessage());
             });
 
-
-    @Named(MAAS_SERVICE_NAME)
-    @PortForward
-    protected URL maasAddress;
-
-    @Client
-    protected PlatformClient platformClient;
-
-    @PortForwardClient
-    protected PortForwardService portForwardService;
-
-    protected MaasITHelper helper;
+    protected static MaasITHelper helper;
 
     protected enum ApplyConfigOperation {
         CREATE,
@@ -115,10 +104,14 @@ public abstract class AbstractMaasIT {
         VERSIONED
     }
 
-    protected void initHelper() {
+    protected static void initHelper() {
         if (helper == null) {
-            helper = new MaasITHelper(maasAddress, platformClient);
+            helper = new MaasITHelper(getMaasContainerAddress());
         }
+    }
+
+    protected static void resetHelper() {
+        helper = new MaasITHelper(getMaasContainerAddress());
     }
 
     public static String getBasicAuthStr(String user, String password) {
@@ -130,10 +123,10 @@ public abstract class AbstractMaasIT {
         String initAccountRequest = new GsonBuilder().create().toJson(account);
         try (Response response = okHttpClient.newCall(
                 new Request.Builder()
-                        .url(maasAddress + "api/v1/auth/account/client")
+                        .url(getMaasContainerAddress() + "api/v1/auth/account/client")
                         .addHeader("Authorization", "Basic " + MAAS_MANAGER_ACCOUNT_AUTH_STR)
                         .addHeader("X-Origin-Namespace", account.getNamespace())
-                        .post(RequestBody.create(JSON, initAccountRequest))
+                        .post(RequestBody.create(initAccountRequest.getBytes()))
                         .build()).execute()) {
             log.info("Response: {}", response);
             assertTrue(response.code() == 200 || response.code() == 201);
@@ -145,24 +138,21 @@ public abstract class AbstractMaasIT {
 
     public Response createAccount(Account account) throws IOException {
         String initAccountRequest = new GsonBuilder().create().toJson(account);
-        Response response = okHttpClient.newCall(
+        return okHttpClient.newCall(
                 new Request.Builder()
-                        .url(maasAddress + "api/v1/auth/account/client")
+                        .url(getMaasContainerAddress() + "api/v1/auth/account/client")
                         .addHeader("Authorization", "Basic " + MAAS_MANAGER_ACCOUNT_AUTH_STR)
-                        .post(RequestBody.create(JSON, initAccountRequest))
+                        .post(RequestBody.create(initAccountRequest.getBytes()))
                         .build()).execute();
-        return response;
-
     }
 
     public Response getAccounts() throws IOException {
-        Response response = okHttpClient.newCall(
+        return okHttpClient.newCall(
                 new Request.Builder()
-                        .url(maasAddress + "api/v1/auth/accounts")
+                        .url(getMaasContainerAddress() + "api/v1/auth/accounts")
                         .addHeader("Authorization", "Basic " + MAAS_MANAGER_ACCOUNT_AUTH_STR)
                         .get()
                         .build()).execute();
-        return response;
     }
 
     public void deleteAccount(Account account, String namespace) {
@@ -170,9 +160,9 @@ public abstract class AbstractMaasIT {
         String deleteAccountRequest = new GsonBuilder().create().toJson(account);
         try (Response response = okHttpClient.newCall(
                 new Request.Builder()
-                        .url(maasAddress + "api/v1/auth/account/client")
+                        .url(getMaasContainerAddress() + "api/v1/auth/account/client")
                         .addHeader("Authorization", "Basic " + MAAS_MANAGER_ACCOUNT_AUTH_STR)
-                        .delete(RequestBody.create(JSON, deleteAccountRequest))
+                        .delete(RequestBody.create(deleteAccountRequest.getBytes()))
                         .build()).execute()) {
             log.info("Response: {}", response);
         } catch (Exception e) {
@@ -181,9 +171,8 @@ public abstract class AbstractMaasIT {
     }
 
     public void deleteAccount(Account account) {
-        deleteAccount(account,  ((account.getNamespace() == null) ? "" : account.getNamespace()));
+        deleteAccount(account, ((account.getNamespace() == null) ? "" : account.getNamespace()));
     }
-
 
     protected KafkaTopicResponse getKafkaTopicByClassifier(int expectStatus, Map<String, Object> classifier) throws IOException {
         log.info("Getting kafka topic with classifier {}", classifier);
@@ -194,7 +183,7 @@ public abstract class AbstractMaasIT {
     protected void deleteTenantTopic(int expectStatus, Map<String, Object> classifier) throws IOException {
         log.info("Delete tenant topic by classifier {}", classifier);
         Request request = helper.createJsonRequest(KAFKA_TOPIC_DELETE_TENANT_TOPICS_PATH, getMaasBasicAuth(), classifier, DELETE);
-        helper.doRequest(request, null,  expectStatus);
+        helper.doRequest(request, null, expectStatus);
     }
 
     protected KafkaTopicResponse getKafkaTopicByClassifierWithNamespace(int expectStatus, Map<String, Object> classifier, String namespace) throws IOException {
@@ -230,13 +219,13 @@ public abstract class AbstractMaasIT {
         return createKafkaTopic(expectStatus, topicRequest, namespace, KafkaTopicResponse.class);
     }
 
-    protected  <T> T createKafkaTopic(int expectStatus, KafkaTopicRequest topicRequest, String namespace, Class<T> clazz) throws IOException {
+    protected <T> T createKafkaTopic(int expectStatus, KafkaTopicRequest topicRequest, String namespace, Class<T> clazz) throws IOException {
         log.info("Create kafka topic with classifier {}", topicRequest.getClassifier());
         Request request = helper.createJsonRequestWithNamespace(KAFKA_TOPIC_PATH, getMaasBasicAuth(), topicRequest, POST, namespace);
         return helper.doRequest(request, clazz, expectStatus);
     }
 
-    protected  <T> T createKafkaTopic(int expectStatus, KafkaTopicRequest topicRequest, Class<T> clazz) throws IOException {
+    protected <T> T createKafkaTopic(int expectStatus, KafkaTopicRequest topicRequest, Class<T> clazz) throws IOException {
         log.info("Create kafka topic with classifier {}", topicRequest.getClassifier());
         Request request = helper.createJsonRequestWithNamespace(KAFKA_TOPIC_PATH, getMaasBasicAuth(), topicRequest, MaasITHelper.POST, TEST_NAMESPACE);
         return helper.doRequest(request, clazz, expectStatus);
@@ -297,7 +286,7 @@ public abstract class AbstractMaasIT {
         return helper.doRequest(request, VirtualHostResponse.class, expectStatus);
     }
 
-    protected String extractVirtualHost(String conn){
+    protected String extractVirtualHost(String conn) {
         return conn.split("\\d/")[1];
     }
 
@@ -321,7 +310,8 @@ public abstract class AbstractMaasIT {
             assertEquals(expectStatus, response.code());
             ObjectMapper objectMapper = new ObjectMapper();
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            return objectMapper.readValue(response.body().string(), new TypeReference<List<KafkaTopicResponse>>(){});
+            return objectMapper.readValue(response.body().string(), new TypeReference<List<KafkaTopicResponse>>() {
+            });
         }
     }
 
@@ -357,7 +347,7 @@ public abstract class AbstractMaasIT {
     }
 
     protected Map<String, Object> createSimpleClassifier(String name, String tenantId) {
-        return createSimpleClassifier( name,  tenantId,  TEST_NAMESPACE) ;
+        return createSimpleClassifier(name, tenantId, TEST_NAMESPACE);
     }
 
     protected Map<String, Object> createSimpleClassifier(String name, String tenantId, String namespace) {
@@ -384,11 +374,11 @@ public abstract class AbstractMaasIT {
         }
     }
 
-    public String getMaasBasicAuth(){
+    public String getMaasBasicAuth() {
         return helper.getBasicAuthorization(agentAccount.getUsername(), agentAccount.getPassword());
     }
 
-    public String getMaasBasicAuth(Account account){
+    public String getMaasBasicAuth(Account account) {
         return helper.getBasicAuthorization(account.getUsername(), account.getPassword());
     }
 
@@ -454,7 +444,7 @@ public abstract class AbstractMaasIT {
 
         RabbitConfigReq.Spec spec = null;
 
-        switch(operation) {
+        switch (operation) {
             case CREATE:
                 spec = RabbitConfigReq.Spec.builder()
                         .classifier(classifier)
@@ -543,7 +533,7 @@ public abstract class AbstractMaasIT {
 
         RabbitConfigReq.Spec spec = null;
 
-        switch(operation) {
+        switch (operation) {
             case CREATE:
                 spec = RabbitConfigReq.Spec.builder()
                         .classifier(classifier)
@@ -583,17 +573,16 @@ public abstract class AbstractMaasIT {
                 .build();
 
 
-
         ConfigV2Req.Spec outerSpec = ConfigV2Req.Spec.builder()
-                                    .namespace(TEST_NAMESPACE)
-                                    .version(version)
-                                    .services(
-                                            new ConfigV2Req.Service[]{ ConfigV2Req.Service.builder().serviceName("service1").
-                                                config(new Yaml().dump(rabbitConfigReq)).
-                                                build()
-                                                }
-                                            )
-                                    .build();
+                .namespace(TEST_NAMESPACE)
+                .version(version)
+                .services(
+                        new ConfigV2Req.Service[]{ConfigV2Req.Service.builder().serviceName("service1").
+                                config(new Yaml().dump(rabbitConfigReq)).
+                                build()
+                        }
+                )
+                .build();
 
 
         ConfigV2Req config = new ConfigV2Req(outerSpec);
@@ -650,7 +639,7 @@ public abstract class AbstractMaasIT {
 
         RabbitConfigReq.Spec spec = null;
 
-        switch(operation) {
+        switch (operation) {
             case CREATE:
                 spec = RabbitConfigReq.Spec.builder()
                         .classifier(classifier)
@@ -690,12 +679,11 @@ public abstract class AbstractMaasIT {
                 .build();
 
 
-
         ConfigV2Req.Spec outerSpec = ConfigV2Req.Spec.builder()
                 .namespace(TEST_NAMESPACE)
                 .version(version)
                 .services(
-                        new ConfigV2Req.Service[]{ ConfigV2Req.Service.builder().serviceName(msName).
+                        new ConfigV2Req.Service[]{ConfigV2Req.Service.builder().serviceName(msName).
                                 config(new Yaml().dump(rabbitConfigReq)).
                                 build()
                         }
@@ -739,7 +727,7 @@ public abstract class AbstractMaasIT {
 
         RabbitConfigReq.Spec spec = null;
 
-        switch(operation) {
+        switch (operation) {
             case CREATE:
                 spec = RabbitConfigReq.Spec.builder()
                         .classifier(classifier)
@@ -779,12 +767,11 @@ public abstract class AbstractMaasIT {
                 .build();
 
 
-
         ConfigV2Req.Spec outerSpec = ConfigV2Req.Spec.builder()
                 .namespace(TEST_NAMESPACE)
                 .version(version)
                 .services(
-                        new ConfigV2Req.Service[]{ ConfigV2Req.Service.builder().serviceName("service1").
+                        new ConfigV2Req.Service[]{ConfigV2Req.Service.builder().serviceName("service1").
                                 config(new Yaml().dump(rabbitConfigReq)).
                                 build()
                         }
@@ -801,7 +788,6 @@ public abstract class AbstractMaasIT {
 
         return resp[0];
     }
-
 
 
     public ConfigV2Resp applyConfigV2(int expectHttpCode, String config) throws IOException {
@@ -844,12 +830,12 @@ public abstract class AbstractMaasIT {
                     .spec(spec)
                     .build();
 
-            services.add( ConfigV2Req.Service.builder().
+            services.add(ConfigV2Req.Service.builder().
                     serviceName(msConfig.getMsName()).
                     config(new Yaml().dump(rabbitConfigReq)).
                     build()
             );
-        } 
+        }
 
 
         ConfigV2Req.Spec outerSpec = ConfigV2Req.Spec.builder()
@@ -926,24 +912,15 @@ public abstract class AbstractMaasIT {
         return helper.doRequest(request, SyncTenantsResponse[].class, expectStatus);
     }
 
-    public Properties preparePropertiesAndPortForwardKafka(KafkaInstance kafkaInstance) throws IOException {
-        String maasProtocol = kafkaInstance.getMaasProtocol();
-        String KafkaAddress = kafkaInstance.getAddresses().get(maasProtocol).get(0);
-        List<String> kafkaUrls;
-        if (isInternalKubernetesService(KafkaAddress)) {
-            log.info("KafkaAddress isInternalKubernetesService {}, starting to port forward", KafkaAddress);
-            kafkaUrls = portForwardKafka(KafkaAddress);
-        } else {
-            log.info("KafkaAddress NOT isInternalKubernetesService {}", KafkaAddress);
-            kafkaUrls = Collections.singletonList(KafkaAddress);
-        }
+    public Properties preparePropertiesAndPortForwardKafka(KafkaInstance kafkaInstance) {
+        List<String> kafkaUrls = Collections.singletonList(KAFKA_CONTAINER_1.getBootstrapServers());
         log.info("final kafkaUrls {}", kafkaUrls);
 
         return prepareKafkaProperties(kafkaInstance, kafkaUrls);
     }
 
     public Properties preparePropertiesAndPortForwardKafka() throws IOException {
-        KafkaInstance defaultKafkaInstance  = getDefaultKafkaInstance();
+        KafkaInstance defaultKafkaInstance = getDefaultKafkaInstance();
         if (defaultKafkaInstance == null) {
             log.warn("There is no default kafka");
             return null;
@@ -958,7 +935,7 @@ public abstract class AbstractMaasIT {
 
     public void createKafkaTopic(Properties props, String topicName) throws IOException {
         AdminClient adminClient = AdminClient.create(props);
-        NewTopic newTopic = new NewTopic(topicName, 1, (short)1); //new NewTopic(topicName, numPartitions, replicationFactor)
+        NewTopic newTopic = new NewTopic(topicName, 1, (short) 1); //new NewTopic(topicName, numPartitions, replicationFactor)
 
         adminClient.createTopics(Lists.newArrayList(newTopic));
         adminClient.close();
@@ -1023,26 +1000,6 @@ public abstract class AbstractMaasIT {
         return props;
     }
 
-    public List<String> portForwardKafka(String kafkaAddress) throws IOException {
-
-        String kafkaNamespace = helper.getServiceNamespaceFromUrl(kafkaAddress);
-        List<String> serviceNames = platformClient.getClient().services().inNamespace(kafkaNamespace).list().getItems().stream().filter(
-                service -> {
-                    Matcher match = kafkaServicePattern.matcher(service.getMetadata().getName());
-                    if (match.find()) {
-                        return true;
-                    }
-                    return false;
-                }
-        ).map(service -> service.getMetadata().getName()).collect(Collectors.toList());
-
-        log.info("kafka service names {}", serviceNames);
-
-        return serviceNames.stream()
-                .map(serviceName -> portForwardService.createPortForward(kafkaNamespace, serviceName, 9094).getAuthority())
-                .collect(Collectors.toList());
-    }
-
     protected KafkaInstance getDefaultKafkaInstance() throws IOException {
         Request request = helper.createJsonRequest(KAFKA_INSTANCES_PATH, getMaasBasicAuth(), null, GET);
         KafkaInstance[] kafkaInstances = helper.doRequest(request, KafkaInstance[].class, HttpStatus.SC_OK);
@@ -1051,14 +1008,12 @@ public abstract class AbstractMaasIT {
 
     protected KafkaInstance[] getKafkaInstances() throws IOException {
         Request request = helper.createJsonRequest(KAFKA_INSTANCES_PATH, getMaasBasicAuth(), null, GET);
-        KafkaInstance[] kafkaInstances = helper.doRequest(request, KafkaInstance[].class, HttpStatus.SC_OK);
-        return kafkaInstances;
+        return helper.doRequest(request, KafkaInstance[].class, HttpStatus.SC_OK);
     }
 
     protected RabbitInstance[] getRabbitInstances() throws IOException {
         Request request = helper.createJsonRequest(RABBIT_INSTANCES_PATH, getMaasBasicAuth(), null, GET);
-        RabbitInstance[] rabbitInstances = helper.doRequest(request, RabbitInstance[].class, HttpStatus.SC_OK);
-        return rabbitInstances;
+        return helper.doRequest(request, RabbitInstance[].class, HttpStatus.SC_OK);
     }
 
     protected RabbitInstance getDefaultRabbitInstance() throws IOException {
@@ -1067,86 +1022,18 @@ public abstract class AbstractMaasIT {
         return Arrays.stream(rabbitInstances).filter(rabbitInstance -> rabbitInstance.getIsDefault().equals(true)).findFirst().get();
     }
 
-    protected KafkaInstance getFakeKafkaRequest(KafkaInstance trueKafkaInstance, String serviceName) {
-        KafkaInstance createFakeInstanceRequest = new KafkaInstance(trueKafkaInstance);
-        createFakeInstanceRequest.setIsDefault(false);
-        createFakeInstanceRequest.setId(KAFKA_FAKE_INSTANCE_ID);
-        createFakeInstanceRequest.setAddresses(getAddressesWithReplacedServiceName(
-                trueKafkaInstance.getAddresses(), serviceName
-        ));
-
-        return createFakeInstanceRequest;
-    }
-
-    protected Service createFakeSecondKafkaInstance() throws IOException {
-        KafkaInstance trueKafkaInstance = getDefaultKafkaInstance();
-        String firstAddressKey = trueKafkaInstance.getAddresses().keySet().iterator().next();
-        String trueKafkaAddress = trueKafkaInstance.getAddresses().get(firstAddressKey).get(0);
-
-        List<String> serviceNamePort = Arrays.asList(trueKafkaAddress.split(":"));
-        String serviceName = serviceNamePort.get(0);
-
-        String workingNamespace = platformClient.getNamespace();
-        ObjectMeta metadata = new ObjectMeta();
-        metadata.setName(KAFKA_FAKE_SERVICE_NAME);
-        metadata.setNamespace(workingNamespace);
-
-        ServiceSpec spec = new ServiceSpec();
-        spec.setType("ExternalName");
-        if (isInternalKubernetesService(trueKafkaAddress)) {
-            spec.setExternalName(String.format("%s.svc.cluster.local", serviceName));
-        } else {
-            spec.setExternalName(serviceName);
-        }
-
-        Service fakeKafkaService = new Service("v1", "Service", metadata, spec, new ServiceStatus(new ArrayList<>() , new LoadBalancerStatus()));
-        Service createdFakeKafkaService = platformClient.getClient().services().resource(fakeKafkaService).createOrReplace();
-
-        KafkaInstance createFakeInstanceRequest = getFakeKafkaRequest(trueKafkaInstance, fakeKafkaService.getMetadata().getName());
-        createKafkaInstance(createFakeInstanceRequest);
-
-        return createdFakeKafkaService;
-    }
-
-    private Map<String, List<String>> getAddressesWithReplacedServiceName(Map<String, List<String>> addresses, String newServiceName) {
-        String firstAddressKey = addresses.keySet().iterator().next();
-        List<String> newAddressesValues = new ArrayList<>();
-        addresses.get(firstAddressKey).forEach(
-                (address) -> {
-                    Matcher m = Pattern.compile("(.*)\\.(.*):(.*)").matcher(address);
-                    m.find();
-                    String newAddress = String.format("%s.%s:%s", newServiceName, platformClient.getNamespace(), m.group(3));
-                    newAddressesValues.add(newAddress);
-                }
-        );
-
-        return Collections.singletonMap(firstAddressKey, newAddressesValues);
-    }
-
-    protected void deleteFakeKafkaInstanceService(Service fakeService) {
-         platformClient.getClient().services().resource(fakeService).delete();
-    }
-
-    protected Service getFakeKafkaInstanceService(Service fakeService) {
-        return platformClient.getClient().services().resource(fakeService).get();
-    }
-
     public Connection createRabbitConnect(VirtualHostResponse virtualHost) throws Exception {
         return createRabbitConnect(virtualHost, true);
     }
 
     public Connection createRabbitConnect(VirtualHostResponse virtualHost, boolean failsafe) throws Exception {
+        URI uri = URI.create(virtualHost.getCnn());
         ConnectionFactory factory = new ConnectionFactory();
-        String namespace = helper.getServiceNamespaceFromUrl(virtualHost.getCnn());
-        String serviceName = helper.getServiceNameFromUrl(virtualHost.getCnn());
-        int port = helper.getServicePortFromUrl(virtualHost.getCnn());
-        if (isInternalKubernetesService(namespace, serviceName)) {
-            URL rabbitConn = portForwardService.createPortForward(namespace, serviceName, port);
-            factory.setUri(String.format("%s%s/%s", helper.getProtocolFromUrl(virtualHost.getCnn()), rabbitConn.getAuthority(), extractVirtualHost(virtualHost.getCnn())));
-        } else {
-            factory.setUri(virtualHost.getCnn());
+        String amqpUrl = RABBITMQ_CONTAINER_1.getAmqpUrl();
+        if (uri.getHost().equals(RABBITMQ_CONTAINER_2.getNetworkAliases().get(0))) {
+            amqpUrl = RABBITMQ_CONTAINER_2.getAmqpUrl();
         }
-
+        factory.setUri(amqpUrl + uri.getPath());
         factory.setUsername(virtualHost.getUsername());
         factory.setPassword(getPassword(virtualHost.getPassword()));
 
@@ -1160,36 +1047,13 @@ public abstract class AbstractMaasIT {
         }
     }
 
-    public String getPassword(String password) throws IOException {
-        String passwordType = password.split(":")[0];
-        String passwordId = password.split(":")[1];
-        switch (passwordType) {
-            default:
-                log.info("Password is plain");
-                return passwordId;
-        }
+    private String getPassword(String password) {
+        return password.split(":")[1];
     }
 
     protected void deleteNamespace(String namespace) throws IOException {
         Request request = helper.createJsonRequest(DELETE_NAMESPACE_PATH, getMaasBasicAuth(), Collections.singletonMap("namespace", namespace), MaasITHelper.DELETE);
         helper.doRequest(request, Object.class, HttpStatus.SC_OK);
-    }
-
-    protected boolean isInternalKubernetesService(String url) {
-        Matcher m = Pattern.compile("(.*)\\.(.*):(.*)").matcher(url);
-        m.find();
-        Service service;
-        try {
-            service = platformClient.getClient().services().inNamespace(m.group(2)).withName(m.group(1)).get();
-        } catch (KubernetesClientException e) {
-            service = null;
-        }
-        return service != null;
-    }
-
-    protected boolean isInternalKubernetesService(String namespace, String serviceName) {
-        Service service = platformClient.getClient().services().inNamespace(namespace).withName(serviceName).get();
-        return service != null;
     }
 
     protected void deleteKafkaInstanceDesignator(int... expectStatuses) throws IOException {

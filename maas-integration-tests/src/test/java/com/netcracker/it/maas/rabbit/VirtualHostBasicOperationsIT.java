@@ -6,8 +6,11 @@ import com.netcracker.it.maas.entity.rabbit.VirtualHostResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
+import org.qubership.cloud.junit.cloudcore.extension.service.NetSocketAddress;
+import org.qubership.cloud.junit.cloudcore.extension.service.PortForwardParams;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URL;
 import java.sql.*;
 import java.util.Map;
@@ -97,25 +100,13 @@ class VirtualHostBasicOperationsIT extends RabbitTest {
 
     private Connection createPgConnect() {
         log.info("createPgConnect: MaasITHelper is {}", helper);
-        String pgHostAddress = helper.getSecretEnv("maas-db-postgresql-credentials-secret", "pg_address");
-        String pgDb = helper.getSecretEnv("maas-db-postgresql-credentials-secret", "dbname");
-        String pgUsername = helper.getSecretEnv("maas-db-postgresql-credentials-secret", "username");
-        String pgPassword = helper.getSecretEnv("maas-db-postgresql-credentials-secret", "password");
+        String pgHostAddress = POSTGRES_CONTAINER.getHost()+":"+POSTGRES_CONTAINER.getMappedPort(5432);
+        String pgDb = POSTGRES_CONTAINER.getDatabaseName();
+        String pgUsername = POSTGRES_CONTAINER.getUsername();
+        String pgPassword = POSTGRES_CONTAINER.getPassword();
         log.info("Got pg host address {}, db {}, username {}, pass {}", pgHostAddress, pgDb, pgUsername, pgPassword);
-        assertNotNull(pgHostAddress);
-        assertNotNull(pgDb);
-        assertNotNull(pgUsername);
-        assertNotNull(pgPassword);
 
-        String url;
-        String serviceNamespace = helper.getServiceNamespaceFromUrl(pgHostAddress);
-        String serviceName = helper.getServiceNameFromUrl(pgHostAddress);
-        if (isInternalKubernetesService(serviceNamespace, serviceName)) {
-            URL pgConnect = portForwardService.createPortForward(serviceNamespace, serviceName);
-            url = String.format("jdbc:postgresql://%s:%d/%s", pgConnect.getHost(), pgConnect.getPort(), pgDb);
-        } else {
-            url = String.format("jdbc:postgresql://%s/%s", pgHostAddress, pgDb);
-        }
+        String url = String.format("jdbc:postgresql://%s/%s", pgHostAddress, pgDb);
 
         try {
             return DriverManager.getConnection(url, pgUsername, pgPassword);

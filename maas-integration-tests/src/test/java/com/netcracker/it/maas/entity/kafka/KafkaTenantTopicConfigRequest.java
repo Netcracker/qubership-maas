@@ -11,7 +11,7 @@ import java.util.Map;
 public class KafkaTenantTopicConfigRequest {
     private String apiVersion = "nc.maas.kafka/v1";
     private String kind = "tenant-topic";
-    private Spec spec;
+    private KafkaTenantTopicConfigRequest.Spec spec;
 
     public KafkaTenantTopicConfigRequest() {
     }

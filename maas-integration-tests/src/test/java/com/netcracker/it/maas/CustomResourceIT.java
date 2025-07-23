@@ -17,7 +17,7 @@ public class CustomResourceIT extends AbstractMaasWithInitsIT {
     void checkCreatingTopic() throws IOException {
         var classifierName = "cr-test-" + UUID.randomUUID();
         var topicCR = """
-                apiVersion: core.netcracker.com/v1
+                apiVersion: core.qubership.org/v1
                 kind: MaaS
                 subKind: Topic
                 metadata:
@@ -27,7 +27,7 @@ public class CustomResourceIT extends AbstractMaasWithInitsIT {
                     app.kubernetes.io/instance: 'test-microservice'
                     app.kubernetes.io/managed-by: operator
                     deployer.cleanup/allow: 'true'
-                    deployment.netcracker.com/sessionId: 'session'
+                    deployment.qubership.org/sessionId: 'session'
                     app.kubernetes.io/part-of: Cloud-Core
                     app.kubernetes.io/managed-by-operator: core-operator
                 spec:
@@ -47,7 +47,7 @@ public class CustomResourceIT extends AbstractMaasWithInitsIT {
     void checkCreatingTopic_replicationFactor_int() throws IOException {
         var classifierName = "cr-test-" + UUID.randomUUID();
         var topicCR = """
-                apiVersion: core.netcracker.com/v1
+                apiVersion: core.qubership.org/v1
                 kind: MaaS
                 subKind: Topic
                 metadata:
@@ -57,7 +57,7 @@ public class CustomResourceIT extends AbstractMaasWithInitsIT {
                     app.kubernetes.io/instance: 'test-microservice'
                     app.kubernetes.io/managed-by: operator
                     deployer.cleanup/allow: 'true'
-                    deployment.netcracker.com/sessionId: 'session'
+                    deployment.qubership.org/sessionId: 'session'
                     app.kubernetes.io/part-of: Cloud-Core
                     app.kubernetes.io/managed-by-operator: core-operator
                 spec:
@@ -75,7 +75,7 @@ public class CustomResourceIT extends AbstractMaasWithInitsIT {
     void checkCreatingTopic_replicationFactor_inherit() throws IOException {
         var classifierName = "cr-test-" + UUID.randomUUID();
         var topicCR = """
-                apiVersion: core.netcracker.com/v1
+                apiVersion: core.qubership.org/v1
                 kind: MaaS
                 subKind: Topic
                 metadata:
@@ -85,7 +85,7 @@ public class CustomResourceIT extends AbstractMaasWithInitsIT {
                     app.kubernetes.io/instance: 'test-microservice'
                     app.kubernetes.io/managed-by: operator
                     deployer.cleanup/allow: 'true'
-                    deployment.netcracker.com/sessionId: 'session'
+                    deployment.qubership.org/sessionId: 'session'
                     app.kubernetes.io/part-of: Cloud-Core
                     app.kubernetes.io/managed-by-operator: core-operator
                 spec:

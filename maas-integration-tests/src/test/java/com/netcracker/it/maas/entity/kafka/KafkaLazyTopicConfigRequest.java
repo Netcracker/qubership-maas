@@ -11,7 +11,7 @@ import java.util.Map;
 public class KafkaLazyTopicConfigRequest {
     private String apiVersion = "nc.maas.kafka/v1";
     private String kind = "lazy-topic";
-    private Spec spec;
+    private KafkaLazyTopicConfigRequest.Spec spec;
 
     public KafkaLazyTopicConfigRequest() {
     }

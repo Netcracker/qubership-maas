@@ -1,7 +1,7 @@
 package com.netcracker.it.maas;
 
 import com.netcracker.it.maas.entity.HealthResponse;
-import com.netcracker.it.maas.entity.HeathItem;
+import com.netcracker.it.maas.entity.HealthItem;
 import com.netcracker.it.maas.entity.kafka.KafkaTopicResponse;
 import com.netcracker.it.maas.entity.rabbit.RabbitInstance;
 import com.netcracker.it.maas.entity.rabbit.VirtualHostResponse;
@@ -10,12 +10,14 @@ import okhttp3.Request;
 import org.apache.http.HttpStatus;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.netcracker.it.maas.MaasITHelper.*;
@@ -34,15 +36,16 @@ class HealthIT extends AbstractMaasWithInitsIT {
             HealthResponse actualHealth = helper.doRequest(request, HealthResponse.class, 200);
             log.info("Actual health response {}", actualHealth);
             HealthResponse expectHealth = new HealthResponse(
-                    new HeathItem("UP"),
-                    new HeathItem("UP"),
-                    new HeathItem("UP"));
+                    new HealthItem("UP"),
+                    new HealthItem("UP"),
+                    new HealthItem("UP"));
             assertEquals(expectHealth, actualHealth);
         });
     }
 
     @Test
-    public void checkMonitoring() throws IOException {
+    public void checkMonitoring() throws IOException, InterruptedException {
+        Thread.sleep(1_000); // wait until instance registration. Correlated with health.check.interval
         VirtualHostResponse virtualHost = createVirtualHost(HttpStatus.SC_CREATED);
         KafkaTopicResponse topic = createKafkaTopic(HttpStatus.SC_CREATED);
 

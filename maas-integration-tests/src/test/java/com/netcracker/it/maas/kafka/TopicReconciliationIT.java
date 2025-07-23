@@ -60,9 +60,9 @@ class TopicReconciliationIT extends AbstractMaasWithInitsIT {
                 .build();
         createKafkaTopic(HttpStatus.SC_CREATED, secondTopicKafkaTopicRequest);
 
-        String firstKafkaAddr = firstKafkaInstance.getAddresses().get("SASL_PLAINTEXT").get(0);
-        String secondKafkaAddr = secondKafkaInstance.getAddresses().get("SASL_PLAINTEXT").get(0);
-        secondKafkaInstance.getAddresses().get("SASL_PLAINTEXT").set(0, firstKafkaAddr);
+        String firstKafkaAddr = firstKafkaInstance.getAddresses().get("PLAINTEXT").get(0);
+        String secondKafkaAddr = secondKafkaInstance.getAddresses().get("PLAINTEXT").get(0);
+        secondKafkaInstance.getAddresses().get("PLAINTEXT").set(0, firstKafkaAddr);
         updateKafkaInstance(secondKafkaInstance);
 
         List<Map<String, Object>> result = startReconciliation();
@@ -87,7 +87,7 @@ class TopicReconciliationIT extends AbstractMaasWithInitsIT {
         deleteKafkaTopic(KafkaTopicSearchRequest.builder()
                 .classifier(secondTopicClassifier)
                 .build(), HttpStatus.SC_OK);
-        secondKafkaInstance.getAddresses().get("SASL_PLAINTEXT").set(0, secondKafkaAddr);
+        secondKafkaInstance.getAddresses().get("PLAINTEXT").set(0, secondKafkaAddr);
         updateKafkaInstance(secondKafkaInstance);
         createKafkaInstance(firstKafkaInstance);
         deleteKafkaTopic(preparePropertiesAndPortForwardKafka(secondKafkaInstance), FIRST_TOPIC_NAME);

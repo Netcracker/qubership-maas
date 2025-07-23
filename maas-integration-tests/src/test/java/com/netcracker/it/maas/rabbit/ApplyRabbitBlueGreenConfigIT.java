@@ -2796,7 +2796,6 @@ class ApplyRabbitBlueGreenConfigIT extends RabbitTest {
             message = "some message to " + version;
             resp = sendAndGetMsg(channel, "key2", message, version, "e2", "q2", "v1");
             assertEquals(message, resp);
-
         }
     }
 
@@ -5423,7 +5422,7 @@ class ApplyRabbitBlueGreenConfigIT extends RabbitTest {
         try {
             result = future.get(3, TimeUnit.SECONDS);
         } catch (Exception e) {
-            log.error("Timout during processing message: {}", message);
+            log.error("Timeout during processing message: {}", message);
         }
 
         channel.basicCancel(tag);

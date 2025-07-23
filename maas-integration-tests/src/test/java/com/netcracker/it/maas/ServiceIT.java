@@ -13,9 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
-import static com.netcracker.it.maas.MaasITHelper.*;
+import static com.netcracker.it.maas.MaasITHelper.KAFKA_INSTANCES_PATH;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
@@ -29,12 +29,10 @@ class ServiceIT extends AbstractMaasWithInitsIT {
                 .username("user-agent-test-username")
                 .password("user-agent-test-password")
                 .namespace("user-agent-test-namespace")
-                .roles(new ArrayList<String>() {{
-                    add("agent");
-                }})
+                .roles(List.of("agent"))
                 .build();
         Response response = createAccount(testAccount);
-        assertEquals(response.code(), HttpStatus.SC_CREATED);
+        assertEquals(HttpStatus.SC_CREATED, response.code());
     }
 
     @AfterEach
@@ -49,17 +47,13 @@ class ServiceIT extends AbstractMaasWithInitsIT {
                 .username("user-agent-test-username")
                 .password("user-agent-test-password")
                 .namespace("user-agent-test-namespace")
-                .roles(new ArrayList<String>() {{
-                    add("agent");
-                }})
+                .roles(List.of("agent"))
                 .build());
         deleteAccount(Account.builder()
                 .username("user-agent-test-roles-username")
                 .password("user-agent-test-roles-password")
                 .namespace("user-agent-test-roles-namespace")
-                .roles(new ArrayList<String>() {{
-                    add("user-agent-test-role");
-                }})
+                .roles(List.of("user-agent-test-role"))
                 .build());
     }
 
@@ -67,7 +61,7 @@ class ServiceIT extends AbstractMaasWithInitsIT {
     public void checkWrongPasswordResponseCode() throws IOException {
         Request authRequest = helper.createJsonRequest(KAFKA_INSTANCES_PATH, getBasicAuthStr("user-agent-test-username", ""), null, MaasITHelper.GET);
         Response authResponse = okHttpClient.newCall(authRequest).execute();
-        assertEquals(authResponse.code(), HttpStatus.SC_FORBIDDEN);
+        assertEquals(HttpStatus.SC_FORBIDDEN, authResponse.code());
     }
 
     @Test
@@ -76,15 +70,13 @@ class ServiceIT extends AbstractMaasWithInitsIT {
                 .username("user-agent-test-roles-username")
                 .password("user-agent-test-roles-password")
                 .namespace("user-agent-test-roles-namespace")
-                .roles(new ArrayList<String>() {{
-                    add("user-agent-test-role");
-                }})
+                .roles(List.of("user-agent-test-role"))
                 .build();
         Response response = createAccount(accountWrongRoles);
         assertTrue(response.code() == HttpStatus.SC_CREATED || response.code() == HttpStatus.SC_OK);
         Request authRequest = helper.createJsonRequest(KAFKA_INSTANCES_PATH, getMaasBasicAuth(accountWrongRoles), null, MaasITHelper.GET);
         Response authResponse = okHttpClient.newCall(authRequest).execute();
-        assertEquals(authResponse.code(), HttpStatus.SC_FORBIDDEN);
+        assertEquals(HttpStatus.SC_FORBIDDEN, authResponse.code());
     }
 
     @Test
@@ -94,22 +86,19 @@ class ServiceIT extends AbstractMaasWithInitsIT {
                         .username("test")
                         .password("test")
                         .namespace("")
-                        .roles(new ArrayList<String>() {{
-                            add("agent");
-                        }})
+                        .roles(List.of("agent"))
                         .build());
         Request noNamespaceRequest = new Request.Builder()
-                .url(maasAddress + "api/v1/auth/account/client")
+                .url(getMaasContainerAddress() + "api/v1/auth/account/client")
                 .addHeader("Authorization", "Basic " + MAAS_MANAGER_ACCOUNT_AUTH_STR)
                 .addHeader("X-Origin-Namespace", "")
-                .post(RequestBody.create(JSON, initAccountRequest))
+                .post(RequestBody.create(initAccountRequest.getBytes()))
                 .build();
         try (Response noNamespaceResponse = okHttpClient.newCall(noNamespaceRequest).execute()) {
-            assertEquals(noNamespaceResponse.code(), HttpStatus.SC_BAD_REQUEST);
+            assertEquals(HttpStatus.SC_BAD_REQUEST, noNamespaceResponse.code());
         } catch (IOException e) {
             log.error("Failed to check response code", e);
             fail("Failed to check response code", e);
         }
     }
-
 }

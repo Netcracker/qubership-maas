@@ -11,7 +11,7 @@ import java.util.Map;
 public class KafkaTemplateConfigRequest {
     private String apiVersion;
     private String kind;
-    private Spec spec;
+    private KafkaTemplateConfigRequest.Spec spec;
 
     public KafkaTemplateConfigRequest() {
     }

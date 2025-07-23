@@ -4,10 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.netcracker.cloud.junit.cloudcore.extension.annotations.Client;
-import com.netcracker.cloud.junit.cloudcore.extension.client.PlatformClient;
-import io.fabric8.kubernetes.api.model.EnvVar;
-import io.fabric8.kubernetes.api.model.Pod;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -106,11 +102,7 @@ public class MaasITHelper {
 
 
     @NonNull
-    private URL maasAddress;
-
-    @Client
-    @NonNull
-    private PlatformClient platformClient;
+    private String maasAddress;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -259,25 +251,6 @@ public class MaasITHelper {
 
     public String getBasicAuthorization(String user, String password) {
         return java.util.Base64.getEncoder().encodeToString((user + ":" + password).getBytes());
-    }
-
-    // TODO unused? remove?
-    public String getPodEnv(Pod pod, String envName) {
-        Optional<EnvVar> envVarOpt = pod.getSpec().getContainers().get(0).getEnv().stream()
-                .filter(envVar -> envVar.getName().equals(envName))
-                .findFirst();
-        return envVarOpt.map(EnvVar::getValue).orElse(null);
-    }
-
-    public String getSecretEnv(String secretName, String envName) {
-        //for some reason if you don't put namespace manually it will use 'default', and you get NPE because no such secret there
-        String encodedValue = platformClient.getClient().secrets()
-                .inNamespace(platformClient.getNamespace())
-                .withName(secretName)
-                .get()
-                .getData()
-                .get(envName);
-        return StringUtils.newStringUtf8(Base64.decodeBase64(encodedValue));
     }
 
     public String getProtocolFromUrl(String url) {
