@@ -2,3 +2,4 @@
 /.idea/
 /.vscode/
 /.run/
+/maas-integration-tests/target/

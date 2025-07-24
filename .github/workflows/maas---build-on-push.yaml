@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'maas/**'
+      - 'maas-integration-tests/**'
   pull_request:
     types: [ opened, synchronize, reopened ]
     paths:
       - 'maas/**'
+      - 'maas-integration-tests/**'
 
 jobs:
   build:
@@ -19,8 +21,14 @@ jobs:
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
 
+  integration-tests:
+    uses: netcracker/qubership-core-infra/.github/workflows/run-maven-with-sonar.yaml@v1.0.3
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ github.actor }}
+
   docker-build:
-    needs: [build]
+    needs: [build, integration-tests]
     uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.0.7
     with:
       dry-run: false
