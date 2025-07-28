@@ -48,6 +48,7 @@ jobs:
       artifact-id: ${{ github.event.repository.name }}
       ref: v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
+      component: '[{"name": "maas", "file": "./maas/Dockerfile", "context": "./maas"}]'
       platforms: linux/amd64,linux/arm64
 
   cleanup-on-dry-run:
