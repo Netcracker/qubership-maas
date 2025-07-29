@@ -40,6 +40,7 @@ jobs:
           ref: ${{ github.ref }}
           tag-name: v${{ github.event.inputs.version }}
           check-tag: true
+          dry-run: ${{ github.event.inputs.dry-run == 'true' }}
 
   docker-build-publish:
     needs: create-tag
@@ -62,9 +63,9 @@ jobs:
         ]
       platforms: linux/amd64,linux/arm64
 
-  cleanup-on-dry-run:
+  cleanup-on-fail:
     needs: docker-build-publish
-    if: ${{ github.event.inputs.dry-run == 'true' }}
+    if: failure()
     runs-on: ubuntu-latest
     steps:
       - name: Delete Tag
@@ -73,6 +74,7 @@ jobs:
           ref: ${{ github.ref }}
           tag-name: v${{ github.event.inputs.version }}
           delete-tag: true
+          dry-run: ${{ github.event.inputs.dry-run == 'true' }}
 
   github-release:
     needs: docker-build-publish
