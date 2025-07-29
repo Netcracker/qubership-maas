@@ -45,10 +45,21 @@ jobs:
     needs: create-tag
     uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@v1.0.3
     with:
-      artifact-id: ${{ github.event.repository.name }}
       ref: v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
-      component: '[{"name": "maas", "file": "./maas/Dockerfile", "context": "./maas"}]'
+      component: |
+        [
+          {
+            "name": "qubership-maas",
+            "file": "./maas/Dockerfile",
+            "context": "./maas"
+          },
+          {
+            "name": "qubership-maas-validation-image",
+            "file": "./validation-image/Dockerfile",
+            "context": "./validation-image"
+          }
+        ]
       platforms: linux/amd64,linux/arm64
 
   cleanup-on-dry-run:
