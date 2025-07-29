@@ -43,7 +43,7 @@ jobs:
 
   docker-build-publish:
     needs: create-tag
-    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@c07a5bf430a3c0120e189e6b54061b9bb8dde362
+    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@v1.0.3
     with:
       artifact-id: ${{ github.event.repository.name }}
       ref: v${{ inputs.version }}
