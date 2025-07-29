@@ -48,7 +48,19 @@ jobs:
       artifact-id: ${{ github.event.repository.name }}
       ref: v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
-      component: '[{"name": "maas", "file": "./maas/Dockerfile", "context": "./maas"}]'
+      component: |
+        [
+          {
+            "name": "maas",
+            "file": "./maas/Dockerfile",
+            "context": "./maas"
+          },
+          {
+            "name": "qubership-maas-validation-image",
+            "file": "./validation-image/Dockerfile",
+            "context": "./validation-image"
+          }
+        ]
       platforms: linux/amd64,linux/arm64
 
   cleanup-on-dry-run:
