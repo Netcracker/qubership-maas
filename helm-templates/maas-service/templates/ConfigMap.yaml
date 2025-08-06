@@ -1,17 +1,4 @@
 ---
-kind: ConfigMap
-apiVersion: v1
-metadata:
-    name: "{{ .Values.SERVICE_NAME }}.monitoring-config"
-    labels:
-      managed-by: Helm
-      app.kubernetes.io/managed-by: Helm
-    annotations:
-      meta.helm.sh/release-name: {{ .Values.SERVICE_NAME }}
-      meta.helm.sh/release-namespace: {{ .Values.NAMESPACE }}
-data:
-    url.metrics: http://%(ip)s:8080/metrics
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
