@@ -117,6 +117,8 @@ func New(dbConfig *db.Config) *BaseDaoImpl {
 	}
 	sqlDb.SetMaxOpenConns(dbConfig.PoolSize)
 	sqlDb.SetConnMaxLifetime(dbConfig.ConnectionTtl)
+	sqlDb.SetMaxIdleConns(5)
+	sqlDb.SetConnMaxIdleTime(5 * time.Minute)
 
 	return &BaseDaoImpl{
 		gorm:    dbGorm,
