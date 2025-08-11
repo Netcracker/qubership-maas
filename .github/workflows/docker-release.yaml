@@ -48,14 +48,6 @@ jobs:
     with:
       ref: v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
-      component: |
-        [
-          {
-            "name": "qubership-maas",
-            "file": "./maas/Dockerfile",
-            "context": "./maas"
-          }
-        ]
       platforms: linux/amd64,linux/arm64
 
   cleanup-on-fail:
