@@ -3,17 +3,18 @@ package testharness
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/stretchr/testify/assert"
 	pgcontainer "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"os"
-	"strings"
-	"sync"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -82,6 +83,10 @@ func newTestDatabase(t *testing.T) *TestDatabase {
 		pgcontainer.WithDatabase(tdb.dbname),
 		pgcontainer.WithUsername(tdb.user),
 		pgcontainer.WithPassword(tdb.password),
+		pgcontainer.WithInitScripts(),
+		testcontainers.WithEnv(map[string]string{
+			"POSTGRES_INITDB_ARGS": "--auth-host=trust",
+		}),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog(".*database system is ready to accept connections.*").
 				AsRegexp().
@@ -110,6 +115,10 @@ func newTestDatabase(t *testing.T) *TestDatabase {
 	}
 
 	t.Logf("PostgresSQL test container endpoint: %+v\n", tdb)
+
+	// Enable PostgreSQL logging to see connections
+	tdb.enableLogging(t)
+
 	return tdb
 }
 
@@ -192,4 +201,27 @@ func (db *TestDatabase) Gorm(t *testing.T) *gorm.DB {
 		assert.FailNowf(t, "error create gorm instance", "error: %v", err)
 	}
 	return open
+}
+
+func (db *TestDatabase) enableLogging(t *testing.T) {
+	dsn := db.DSN()
+	gormDb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+
+	queries := []string{
+		"ALTER SYSTEM SET log_connections = 'on'",
+		"ALTER SYSTEM SET log_disconnections = 'on'",
+		"ALTER SYSTEM SET log_statement = 'all'",
+		"ALTER SYSTEM SET log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '",
+		"SELECT pg_reload_conf()",
+	}
+
+	for _, query := range queries {
+		err := gormDb.Exec(query).Error
+		if err != nil {
+			t.Logf("Warning: Failed to execute %s: %v", query, err)
+		}
+	}
+
+	t.Log("PostgreSQL logging enabled for connections and statements")
 }
