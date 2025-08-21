@@ -2,6 +2,7 @@ package oidc
 
 import (
 	"os"
+	"sync"
 	"time"
 )
 
@@ -10,22 +11,31 @@ type tokenSource interface {
 }
 
 type fileTokenSource struct {
+	mu     sync.Mutex
 	path   string
 	token  string
 	period time.Duration
 	expiry time.Time
+	now    func() time.Time
 }
 
-func newFileTokenSource(path string) *fileTokenSource {
+// if now func nil then time.Now is used
+func newFileTokenSource(path string, now func() time.Time) *fileTokenSource {
+	if now == nil {
+		now = time.Now
+	}
 	return &fileTokenSource{
 		path:   path,
 		period: time.Minute,
 		expiry: time.Now(),
+		now:    now,
 	}
 }
 
 func (f *fileTokenSource) Token() (string, error) {
-	if f.expiry.After(time.Now()) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.expiry.After(f.now()) {
 		return f.token, nil
 	}
 	tokenContents, err := os.ReadFile(f.path)
