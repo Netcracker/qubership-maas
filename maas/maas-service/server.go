@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
+	"sync/atomic"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -19,6 +23,7 @@ import (
 	"github.com/netcracker/qubership-maas/dr"
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/keymanagement"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/monitoring"
 	"github.com/netcracker/qubership-maas/postdeploy"
 	"github.com/netcracker/qubership-maas/router"
@@ -38,9 +43,7 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
-	"os"
-	"sync/atomic"
-	"time"
+
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
@@ -79,6 +82,14 @@ func main() {
 	eventBus := eventbus.NewEventBus(eventbus.NewEventbusDao(pg))
 	if err := eventBus.Start(ctx); err != nil {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
+	}
+
+	oidcSecure := configloader.GetKoanf().Bool("kubernetes.oidc.secure")
+	issuer := configloader.GetKoanf().String("kubernetes.oidc.issuer")
+	audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
+	oidcVerifier, err := oidc.NewVerifier(ctx, oidcSecure, issuer, audience)
+	if err != nil {
+		log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
 	}
 
 	compositeRegistrationService := composite.NewRegistrationService(composite.NewPGRegistrationDao(pg))
@@ -156,7 +167,7 @@ func main() {
 	}
 
 	healthAggregator := watchdog.NewHealthAggregator(pg.IsAvailable, instanceWatchdog.All)
-	app := router.CreateApi(ctx, controllers, healthAggregator, authService)
+	app := router.CreateApi(ctx, controllers, healthAggregator, authService, oidcVerifier)
 
 	utils.RegisterShutdownHook(func(code int) {
 		// save exit code to be used in Exit() call
