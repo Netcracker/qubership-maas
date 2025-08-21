@@ -40,7 +40,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		app.Get("/not-anonymous", SecurityMiddleware([]model.RoleName{testRoleName}, authService.IsAccessGranted), func(ctx *fiber.Ctx) error {
+		app.Get("/not-anonymous", SecurityMiddleware([]model.RoleName{testRoleName}, nil, authService.IsAccessGranted, nil), func(ctx *fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 
@@ -59,7 +59,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		assert.NotNil(t, resp)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-		app.Get("/anonymous", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, authService.IsAccessGranted), func(ctx *fiber.Ctx) error {
+		app.Get("/anonymous", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, nil, authService.IsAccessGranted, nil), func(ctx *fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 
