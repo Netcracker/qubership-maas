@@ -6,21 +6,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 	v "github.com/netcracker/qubership-maas/validator"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
-	"net/http"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -59,28 +61,47 @@ func init() {
 
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
-func SecurityMiddleware(roles []model.RoleName, authorize func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)) fiber.Handler {
+type authorizeFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
+type authorizeWithTokenFunc func(context.Context, oidc.Verifier, string, string, []model.RoleName) (*model.Account, error)
+
+func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authorize authorizeFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
-		username, password, err := utils.GetBasicAuth(ctx)
-		if err != nil {
-			if slices.Contains(roles, model.AnonymousRole) {
-				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
-				return ctx.Next()
-			}
-			return utils.LogError(log, userCtx, "security middleware error: %w", err)
-		}
+		var account *model.Account
 
+		authHeader := strings.Split(string(ctx.Request().Header.Peek(fiber.HeaderAuthorization)), "")
+		if len(authHeader) != 2 {
+			return utils.LogError(log, userCtx, "security middleware error: invalid Authorization header")
+		}
 		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 
-		acc, err := authorize(ctx.UserContext(), username, password, namespace, roles)
-		if err != nil {
-			return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+		if authHeader[0] == "Basic" {
+			username, password, err := utils.GetBasicAuth(ctx)
+			if err != nil {
+				if slices.Contains(roles, model.AnonymousRole) {
+					log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
+					return ctx.Next()
+				}
+				return utils.LogError(log, userCtx, "security middleware error: %w", err)
+			}
+
+			account, err = authorize(ctx.UserContext(), username, password, namespace, roles)
+			if err != nil {
+				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			}
+		} else if authHeader[0] == "Bearer" {
+			acc, err := authorizeWithToken(ctx.Context(), verifier, authHeader[1], namespace, roles)
+			if err != nil {
+				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			}
+			account = acc
+		} else {
+			return utils.LogError(log, userCtx, "security middleware error: unsupported authentication method: %s", authHeader[0])
 		}
 
 		compositeIsolationDisabled := strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 
-		secCtx := model.NewSecurityContext(acc, compositeIsolationDisabled)
+		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
 		ctx.SetUserContext(model.WithSecurityContext(userCtx, secCtx))
 		return ctx.Next()
 	}

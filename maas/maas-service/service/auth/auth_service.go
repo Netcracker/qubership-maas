@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -38,6 +37,7 @@ type AuthService interface {
 	IsFirstAccountManager(ctx context.Context) (bool, error)
 	CreateNewManager(ctx context.Context, accountRequest *model.ManagerAccountDto) (*model.ManagerAccountDto, error)
 	IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
+	IsAccessGrantedWithToken(ctx context.Context, verifier oidc.Verifier, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error)
 	GetAllAccounts(ctx context.Context) (*[]model.Account, error)
 	UpdateUserPassword(ctx context.Context, username string, password utils.SecretString) error
 	GetAccountByUsername(ctx context.Context, username string) (*model.Account, error)

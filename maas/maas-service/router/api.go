@@ -94,7 +94,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiCompositeV1 := app.Group("/api/composite/v1/")
 
 	roles := func(roles ...model.RoleName) fiber.Handler {
-		return controller.SecurityMiddleware(roles, authService.IsAccessGranted)
+		return controller.SecurityMiddleware(roles, oidcVerifier, authService.IsAccessGranted, authService.IsAccessGrantedWithToken)
 	}
 
 	createV1Api(app, controllers, roles)
