@@ -4,17 +4,20 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
+	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
 	"github.com/netcracker/qubership-maas/service/composite"
 	"github.com/netcracker/qubership-maas/utils"
 	"golang.org/x/crypto/pbkdf2"
-	"reflect"
-	"strings"
 )
 
 var log logging.Logger
@@ -173,11 +176,30 @@ func (s *AuthServiceImpl) IsAccessGranted(ctx context.Context, username string, 
 		return nil, utils.LogError(log, ctx, "password verification failed for client with username `%s': %w", username, msg.AuthError)
 	}
 
+	return s.checkAccountPermissions(ctx, account, username, namespace, roles)
+}
+
+func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, verifier oidc.Verifier, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
+	claims, err := verifier.Verify(ctx, rawToken)
+	if err != nil {
+		return nil, err
+	}
+	username := claims.Kubernetes.ServiceAccount.Name
+	log.InfoC(ctx, "Checking access for account with username '%v', roles '%v'", username, roles)
+	account := model.Account{
+		Username: username,
+		// for now only add agent role to requests made with k8s tokens
+		Roles:     []model.RoleName{model.AgentRole},
+		Namespace: claims.Kubernetes.Namespace,
+	}
+	return s.checkAccountPermissions(ctx, &account, username, namespace, roles)
+}
+
+func (s *AuthServiceImpl) checkAccountPermissions(ctx context.Context, account *model.Account, username string, namespace string, roles []model.RoleName) (*model.Account, error) {
 	if !account.HasRoles(model.ManagerRole, model.BgOperatorRole) {
 		if namespace == "" {
 			return nil, utils.LogError(log, ctx, "you're trying to authenticate with account `%s' that doesn't have 'manager' role (existing roles: %+v), therefore namespace should be mandatory specified: %w", username, roles, msg.BadRequest)
 		}
-
 		if !account.HasAccessToNamespace(namespace) {
 			namespaces, err := s.bgDomainService.FindByNamespace(ctx, account.Namespace)
 			if err != nil {

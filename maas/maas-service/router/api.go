@@ -2,6 +2,9 @@ package router
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
@@ -12,13 +15,12 @@ import (
 	v1 "github.com/netcracker/qubership-maas/controller/v1"
 	v2 "github.com/netcracker/qubership-maas/controller/v2"
 	"github.com/netcracker/qubership-maas/docs"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/prometheus/client_golang/prometheus"
-	"net/http"
-	"time"
 )
 
 var log logging.Logger
@@ -52,7 +54,7 @@ type ApiControllers struct {
 	CompositeRegistrationController *compositeV1.RegistrationController
 }
 
-func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService) *fiber.App {
+func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService, oidcVerifier oidc.Verifier) *fiber.App {
 	log.InfoC(ctx, "Creating API controller")
 	app := fiber.New(fiber.Config{
 		IdleTimeout:    30 * time.Second,
