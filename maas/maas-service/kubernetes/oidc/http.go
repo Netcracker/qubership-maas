@@ -23,7 +23,7 @@ func newSecureHttpClient(certPath, tokenPath string) (*http.Client, error) {
 			RootCAs: certPool,
 		},
 	}
-	return &http.Client{Transport: newSecureTransport(base, newFileTokenSource(tokenPath))}, nil
+	return &http.Client{Transport: newSecureTransport(base, newFileTokenSource(tokenPath, nil))}, nil
 }
 
 func newCertPool(certPath string) (*x509.CertPool, error) {
