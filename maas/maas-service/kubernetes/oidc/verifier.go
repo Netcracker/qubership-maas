@@ -2,10 +2,12 @@ package oidc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/netcracker/qubership-maas/msg"
 )
 
 const (
@@ -57,12 +59,12 @@ func NewVerifier(ctx context.Context, secure bool, issuer, audience string) (Ver
 func (vf *verifier) Verify(ctx context.Context, rawToken string) (*Claims, error) {
 	token, err := vf.openidVerifier.Verify(ctx, rawToken)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, msg.AuthError)
 	}
 	var claims Claims
 	err = token.Claims(&claims)
 	if err != nil {
-		return nil, fmt.Errorf("required claims not present: %w", err)
+		return nil, fmt.Errorf("required claims not present: %w: %w", err, msg.AuthError)
 	}
 	return &claims, nil
 }
