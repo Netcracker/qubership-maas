@@ -6,12 +6,13 @@ package mock_auth
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
-	composite "github.com/netcracker/qubership-maas/service/composite"
-	utils "github.com/netcracker/qubership-maas/utils"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	oidc "github.com/netcracker/qubership-maas/kubernetes/oidc"
+	model "github.com/netcracker/qubership-maas/model"
+	composite "github.com/netcracker/qubership-maas/service/composite"
+	utils "github.com/netcracker/qubership-maas/utils"
 )
 
 // MockAuthService is a mock of AuthService interface.
@@ -167,6 +168,21 @@ func (m *MockAuthService) IsAccessGranted(ctx context.Context, username string, 
 func (mr *MockAuthServiceMockRecorder) IsAccessGranted(ctx, username, password, namespace, role interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAccessGranted", reflect.TypeOf((*MockAuthService)(nil).IsAccessGranted), ctx, username, password, namespace, role)
+}
+
+// IsAccessGrantedWithToken mocks base method.
+func (m *MockAuthService) IsAccessGrantedWithToken(ctx context.Context, verifier oidc.Verifier, rawToken, namespace string, roles []model.RoleName) (*model.Account, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsAccessGrantedWithToken", ctx, verifier, rawToken, namespace, roles)
+	ret0, _ := ret[0].(*model.Account)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsAccessGrantedWithToken indicates an expected call of IsAccessGrantedWithToken.
+func (mr *MockAuthServiceMockRecorder) IsAccessGrantedWithToken(ctx, verifier, rawToken, namespace, roles interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAccessGrantedWithToken", reflect.TypeOf((*MockAuthService)(nil).IsAccessGrantedWithToken), ctx, verifier, rawToken, namespace, roles)
 }
 
 // IsFirstAccountManager mocks base method.
