@@ -3,11 +3,8 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/netcracker/qubership-maas/dao"
-	"github.com/netcracker/qubership-maas/model"
-	"github.com/netcracker/qubership-maas/msg"
-	"github.com/netcracker/qubership-maas/service/auth"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,14 +13,46 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/auth"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
 
+type mockTokenVerifier struct {
+	token     string
+	username  string
+	namespace string
+}
+
+func (mv mockTokenVerifier) Verify(ctx context.Context, token string) (*oidc.Claims, error) {
+	if token != mv.token {
+		return nil, errors.Join(errors.New("invalid token"), msg.AuthError)
+	}
+	return &oidc.Claims{
+		Kubernetes: oidc.K8sClaims{
+			Namespace: mv.namespace,
+			ServiceAccount: oidc.ServiceAccount{
+				Name: mv.username,
+			},
+		},
+	}, nil
+}
+
 func TestSecurityMiddleware_Anonymous(t *testing.T) {
-	testRoleName := model.RoleName("testRole")
+	testRoleName := model.AgentRole
 	testNamespaceName := "test-namespace"
+	validToken := "valid_token"
+	tokenVerifier := mockTokenVerifier{
+		token:     validToken,
+		username:  "test-service",
+		namespace: testNamespaceName,
+	}
 	app := fiber.New(fiber.Config{ErrorHandler: TmfErrorHandler})
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 
@@ -35,12 +64,12 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		_, err := authService.CreateUserAccount(ctx, &model.ClientAccountDto{
 			Username:  "client",
 			Password:  "client",
-			Roles:     []model.RoleName{"testRole"},
+			Roles:     []model.RoleName{testRoleName},
 			Namespace: testNamespaceName,
 		})
 		assert.NoError(t, err)
 
-		app.Get("/not-anonymous", SecurityMiddleware([]model.RoleName{testRoleName}, nil, authService.IsAccessGranted, nil), func(ctx *fiber.Ctx) error {
+		app.Get("/not-anonymous", SecurityMiddleware([]model.RoleName{testRoleName}, tokenVerifier, authService.IsAccessGranted, authService.IsAccessGrantedWithToken), func(ctx *fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 
@@ -59,7 +88,15 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		assert.NotNil(t, resp)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-		app.Get("/anonymous", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, nil, authService.IsAccessGranted, nil), func(ctx *fiber.Ctx) error {
+		req = httptest.NewRequest("GET", "/not-anonymous", nil)
+		req.Header.Add(HeaderXNamespace, testNamespaceName)
+		setBrearerAuth(req, validToken)
+		resp, err = app.Test(req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		app.Get("/anonymous", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, tokenVerifier, authService.IsAccessGranted, authService.IsAccessGrantedWithToken), func(ctx *fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 
@@ -80,12 +117,32 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 
 		req = httptest.NewRequest("GET", "/anonymous", nil)
 		req.Header.Add(HeaderXNamespace, testNamespaceName)
+		setBrearerAuth(req, validToken)
+		resp, err = app.Test(req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		req = httptest.NewRequest("GET", "/anonymous", nil)
+		req.Header.Add(HeaderXNamespace, testNamespaceName)
 		req.SetBasicAuth("wrong-client", "wrong-client")
 		resp, err = app.Test(req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+		req = httptest.NewRequest("GET", "/anonymous", nil)
+		req.Header.Add(HeaderXNamespace, testNamespaceName)
+		setBrearerAuth(req, "invalid_token")
+		resp, err = app.Test(req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
+}
+
+func setBrearerAuth(r *http.Request, token string) {
+	r.Header.Add(fiber.HeaderAuthorization, "Bearer "+token)
 }
 
 func TestTmfErrorHandler_ErrorFormat(t *testing.T) {
