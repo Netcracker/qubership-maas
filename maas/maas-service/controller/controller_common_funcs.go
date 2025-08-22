@@ -69,9 +69,13 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 		userCtx := ctx.UserContext()
 		var account *model.Account
 
-		authHeader := strings.Split(string(ctx.Request().Header.Peek(fiber.HeaderAuthorization)), "")
+		authHeader := strings.SplitN(string(ctx.Request().Header.Peek(fiber.HeaderAuthorization)), " ", 2)
 		if len(authHeader) != 2 {
-			return utils.LogError(log, userCtx, "security middleware error: invalid Authorization header")
+			if slices.Contains(roles, model.AnonymousRole) {
+				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
+				return ctx.Next()
+			}
+			return utils.LogError(log, userCtx, "security middleware error: invalid Authorization header: %w", msg.AuthError)
 		}
 		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 
@@ -96,7 +100,7 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 			}
 			account = acc
 		} else {
-			return utils.LogError(log, userCtx, "security middleware error: unsupported authentication method: %s", authHeader[0])
+			return utils.LogError(log, userCtx, "security middleware error: unsupported authentication method: %s: %w", authHeader[0], msg.AuthError)
 		}
 
 		compositeIsolationDisabled := strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
