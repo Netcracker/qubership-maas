@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"time"
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4/jwt"
@@ -16,8 +15,8 @@ import (
 )
 
 const (
-	tokenPath = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	certPath  = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	tokenDir = "/var/run/secrets/kubernetes.io/serviceaccount"
+	certPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 type Claims struct {
@@ -49,7 +48,11 @@ func NewVerifier(ctx context.Context, logger logging.Logger, issuer, audience st
 		return nil, fmt.Errorf("failed to identify issuer: %w", err)
 	}
 	if secureIssuer {
-		c, err := utils.NewSecureHttpClient(certPath, newFileTokenSource(logger, tokenPath, time.Now))
+		fts, err := newFileTokenSource(logger, tokenDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize a file token source: %w", err)
+		}
+		c, err := utils.NewSecureHttpClient(certPath, fts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create secure http client: %w", err)
 		}
