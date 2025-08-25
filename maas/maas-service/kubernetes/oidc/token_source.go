@@ -10,6 +10,7 @@ import (
 
 type fileTokenSource struct {
 	mu     sync.RWMutex
+	logger logging.Logger
 	path   string
 	token  string
 	period time.Duration
@@ -23,6 +24,7 @@ func newFileTokenSource(logger logging.Logger, path string, now func() time.Time
 		now = time.Now
 	}
 	return &fileTokenSource{
+		logger: logger,
 		path:   path,
 		period: time.Minute,
 		expiry: time.Now(),
