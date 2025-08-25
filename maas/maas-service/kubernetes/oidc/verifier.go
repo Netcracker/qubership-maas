@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 const (
@@ -40,7 +42,7 @@ type verifier struct {
 
 func NewVerifier(ctx context.Context, secure bool, issuer, audience string) (Verifier, error) {
 	if secure {
-		c, err := newSecureHttpClient(certPath, tokenPath)
+		c, err := utils.NewSecureHttpClient(certPath, newFileTokenSource(tokenPath, time.Now))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create secure http client: %w", err)
 		}

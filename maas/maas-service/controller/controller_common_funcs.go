@@ -103,6 +103,7 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 			return utils.LogError(log, userCtx, "security middleware error: unsupported authentication method: %s: %w", authHeader[0], msg.AuthError)
 		}
 
+		// in bearer isolation is enabled always
 		compositeIsolationDisabled := strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 
 		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
