@@ -73,5 +73,5 @@ func (vf *verifier) Verify(ctx context.Context, rawToken string) (*Claims, error
 }
 
 func isSecureIssuer(issuer string) bool {
-
+	return true
 }
