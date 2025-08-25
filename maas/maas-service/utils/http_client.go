@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,13 +32,21 @@ func NewSecureHttpClient(caCertPath string, tokenSource TokenSource) (*http.Clie
 }
 
 func NewCertPool(certPath string) (*x509.CertPool, error) {
-	certPool := x509.NewCertPool()
 	pemCerts, err := os.ReadFile(certPath)
 	if err != nil {
 		return nil, err
 	}
-	if certPool.AppendCertsFromPEM(pemCerts) {
+	pemBlocks, _ := pem.Decode(pemCerts)
+	if pemBlocks == nil {
 		return nil, fmt.Errorf("invalid ca cert file: %s", certPath)
+	}
+	certs, err := x509.ParseCertificates(pemBlocks.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ca cert file: %s", certPath)
+	}
+	certPool :=x509.NewCertPool()
+	for _, cert := range certs {
+		certPool.AddCert(cert)
 	}
 	return certPool, nil
 }
