@@ -48,7 +48,7 @@ func TestFileTokenSource(t *testing.T) {
 	}
 
 	secondValidToken := "second_valid_token"
-	_, err =tokenFile.WriteAt([]byte(secondValidToken), 0)
+	_, err = tokenFile.WriteAt([]byte(secondValidToken), 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,20 +56,12 @@ func TestFileTokenSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Remove(tokenFilePath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	err = os.Symlink(tokenFile.Name(), dataSymlinkPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.Symlink(dataSymlinkPath, tokenFilePath)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	time.Sleep(time.Millisecond*100)
+	time.Sleep(time.Millisecond*50)
 	token, err = fts.Token()
 	if err != nil {
 		t.Fatal(err)
