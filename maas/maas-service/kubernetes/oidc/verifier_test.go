@@ -14,6 +14,7 @@ import (
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 )
 
@@ -24,6 +25,8 @@ const (
 	namespace = "default"
 	uuid      = "test-uuid"
 )
+
+var logger = logging.GetLogger("server")
 
 var tests = []struct {
 	name   string
@@ -132,7 +135,7 @@ func TestVerifier(t *testing.T) {
 	defer server.Close()
 
 	ctx := openid.ClientContext(context.Background(), server.Client())
-	v, err := oidc.NewVerifier(ctx, false, server.URL, aud)
+	v, err := oidc.NewVerifier(ctx, logger, server.URL, aud)
 	if err != nil {
 		t.Fatal(err)
 	}

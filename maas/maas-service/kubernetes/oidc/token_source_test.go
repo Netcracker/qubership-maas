@@ -5,7 +5,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
+
+var logger = logging.GetLogger("server")
 
 func TestFileTokenSource(t *testing.T) {
 	f, err := os.CreateTemp(t.TempDir(), "")
@@ -47,7 +51,7 @@ func TestFileTokenSource(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		fts := newFileTokenSource(f.Name(), test.now)
+		fts := newFileTokenSource(logger, f.Name(), test.now)
 		fts.expiry = test.expiry
 		fts.token = test.oldTok
 		token, err := fts.Token()
@@ -66,7 +70,7 @@ func TestFileTokenSourceRace(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	fts := newFileTokenSource(f.Name(), nil)
+	fts := newFileTokenSource(logger, f.Name(), nil)
 	var wg sync.WaitGroup
 	errCh := make(chan error)
 	done := make(chan bool)
