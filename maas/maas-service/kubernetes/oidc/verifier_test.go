@@ -135,7 +135,7 @@ func TestVerifier(t *testing.T) {
 	defer server.Close()
 
 	ctx := openid.ClientContext(context.Background(), server.Client())
-	v, err := oidc.NewVerifier(ctx, logger, server.URL, aud)
+	v, err := oidc.NewVerifier(ctx, server.URL, aud)
 	if err != nil {
 		t.Fatal(err)
 	}

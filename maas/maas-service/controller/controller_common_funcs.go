@@ -79,7 +79,7 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 		}
 		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 
-		// in bearer isolation is always enabled
+		// in kubernetes m2m auth composite isolation is always enabled
 		compositeIsolationDisabled := false
 		if authHeader[0] == "Basic" {
 			username, password, err := utils.GetBasicAuth(ctx)

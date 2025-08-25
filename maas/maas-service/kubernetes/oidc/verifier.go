@@ -9,7 +9,6 @@ import (
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4/jwt"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 )
@@ -42,13 +41,13 @@ type verifier struct {
 	openidVerifier *openid.IDTokenVerifier
 }
 
-func NewVerifier(ctx context.Context, logger logging.Logger, issuer, audience string) (Verifier, error) {
+func NewVerifier(ctx context.Context, issuer, audience string) (Verifier, error) {
 	secureIssuer, err := isSecureIssuer(issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify issuer: %w", err)
 	}
 	if secureIssuer {
-		fts, err := newFileTokenSource(logger, tokenDir)
+		fts, err := NewFileTokenSource(ctx, tokenDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize a file token source: %w", err)
 		}

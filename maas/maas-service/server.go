@@ -86,7 +86,8 @@ func main() {
 
 	issuer := configloader.GetKoanf().String("kubernetes.oidc.issuer")
 	audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
-	oidcVerifier, err := oidc.NewVerifier(ctx, log, issuer, audience)
+	// TODO: handle differently in tests
+	oidcVerifier, err := oidc.NewVerifier(ctx, issuer, audience)
 	if err != nil {
 		log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
 	}
