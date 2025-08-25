@@ -28,6 +28,11 @@ db:
   cipher:
     key: thisis32bitlongpassphraseimusing
 
+kubernetes:
+  oidc:
+    issuer: https://kubernetes.default.svc.cluster.local
+    audience: maas
+
 
 # DR mode defaults
 execution.mode: active
