@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
 	"time"
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
@@ -42,7 +44,11 @@ type verifier struct {
 }
 
 func NewVerifier(ctx context.Context, logger logging.Logger, issuer, audience string) (Verifier, error) {
-	if isSecureIssuer(issuer) {
+	secureIssuer, err := isSecureIssuer(issuer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to identify issuer: %w", err)
+	}
+	if secureIssuer {
 		c, err := utils.NewSecureHttpClient(certPath, newFileTokenSource(logger, tokenPath, time.Now))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create secure http client: %w", err)
@@ -72,6 +78,37 @@ func (vf *verifier) Verify(ctx context.Context, rawToken string) (*Claims, error
 	return &claims, nil
 }
 
-func isSecureIssuer(issuer string) bool {
-	return true
+const (
+	awsIssRegex       = `^oidc\.eks\..*\.amazonaws\.com$`
+	gcpIssRegex       = `^container.googleapis.com$`
+	localhostIssRegex = `^(localhost|127\.0\.0\.1)(:\d{1,5})?$`
+)
+
+func isSecureIssuer(issuer string) (bool, error) {
+	awsPattern, err := regexp.Compile(awsIssRegex)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse regexp pattern for issuer %s: %w", "AWS", err)
+	}
+	gcpPattern, err := regexp.Compile(gcpIssRegex)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse regexp pattern for issuer %s: %w", "GCP", err)
+	}
+	localhostPattern, err := regexp.Compile(localhostIssRegex)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse regexp pattern for issuer %s: %w", "GCP", err)
+	}
+	issuerUrl, err := url.Parse(issuer)
+	if err != nil {
+		return false, fmt.Errorf("invalid issuer url: %w", err)
+	}
+	switch {
+	case awsPattern.MatchString(issuerUrl.Host):
+		return false, nil
+	case gcpPattern.MatchString(issuerUrl.Host):
+		return false, nil
+	case localhostPattern.MatchString(issuerUrl.Host):
+		return false, nil
+	default:
+		return true, nil
+	}
 }
