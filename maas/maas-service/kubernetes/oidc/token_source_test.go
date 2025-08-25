@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestFileTokenSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fts, err := newFileTokenSource(logger, tokenDir)
+	fts, err := NewFileTokenSource(context.Background(), tokenDir)
 	if err != nil {
 		t.Fatal(err)
 	}
