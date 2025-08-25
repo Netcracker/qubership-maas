@@ -79,6 +79,8 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 		}
 		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 
+		// in bearer isolation is always enabled
+		compositeIsolationDisabled := false
 		if authHeader[0] == "Basic" {
 			username, password, err := utils.GetBasicAuth(ctx)
 			if err != nil {
@@ -93,6 +95,7 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
+			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		} else if authHeader[0] == "Bearer" {
 			acc, err := authorizeWithToken(ctx.Context(), verifier, authHeader[1], namespace, roles)
 			if err != nil {
@@ -102,9 +105,6 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 		} else {
 			return utils.LogError(log, userCtx, "security middleware error: unsupported authentication method: %s: %w", authHeader[0], msg.AuthError)
 		}
-
-		// in bearer isolation is enabled always
-		compositeIsolationDisabled := strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 
 		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
 		ctx.SetUserContext(model.WithSecurityContext(userCtx, secCtx))

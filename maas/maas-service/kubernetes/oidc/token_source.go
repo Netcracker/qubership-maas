@@ -4,6 +4,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
 
 type fileTokenSource struct {
@@ -16,7 +18,7 @@ type fileTokenSource struct {
 }
 
 // if now func nil then time.Now is used
-func newFileTokenSource(path string, now func() time.Time) *fileTokenSource {
+func newFileTokenSource(logger logging.Logger, path string, now func() time.Time) *fileTokenSource {
 	if now == nil {
 		now = time.Now
 	}

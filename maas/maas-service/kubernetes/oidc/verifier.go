@@ -8,6 +8,7 @@ import (
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 )
@@ -40,9 +41,9 @@ type verifier struct {
 	openidVerifier *openid.IDTokenVerifier
 }
 
-func NewVerifier(ctx context.Context, secure bool, issuer, audience string) (Verifier, error) {
-	if secure {
-		c, err := utils.NewSecureHttpClient(certPath, newFileTokenSource(tokenPath, time.Now))
+func NewVerifier(ctx context.Context, logger logging.Logger, issuer, audience string) (Verifier, error) {
+	if isSecureIssuer(issuer) {
+		c, err := utils.NewSecureHttpClient(certPath, newFileTokenSource(logger, tokenPath, time.Now))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create secure http client: %w", err)
 		}
@@ -69,4 +70,8 @@ func (vf *verifier) Verify(ctx context.Context, rawToken string) (*Claims, error
 		return nil, fmt.Errorf("required claims not present: %w: %w", err, msg.AuthError)
 	}
 	return &claims, nil
+}
+
+func isSecureIssuer(issuer string) bool {
+
 }
