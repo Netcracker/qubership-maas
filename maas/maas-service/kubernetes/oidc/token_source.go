@@ -6,12 +6,8 @@ import (
 	"time"
 )
 
-type tokenSource interface {
-	Token() (string, error)
-}
-
 type fileTokenSource struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	path   string
 	token  string
 	period time.Duration
@@ -33,11 +29,14 @@ func newFileTokenSource(path string, now func() time.Time) *fileTokenSource {
 }
 
 func (f *fileTokenSource) Token() (string, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.mu.RLock()
 	if f.expiry.After(f.now()) {
+		f.mu.RUnlock()
 		return f.token, nil
 	}
+	f.mu.RUnlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	tokenContents, err := os.ReadFile(f.path)
 	if err != nil {
 		return "", err

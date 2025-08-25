@@ -1,4 +1,4 @@
-package oidc
+package utils
 
 import (
 	"crypto/tls"
@@ -9,8 +9,12 @@ import (
 	"time"
 )
 
-func newSecureHttpClient(certPath, tokenPath string) (*http.Client, error) {
-	certPool, err := newCertPool(certPath)
+type TokenSource interface {
+	Token() (string, error)
+}
+
+func NewSecureHttpClient(caCertPath string, tokenSource TokenSource) (*http.Client, error) {
+	certPool, err := NewCertPool(caCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cert pool: %w", err)
 	}
@@ -23,10 +27,10 @@ func newSecureHttpClient(certPath, tokenPath string) (*http.Client, error) {
 			RootCAs: certPool,
 		},
 	}
-	return &http.Client{Transport: newSecureTransport(base, newFileTokenSource(tokenPath, nil))}, nil
+	return &http.Client{Transport: newSecureTransport(base, tokenSource)}, nil
 }
 
-func newCertPool(certPath string) (*x509.CertPool, error) {
+func NewCertPool(certPath string) (*x509.CertPool, error) {
 	certPool := x509.NewCertPool()
 	pemCerts, err := os.ReadFile(certPath)
 	if err != nil {
@@ -40,10 +44,10 @@ func newCertPool(certPath string) (*x509.CertPool, error) {
 
 type secureTransport struct {
 	base http.RoundTripper
-	ts   tokenSource
+	ts   TokenSource
 }
 
-func newSecureTransport(base http.RoundTripper, ts tokenSource) *secureTransport {
+func newSecureTransport(base http.RoundTripper, ts TokenSource) *secureTransport {
 	return &secureTransport{
 		base: base,
 		ts:   ts,
