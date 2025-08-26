@@ -264,28 +264,28 @@ func TestAuthServiceImpl_IsAccessGranted(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		isAccessGrantedToFirstNamespace, err := authService.IsAccessGranted(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithBasic(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToFirstNamespace)
 
-		isAccessGrantedToSecondNamespace, err := authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToSecondNamespace, err := authService.IsAccessGrantedWithBasic(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.ErrorIs(t, err, msg.AuthError)
 		assert.Nil(t, isAccessGrantedToSecondNamespace)
 
 		err = bgDomainService.Bind(ctx, firstNamespace, secondNamespace, controllerNamespace)
 		assert.NoError(t, err)
 
-		isAccessGrantedToFirstNamespace, err = authService.IsAccessGranted(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithBasic(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToFirstNamespace)
 
-		isAccessGrantedToSecondNamespace, err = authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToSecondNamespace, err = authService.IsAccessGrantedWithBasic(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToSecondNamespace)
 
 		_, err = bgDomainService.Unbind(ctx, secondNamespace)
 		assert.NoError(t, err)
-		isAccessGrantedToFirstNamespace, err = authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithBasic(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.ErrorIs(t, err, msg.AuthError)
 		assert.Nil(t, isAccessGrantedToFirstNamespace)
 	})

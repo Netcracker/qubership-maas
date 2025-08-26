@@ -124,7 +124,7 @@ func (a *AccountController) SaveManagerAccount(fiberCtx *fiber.Ctx) error {
 	}
 
 	log.InfoC(ctx, "Received request on create one more manage account")
-	if _, err := a.service.IsAccessGranted(ctx, username, password, model.ManagerAccountNamespace, []model.RoleName{model.ManagerRole}); err != nil {
+	if _, err := a.service.IsAccessGrantedWithBasic(ctx, username, password, model.ManagerAccountNamespace, []model.RoleName{model.ManagerRole}); err != nil {
 		return utils.LogError(log, ctx, "password verification does not passed: %w", err)
 	}
 	if managerAccount, err := a.service.CreateNewManager(ctx, &accountRequest); err != nil {
