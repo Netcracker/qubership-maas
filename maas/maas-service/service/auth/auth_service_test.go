@@ -2,10 +2,16 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/netcracker/qubership-maas/dao"
 	dbc "github.com/netcracker/qubership-maas/dao/db"
 	"github.com/netcracker/qubership-maas/dr"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
@@ -13,9 +19,6 @@ import (
 	"github.com/netcracker/qubership-maas/testharness"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -283,6 +286,74 @@ func TestAuthServiceImpl_IsAccessGranted(t *testing.T) {
 		_, err = bgDomainService.Unbind(ctx, secondNamespace)
 		assert.NoError(t, err)
 		isAccessGrantedToFirstNamespace, err = authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		assert.ErrorIs(t, err, msg.AuthError)
+		assert.Nil(t, isAccessGrantedToFirstNamespace)
+	})
+}
+
+type mockVerifier struct {
+	token     string
+	username  string
+	namespace string
+}
+
+func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*oidc.Claims, error) {
+	if mv.token != rawToken {
+		return nil, errors.Join(errors.New("invalid token"), msg.AuthError)
+	}
+	return &oidc.Claims{
+		Kubernetes: oidc.K8sClaims{
+			Namespace: mv.namespace,
+			ServiceAccount: oidc.ServiceAccount{
+				Name: mv.username,
+			},
+		},
+	}, nil
+}
+
+func TestAuthServiceImpl_IsAccessGrantedWithToken(t *testing.T) {
+	firstNamespace := "first"
+	secondNamespace := "second"
+	controllerNamespace := "controller"
+
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		ctx, cancelContext := context.WithCancel(context.Background())
+		defer cancelContext()
+
+		username := "test-user"
+		token := "my-super-secured-password"
+
+		verifier := mockVerifier{
+			token:     token,
+			username:  username,
+			namespace: firstNamespace,
+		}
+		dao := NewAuthDao(baseDao)
+		bgDomainService := domain.NewBGDomainService(domain.NewBGDomainDao(baseDao))
+		authService := NewAuthService(dao, nil, bgDomainService)
+
+		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithToken(ctx, verifier, token, firstNamespace, []model.RoleName{model.AgentRole})
+		assert.NoError(t, err)
+		assert.NotNil(t, isAccessGrantedToFirstNamespace)
+
+		isAccessGrantedToSecondNamespace, err := authService.IsAccessGrantedWithToken(ctx, verifier, token, secondNamespace, []model.RoleName{model.AgentRole})
+		assert.ErrorIs(t, err, msg.AuthError)
+		assert.Nil(t, isAccessGrantedToSecondNamespace)
+
+		err = bgDomainService.Bind(ctx, firstNamespace, secondNamespace, controllerNamespace)
+		assert.NoError(t, err)
+
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithToken(ctx, verifier, token, firstNamespace, []model.RoleName{model.AgentRole})
+		assert.NoError(t, err)
+		assert.NotNil(t, isAccessGrantedToFirstNamespace)
+
+		isAccessGrantedToSecondNamespace, err = authService.IsAccessGrantedWithToken(ctx, verifier, token, secondNamespace, []model.RoleName{model.AgentRole})
+		assert.NoError(t, err)
+		assert.NotNil(t, isAccessGrantedToSecondNamespace)
+
+		_, err = bgDomainService.Unbind(ctx, secondNamespace)
+		assert.NoError(t, err)
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithToken(ctx, verifier, token, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.ErrorIs(t, err, msg.AuthError)
 		assert.Nil(t, isAccessGrantedToFirstNamespace)
 	})
