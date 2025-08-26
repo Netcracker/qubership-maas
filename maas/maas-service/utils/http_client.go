@@ -15,6 +15,7 @@ type TokenSource interface {
 }
 
 func NewSecureHttpClient(caCertPath string, tokenSource TokenSource) (*http.Client, error) {
+	// TODO: don't use. trusted certs have k8s certs
 	certPool, err := NewCertPool(caCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cert pool: %w", err)

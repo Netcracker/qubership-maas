@@ -96,7 +96,7 @@ func main() {
 	bgService := bg_service.NewBgService(bg_service.NewBgServiceDao(pg))
 	domainDao := domain.NewBGDomainDao(pg)
 	bgDomainService := domain.NewBGDomainService(domainDao)
-	authService := auth.NewAuthService(auth.NewAuthDao(pg), compositeRegistrationService, bgDomainService)
+	authService := auth.NewAuthService(auth.NewAuthDao(pg), compositeRegistrationService, bgDomainService, oidcVerifier)
 
 	kafkaHelper := helper.CreateKafkaHelper(ctx)
 	kafkaInstanceService := instance.NewKafkaInstanceService(instance.NewKafkaInstancesDao(pg, domainDao), kafkaHelper)
@@ -166,7 +166,7 @@ func main() {
 	}
 
 	healthAggregator := watchdog.NewHealthAggregator(pg.IsAvailable, instanceWatchdog.All)
-	app := router.CreateApi(ctx, controllers, healthAggregator, authService, oidcVerifier)
+	app := router.CreateApi(ctx, controllers, healthAggregator, authService)
 
 	utils.RegisterShutdownHook(func(code int) {
 		// save exit code to be used in Exit() call

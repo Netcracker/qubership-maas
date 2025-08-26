@@ -37,7 +37,7 @@ type AuthService interface {
 	IsFirstAccountManager(ctx context.Context) (bool, error)
 	CreateNewManager(ctx context.Context, accountRequest *model.ManagerAccountDto) (*model.ManagerAccountDto, error)
 	IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
-	IsAccessGrantedWithToken(ctx context.Context, verifier oidc.Verifier, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error)
+	IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error)
 	GetAllAccounts(ctx context.Context) (*[]model.Account, error)
 	UpdateUserPassword(ctx context.Context, username string, password utils.SecretString) error
 	GetAccountByUsername(ctx context.Context, username string) (*model.Account, error)
@@ -51,11 +51,12 @@ type CompositeRegistrar interface {
 	GetByNamespace(ctx context.Context, namespace string) (*composite.CompositeRegistration, error)
 }
 
-func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService) AuthService {
+func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService, oidcVerifier oidc.Verifier) AuthService {
 	return &AuthServiceImpl{
 		dao:                dao,
 		compositeRegistrar: compositeRegistrar,
 		bgDomainService:    bgDomainService,
+		oidcVerifier: oidcVerifier,
 	}
 }
 
@@ -179,8 +180,8 @@ func (s *AuthServiceImpl) IsAccessGranted(ctx context.Context, username string, 
 	return s.checkAccountPermissions(ctx, account, username, namespace, roles)
 }
 
-func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, verifier oidc.Verifier, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
-	claims, err := verifier.Verify(ctx, rawToken)
+func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
+	claims, err := s.oidcVerifier.Verify(ctx, rawToken)
 	if err != nil {
 		return nil, err
 	}

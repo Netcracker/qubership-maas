@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
@@ -62,9 +61,9 @@ func init() {
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
 type authorizeFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
-type authorizeWithTokenFunc func(context.Context, oidc.Verifier, string, string, []model.RoleName) (*model.Account, error)
+type authorizeWithTokenFunc func(context.Context, string, string, []model.RoleName) (*model.Account, error)
 
-func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authorize authorizeFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
+func SecurityMiddleware(roles []model.RoleName, authorize authorizeFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
 		var account *model.Account
@@ -89,7 +88,7 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		case strings.HasPrefix(strings.ToLower(authHeader), "bearer "):
 			_, token, _ := strings.Cut(authHeader, " ")
-			acc, err := authorizeWithToken(ctx.Context(), verifier, token, namespace, roles)
+			acc, err := authorizeWithToken(ctx.Context(), token, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
@@ -99,6 +98,7 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
 				return ctx.Next()
 			}
+			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
 		}
 
 		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)

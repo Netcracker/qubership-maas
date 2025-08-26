@@ -15,7 +15,6 @@ import (
 	v1 "github.com/netcracker/qubership-maas/controller/v1"
 	v2 "github.com/netcracker/qubership-maas/controller/v2"
 	"github.com/netcracker/qubership-maas/docs"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/utils"
@@ -54,7 +53,7 @@ type ApiControllers struct {
 	CompositeRegistrationController *compositeV1.RegistrationController
 }
 
-func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService, oidcVerifier oidc.Verifier) *fiber.App {
+func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService) *fiber.App {
 	log.InfoC(ctx, "Creating API controller")
 	app := fiber.New(fiber.Config{
 		IdleTimeout:    30 * time.Second,
@@ -94,7 +93,8 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiCompositeV1 := app.Group("/api/composite/v1/")
 
 	roles := func(roles ...model.RoleName) fiber.Handler {
-		return controller.SecurityMiddleware(roles, oidcVerifier, authService.IsAccessGranted, authService.IsAccessGrantedWithToken)
+		// TODO: rename IsAccessGranted. pass oidcVerifier to authService instead of here
+		return controller.SecurityMiddleware(roles, authService.IsAccessGranted, authService.IsAccessGrantedWithToken)
 	}
 
 	createV1Api(app, controllers, roles)
