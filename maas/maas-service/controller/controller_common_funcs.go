@@ -69,25 +69,16 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 		userCtx := ctx.UserContext()
 		var account *model.Account
 
-		authHeader := strings.SplitN(string(ctx.Request().Header.Peek(fiber.HeaderAuthorization)), " ", 2)
-		if len(authHeader) != 2 {
-			if slices.Contains(roles, model.AnonymousRole) {
-				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
-				return ctx.Next()
-			}
-			return utils.LogError(log, userCtx, "security middleware error: invalid Authorization header: %w", msg.AuthError)
-		}
-		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
-
 		// in kubernetes m2m auth composite isolation is always enabled
 		compositeIsolationDisabled := false
-		if authHeader[0] == "Basic" {
+		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
+
+		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
+
+		switch {
+		case strings.HasPrefix(strings.ToLower(authHeader), "basic "):
 			username, password, err := utils.GetBasicAuth(ctx)
 			if err != nil {
-				if slices.Contains(roles, model.AnonymousRole) {
-					log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
-					return ctx.Next()
-				}
 				return utils.LogError(log, userCtx, "security middleware error: %w", err)
 			}
 
@@ -96,14 +87,18 @@ func SecurityMiddleware(roles []model.RoleName, verifier oidc.Verifier, authoriz
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
-		} else if authHeader[0] == "Bearer" {
-			acc, err := authorizeWithToken(ctx.Context(), verifier, authHeader[1], namespace, roles)
+		case strings.HasPrefix(strings.ToLower(authHeader), "bearer "):
+			_, token, _ := strings.Cut(authHeader, " ")
+			acc, err := authorizeWithToken(ctx.Context(), verifier, token, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
 			account = acc
-		} else {
-			return utils.LogError(log, userCtx, "security middleware error: unsupported authentication method: %s: %w", authHeader[0], msg.AuthError)
+		default:
+			if slices.Contains(roles, model.AnonymousRole) {
+				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
+				return ctx.Next()
+			}
 		}
 
 		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
