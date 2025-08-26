@@ -23,7 +23,7 @@ import (
 	"github.com/netcracker/qubership-maas/dr"
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/keymanagement"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
+	// "github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/monitoring"
 	"github.com/netcracker/qubership-maas/postdeploy"
 	"github.com/netcracker/qubership-maas/router"
@@ -84,13 +84,13 @@ func main() {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
 	}
 
-	issuer := configloader.GetKoanf().String("kubernetes.oidc.issuer")
-	audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
-	// TODO: handle differently in tests
-	oidcVerifier, err := oidc.NewVerifier(ctx, issuer, audience)
-	if err != nil {
-		log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
-	}
+	// issuer := configloader.GetKoanf().String("kubernetes.oidc.issuer")
+	// audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
+	// // TODO: handle differently in tests
+	// oidcVerifier, err := oidc.NewVerifier(ctx, issuer, audience)
+	// if err != nil {
+	// 	log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
+	// }
 
 	compositeRegistrationService := composite.NewRegistrationService(composite.NewPGRegistrationDao(pg))
 	keyManagementHelper := keymanagement.NewPlain()
