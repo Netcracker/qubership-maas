@@ -84,9 +84,8 @@ func main() {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
 	}
 
-	issuer := configloader.GetKoanf().String("kubernetes.oidc.issuer")
 	audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
-	oidcVerifier, err := oidc.NewVerifier(ctx, issuer, audience)
+	oidcVerifier, err := oidc.NewVerifier(ctx, audience)
 	if err != nil {
 		log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
 	}

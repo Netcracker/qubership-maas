@@ -30,7 +30,6 @@ db:
 
 kubernetes:
   oidc:
-    issuer: https://kubernetes.default.svc.cluster.local
     audience: maas
 
 

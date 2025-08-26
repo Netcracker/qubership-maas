@@ -74,6 +74,7 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 
 		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
 
+		// TODO: refactor with regexes
 		switch {
 		case strings.HasPrefix(strings.ToLower(authHeader), "basic "):
 			username, password, err := utils.GetBasicAuth(ctx)
@@ -81,14 +82,14 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 				return utils.LogError(log, userCtx, "security middleware error: %w", err)
 			}
 
-			account, err = authorizeWithBasic(ctx.UserContext(), username, password, namespace, roles)
+			account, err = authorizeWithBasic(userCtx, username, password, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		case strings.HasPrefix(strings.ToLower(authHeader), "bearer "):
 			_, token, _ := strings.Cut(authHeader, " ")
-			acc, err := authorizeWithToken(ctx.Context(), token, namespace, roles)
+			acc, err := authorizeWithToken(userCtx, token, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}

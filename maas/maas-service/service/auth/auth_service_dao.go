@@ -6,20 +6,11 @@ import (
 	"fmt"
 
 	"github.com/netcracker/qubership-maas/dao"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
-	"github.com/netcracker/qubership-maas/service/bg2/domain"
 	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
 )
-
-type AuthServiceImpl struct {
-	dao                AuthDao
-	bgDomainService    domain.BGDomainService
-	compositeRegistrar CompositeRegistrar
-	oidcVerifier       oidc.Verifier
-}
 
 type AuthDao interface {
 	GetAccountByUsername(context.Context, string) (*model.Account, error)
