@@ -38,7 +38,7 @@ func NewCertPool(certPath string) (*x509.CertPool, error) {
 	}
 	pemBlocks, _ := pem.Decode(pemCerts)
 	if pemBlocks == nil {
-		return nil, fmt.Errorf("invalid ca cert file: %s", certPath)
+		return nil, fmt.Errorf("invalid pem format: %s", certPath)
 	}
 	certs, err := x509.ParseCertificates(pemBlocks.Bytes)
 	if err != nil {
