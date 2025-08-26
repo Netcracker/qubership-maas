@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -128,17 +130,57 @@ func TestVerifier(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server, err := setupServer(key.Public())
+
+	var oidcClientToken string
+	server, err := setupServer(key.Public(), &oidcClientToken)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer server.Close()
 
-	ctx := openid.ClientContext(context.Background(), server.Client())
-	v, err := oidc.NewVerifier(ctx, server.URL, aud)
+	clientToken, err := generateJwt(signer, oidc.Claims{
+		Claims: jwt.Claims{
+			Issuer:    server.URL,
+			Subject:   "system:serviceaccount:default:default",
+			Audience:  jwt.Audience{"kubernetes.default.svc"},
+			Expiry:    jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+		Kubernetes: oidc.K8sClaims{
+			Namespace: "default",
+			ServiceAccount: oidc.ServiceAccount{
+				Name: "default",
+				Uid:  "12345678-1234-1234-1234-1234567890ab",
+			},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	oidcClientToken = clientToken
+
+	ctx := openid.ClientContext(context.Background(), server.Client())
+
+	tokenFile, err := os.Create(t.TempDir() + "/token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tokenFile.Close()
+	_, err = tokenFile.Write([]byte(oidcClientToken))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fts, err := oidc.NewFileTokenSource(ctx, path.Dir(tokenFile.Name()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v, err := oidc.NewVerifier(ctx, fts, aud)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for _, test := range tests {
 		if test.claims.Issuer == "" {
 			test.claims.Issuer = server.URL
@@ -160,7 +202,7 @@ func generateJwt(signer jose.Signer, claims oidc.Claims) (string, error) {
 	return jwt.Signed(signer).Claims(claims).Serialize()
 }
 
-func setupServer(key crypto.PublicKey) (*httptest.Server, error) {
+func setupServer(key crypto.PublicKey, clientToken *string) (*httptest.Server, error) {
 	jwks := jose.JSONWebKeySet{
 		Keys: []jose.JSONWebKey{{
 			Key:       key,
@@ -179,6 +221,11 @@ func setupServer(key crypto.PublicKey) (*httptest.Server, error) {
 	}{}
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+*clientToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
 			if openidConf.Issuer == "" {

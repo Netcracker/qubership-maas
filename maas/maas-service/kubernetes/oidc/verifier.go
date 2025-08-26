@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	tokenDir = "/var/run/secrets/kubernetes.io/serviceaccount"
+	serviceAccountTokenDir = "/var/run/secrets/kubernetes.io/serviceaccount"
 )
 
 type Claims struct {
@@ -41,20 +41,16 @@ type verifier struct {
 	openidVerifier *openid.IDTokenVerifier
 }
 
-func NewVerifier(ctx context.Context, audience string) (Verifier, error) {
-	fts, err := NewFileTokenSource(ctx, tokenDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize a file token source: %w", err)
-	}
-	c, err := utils.NewSecureHttpClient(fts)
+func NewVerifier(ctx context.Context, tokenSource utils.TokenSource, audience string) (Verifier, error) {
+	c, err := utils.NewSecureHttpClient(tokenSource)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create secure http client: %w", err)
 	}
 	ctx = openid.ClientContext(ctx, c)
 
-	issuer, err := getIssuer(fts)
+	issuer, err := getIssuer(tokenSource)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get issuer from the jwt token at dir %s: %w", tokenDir, err)
+		return nil, fmt.Errorf("failed to get issuer from the jwt token at dir %s: %w", serviceAccountTokenDir, err)
 	}
 
 	provider, err := openid.NewProvider(ctx, issuer)
@@ -90,7 +86,7 @@ func getIssuer(ts utils.TokenSource) (string, error) {
 		return "", fmt.Errorf("invalid jwt: %w", err)
 	}
 	var claims Claims
-	err = token.UnsafeClaimsWithoutVerification(claims)
+	err = token.UnsafeClaimsWithoutVerification(&claims)
 	if err != nil {
 		return "", fmt.Errorf("invalid jwt: %w", err)
 	}
