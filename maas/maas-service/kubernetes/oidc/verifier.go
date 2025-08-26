@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
@@ -15,7 +16,6 @@ import (
 
 const (
 	tokenDir = "/var/run/secrets/kubernetes.io/serviceaccount"
-	certPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 type Claims struct {
@@ -41,22 +41,22 @@ type verifier struct {
 	openidVerifier *openid.IDTokenVerifier
 }
 
-func NewVerifier(ctx context.Context, issuer, audience string) (Verifier, error) {
-	secureIssuer, err := isSecureIssuer(issuer)
+func NewVerifier(ctx context.Context, audience string) (Verifier, error) {
+	fts, err := NewFileTokenSource(ctx, tokenDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to identify issuer: %w", err)
+		return nil, fmt.Errorf("failed to initialize a file token source: %w", err)
 	}
-	if secureIssuer {
-		fts, err := NewFileTokenSource(ctx, tokenDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize a file token source: %w", err)
-		}
-		c, err := utils.NewSecureHttpClient(certPath, fts)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create secure http client: %w", err)
-		}
-		ctx = openid.ClientContext(ctx, c)
+	c, err := utils.NewSecureHttpClient(fts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secure http client: %w", err)
 	}
+	ctx = openid.ClientContext(ctx, c)
+
+	issuer, err := getIssuer(fts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get issuer from the jwt token at dir %s: %w", tokenDir, err)
+	}
+
 	provider, err := openid.NewProvider(ctx, issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oidc provider: %w", err)
@@ -78,6 +78,26 @@ func (vf *verifier) Verify(ctx context.Context, rawToken string) (*Claims, error
 		return nil, fmt.Errorf("required claims not present: %w: %w", err, msg.AuthError)
 	}
 	return &claims, nil
+}
+
+func getIssuer(ts utils.TokenSource) (string, error) {
+	rawToken, err := ts.Token()
+	if err != nil {
+		return "", err
+	}
+	token, err := jwt.ParseSigned(rawToken, []jose.SignatureAlgorithm{jose.RS256})
+	if err != nil {
+		return "", fmt.Errorf("invalid jwt: %w", err)
+	}
+	var claims Claims
+	err = token.UnsafeClaimsWithoutVerification(claims)
+	if err != nil {
+		return "", fmt.Errorf("invalid jwt: %w", err)
+	}
+	if claims.Issuer == "" {
+		return "", fmt.Errorf("jwt token does not have issuer value: %w", err)
+	}
+	return claims.Issuer, nil
 }
 
 const (

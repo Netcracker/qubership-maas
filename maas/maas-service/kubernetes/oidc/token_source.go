@@ -45,6 +45,7 @@ func NewFileTokenSource(ctx context.Context, tokenDir string) (*fileTokenSource,
 func (f *fileTokenSource) Token() (string, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
+
 	return f.token, nil
 }
 
@@ -55,9 +56,7 @@ func (f *fileTokenSource) listenFs(ctx context.Context, events chan fsnotify.Eve
 			// we look for event "..data file created". kubernetes updates the token by updating the "..data" symlink token file points to.
 			if path.Base(ev.Name) == "..data" && ev.Op.Has(fsnotify.Create) {
 				f.logger.Infof("volume mounted token updated, refreshing token at dir %s", f.tokenDir)
-				f.mu.Lock()
 				err := f.refreshToken()
-				f.mu.Unlock()
 				if err != nil {
 					f.logger.Errorf("watching volume token at dir %s: %w", f.tokenDir, err)
 				}
@@ -72,6 +71,9 @@ func (f *fileTokenSource) listenFs(ctx context.Context, events chan fsnotify.Eve
 }
 
 func (f *fileTokenSource) refreshToken() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	freshToken, err := os.ReadFile(f.tokenDir + "/token")
 	if err != nil {
 		return fmt.Errorf("failed to refresh token at path %s: %w", f.tokenDir+"/token", err)

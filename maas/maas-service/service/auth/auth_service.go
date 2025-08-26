@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -50,6 +51,14 @@ type AuthService interface {
 type CompositeRegistrar interface {
 	GetByNamespace(ctx context.Context, namespace string) (*composite.CompositeRegistration, error)
 }
+
+type AuthServiceImpl struct {
+	dao                AuthDao
+	bgDomainService    domain.BGDomainService
+	compositeRegistrar CompositeRegistrar
+	oidcVerifier       oidc.Verifier
+}
+
 
 func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService, oidcVerifier oidc.Verifier) AuthService {
 	return &AuthServiceImpl{
@@ -183,10 +192,10 @@ func (s *AuthServiceImpl) IsAccessGrantedWithBasic(ctx context.Context, username
 func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
 	claims, err := s.oidcVerifier.Verify(ctx, rawToken)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("oidc: failed to verify token: %w", err)
 	}
 	username := claims.Kubernetes.ServiceAccount.Name
-	log.InfoC(ctx, "Checking access for account with username '%v', roles '%v'", username, roles)
+	log.InfoC(ctx, "Checking access for account with service account '%v', roles '%v'", username, roles)
 	account := model.Account{
 		Username: username,
 		// for now only add agent role to requests made with k8s tokens
