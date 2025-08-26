@@ -93,8 +93,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiCompositeV1 := app.Group("/api/composite/v1/")
 
 	roles := func(roles ...model.RoleName) fiber.Handler {
-		// TODO: rename IsAccessGranted. pass oidcVerifier to authService instead of here
-		return controller.SecurityMiddleware(roles, authService.IsAccessGranted, authService.IsAccessGrantedWithToken)
+		return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken)
 	}
 
 	createV1Api(app, controllers, roles)

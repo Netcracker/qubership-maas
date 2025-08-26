@@ -60,10 +60,10 @@ func init() {
 
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
-type authorizeFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
+type authorizeWithBasicFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
 type authorizeWithTokenFunc func(context.Context, string, string, []model.RoleName) (*model.Account, error)
 
-func SecurityMiddleware(roles []model.RoleName, authorize authorizeFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
+func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
 		var account *model.Account
@@ -81,7 +81,7 @@ func SecurityMiddleware(roles []model.RoleName, authorize authorizeFunc, authori
 				return utils.LogError(log, userCtx, "security middleware error: %w", err)
 			}
 
-			account, err = authorize(ctx.UserContext(), username, password, namespace, roles)
+			account, err = authorizeWithBasic(ctx.UserContext(), username, password, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}

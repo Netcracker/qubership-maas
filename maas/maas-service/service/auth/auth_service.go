@@ -36,7 +36,7 @@ type AuthService interface {
 	DeleteUserAccount(ctx context.Context, username string) error
 	IsFirstAccountManager(ctx context.Context) (bool, error)
 	CreateNewManager(ctx context.Context, accountRequest *model.ManagerAccountDto) (*model.ManagerAccountDto, error)
-	IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
+	IsAccessGrantedWithBasic(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
 	IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error)
 	GetAllAccounts(ctx context.Context) (*[]model.Account, error)
 	UpdateUserPassword(ctx context.Context, username string, password utils.SecretString) error
@@ -163,7 +163,7 @@ func (s *AuthServiceImpl) createAccount(ctx context.Context, account *model.Acco
 	return account, nil
 }
 
-func (s *AuthServiceImpl) IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, roles []model.RoleName) (*model.Account, error) {
+func (s *AuthServiceImpl) IsAccessGrantedWithBasic(ctx context.Context, username string, password utils.SecretString, namespace string, roles []model.RoleName) (*model.Account, error) {
 	log.InfoC(ctx, "Checking access for account with username '%v', roles '%v'", username, roles)
 	account, err := s.dao.GetAccountByUsername(ctx, username)
 	if err != nil {

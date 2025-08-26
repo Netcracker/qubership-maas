@@ -154,19 +154,19 @@ func (mr *MockAuthServiceMockRecorder) GetAllowedNamespaces(ctx, namespace inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllowedNamespaces", reflect.TypeOf((*MockAuthService)(nil).GetAllowedNamespaces), ctx, namespace)
 }
 
-// IsAccessGranted mocks base method.
-func (m *MockAuthService) IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error) {
+// IsAccessGrantedWithBasic mocks base method.
+func (m *MockAuthService) IsAccessGrantedWithBasic(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsAccessGranted", ctx, username, password, namespace, role)
+	ret := m.ctrl.Call(m, "IsAccessGrantedWithBasic", ctx, username, password, namespace, role)
 	ret0, _ := ret[0].(*model.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsAccessGranted indicates an expected call of IsAccessGranted.
-func (mr *MockAuthServiceMockRecorder) IsAccessGranted(ctx, username, password, namespace, role interface{}) *gomock.Call {
+// IsAccessGrantedWithBasic indicates an expected call of IsAccessGrantedWithBasic.
+func (mr *MockAuthServiceMockRecorder) IsAccessGrantedWithBasic(ctx, username, password, namespace, role interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAccessGranted", reflect.TypeOf((*MockAuthService)(nil).IsAccessGranted), ctx, username, password, namespace, role)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAccessGrantedWithBasic", reflect.TypeOf((*MockAuthService)(nil).IsAccessGrantedWithBasic), ctx, username, password, namespace, role)
 }
 
 // IsAccessGrantedWithToken mocks base method.
