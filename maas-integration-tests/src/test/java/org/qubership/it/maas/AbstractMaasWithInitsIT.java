@@ -9,6 +9,7 @@ import org.testcontainers.containers.*;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
+import wf.garnier.testcontainers.dexidp.DexContainer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -35,20 +36,21 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
 
-    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>(
-            new ImageFromDockerfile()
-                    .withFileFromPath(".", Paths.get("./docker/oidc"))
-    )
+    protected static final DexContainer OIDC_SERVER_CONTAINER = new DexContainer(DexContainer.DEFAULT_IMAGE_NAME.withTag(DexContainer.DEFAULT_TAG))
             .withNetwork(TEST_NETWORK)
             .withNetworkAliases("oidc-server")
-            .withExposedPorts(8080);
+            .withExposedPorts(5556, 5557)
+            .withCopyFileToContainer(
+                    MountableFile.forClasspathResource("dex-config.yaml"),
+                    "/etc/dex/config.yaml")
+            .withCommand("dex", "serve", "/etc/dex/config.yaml");
 
     private static final Path oidcTokenTempFile;
 
     static {
         try {
             oidcTokenTempFile = Files.createTempFile("", "");
-            Files.writeString(oidcTokenTempFile, Utils.getNewJwt("http://%s:%d".formatted(OIDC_SERVER_CONTAINER.getNetworkAliases().getFirst(), OIDC_SERVER_CONTAINER.getExposedPorts().getFirst())));
+            Files.writeString(oidcTokenTempFile, Utils.getNewJwt("http://%s:%d/dex".formatted(OIDC_SERVER_CONTAINER.getNetworkAliases().getLast(), 5556)));
             try {
                 Set<PosixFilePermission> permissions = Set.of(
                         PosixFilePermission.OWNER_READ,
