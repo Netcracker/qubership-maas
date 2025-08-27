@@ -25,6 +25,7 @@ import (
 )
 
 var log = logging.GetLogger("utils")
+var authHeaderRegex = regexp.MustCompile(`^(?i)(Basic|Bearer)\s+(\S+)$`)
 
 const RequestIdPropertyName = "requestId"
 
@@ -83,6 +84,15 @@ func GetBasicAuth(fiberCtx *fiber.Ctx) (string, SecretString, error) {
 	}
 
 	return username, password, nil
+}
+
+func ParseAuthHeader(authHeader string) (scheme string, creds string, ok bool) {
+	groups := authHeaderRegex.FindStringSubmatch(authHeader)
+	if groups == nil || len(groups) != 3 {
+		return
+	}
+	scheme, creds = groups[1], groups[2]
+	return scheme, creds, true
 }
 
 func CompactUuid() string {
