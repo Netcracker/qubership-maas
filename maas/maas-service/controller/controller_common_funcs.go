@@ -66,17 +66,26 @@ type authorizeWithTokenFunc func(context.Context, string, string, []model.RoleNa
 func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
-		var account *model.Account
-
-		// in kubernetes m2m auth composite isolation is always enabled
-		compositeIsolationDisabled := false
 		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
-
 		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
 
-		// TODO: refactor with regexes
-		switch {
-		case strings.HasPrefix(strings.ToLower(authHeader), "basic "):
+		var (
+			account *model.Account
+			// in kubernetes m2m auth composite isolation is always enabled
+			compositeIsolationDisabled = false
+		)
+
+		authScheme, creds, ok := utils.ParseAuthHeader(authHeader)
+		if !ok {
+			if slices.Contains(roles, model.AnonymousRole) {
+				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
+				return ctx.Next()
+			}
+			return utils.LogError(log, userCtx, "request authorization failure: invalid auth header: %w", msg.AuthError)
+		}
+
+		switch strings.ToLower(authScheme) {
+		case "basic":
 			username, password, err := utils.GetBasicAuth(ctx)
 			if err != nil {
 				return utils.LogError(log, userCtx, "security middleware error: %w", err)
@@ -87,13 +96,12 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
-		case strings.HasPrefix(strings.ToLower(authHeader), "bearer "):
-			_, token, _ := strings.Cut(authHeader, " ")
-			acc, err := authorizeWithToken(userCtx, token, namespace, roles)
+		case "bearer":
+			serviceAccount, err := authorizeWithToken(userCtx, creds, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
-			account = acc
+			account = serviceAccount
 		default:
 			if slices.Contains(roles, model.AnonymousRole) {
 				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
