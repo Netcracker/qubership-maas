@@ -31,7 +31,6 @@ db:
 kubernetes:
   oidc:
     audience: maas
-    tokendir: /var/run/secrets/kubernetes.io/serviceaccount
 
 
 # DR mode defaults
