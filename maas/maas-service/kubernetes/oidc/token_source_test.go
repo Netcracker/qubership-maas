@@ -5,11 +5,7 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
-
-var logger = logging.GetLogger("server")
 
 func TestFileTokenSource(t *testing.T) {
 	tokenDir := t.TempDir()

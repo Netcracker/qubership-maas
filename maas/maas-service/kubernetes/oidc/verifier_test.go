@@ -176,7 +176,7 @@ func TestVerifier(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	v, err := oidc.NewVerifier(ctx, fts, aud)
+	v, err := oidc.NewVerifier(ctx, aud, fts)
 	if err != nil {
 		t.Fatal(err)
 	}

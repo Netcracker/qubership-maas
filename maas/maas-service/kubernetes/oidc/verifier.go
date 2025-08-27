@@ -8,9 +8,12 @@ import (
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 )
+
+var logger = logging.GetLogger("oidc.fileTokenSource")
 
 type Claims struct {
 	jwt.Claims
@@ -35,7 +38,15 @@ type verifier struct {
 	openidVerifier *openid.IDTokenVerifier
 }
 
-func NewVerifier(ctx context.Context, tokenSource utils.TokenSource, audience string) (Verifier, error) {
+func NewVerifierDefault(ctx context.Context, audience string) (Verifier, error) {
+	fts, err := NewFileTokenSourceDefault(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize a file token source for oidcVerifier: %w", err)
+	}
+	return NewVerifier(ctx, audience, fts)
+}
+
+func NewVerifier(ctx context.Context, audience string, tokenSource utils.TokenSource) (Verifier, error) {
 	c, err := utils.NewSecureHttpClient(tokenSource)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create secure http client: %w", err)
