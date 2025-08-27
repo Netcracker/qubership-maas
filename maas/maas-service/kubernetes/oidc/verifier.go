@@ -75,7 +75,7 @@ func getIssuer(ts utils.TokenSource) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	token, err := jwt.ParseSigned(rawToken, []jose.SignatureAlgorithm{jose.RS256})
+	token, err := jwt.ParseSigned(rawToken, []jose.SignatureAlgorithm{jose.RS256, "none"})
 	if err != nil {
 		return "", fmt.Errorf("invalid jwt: %w", err)
 	}
