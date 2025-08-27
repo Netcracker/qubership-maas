@@ -12,10 +12,6 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 )
 
-const (
-	serviceAccountTokenDir = "/var/run/secrets/kubernetes.io/serviceaccount"
-)
-
 type Claims struct {
 	jwt.Claims
 	Kubernetes K8sClaims `json:"kubernetes.io"`
@@ -48,7 +44,7 @@ func NewVerifier(ctx context.Context, tokenSource utils.TokenSource, audience st
 
 	issuer, err := getIssuer(tokenSource)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get issuer from the jwt token at dir %s: %w", serviceAccountTokenDir, err)
+		return nil, fmt.Errorf("failed to get issuer from the jwt token: %w", err)
 	}
 
 	provider, err := openid.NewProvider(ctx, issuer)
