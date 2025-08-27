@@ -6,7 +6,7 @@ COPY ./server.go .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o server server.go
 
-FROM scratch
+FROM alpine:3.20
 
 WORKDIR /app/
 
