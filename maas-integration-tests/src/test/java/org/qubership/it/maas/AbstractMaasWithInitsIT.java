@@ -8,8 +8,11 @@ import org.junit.jupiter.api.TestInfo;
 import org.testcontainers.containers.*;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Map;
@@ -30,6 +33,26 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
 
+    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>(
+            new ImageFromDockerfile()
+                    .withFileFromPath(".", Paths.get("./docker/oidc"))
+    )
+            .withNetwork(TEST_NETWORK)
+            .withNetworkAliases("oidc-server")
+            .withExposedPorts(8080);
+
+    private static final Path oidcTokenTempFile;
+
+    static {
+        try {
+            oidcTokenTempFile = Files.createTempFile("", "");
+            Files.writeString(oidcTokenTempFile, Utils.getNewJwt("http://%s:%d".formatted(OIDC_SERVER_CONTAINER.getNetworkAliases().getFirst(), OIDC_SERVER_CONTAINER.getExposedPorts().getFirst())));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
     protected static final GenericContainer<?> MAAS_CONTAINER = new GenericContainer<>(
             new ImageFromDockerfile()
                     .withFileFromPath(".", Paths.get("../maas"))
@@ -44,6 +67,8 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
             )
             .withNetwork(TEST_NETWORK)
             .withExposedPorts(8080)
+            .withCopyFileToContainer(MountableFile.forHostPath(oidcTokenTempFile.toAbsolutePath()), "/var/run/secrets/kubernetes.io/serviceaccount/token")
+            .dependsOn(OIDC_SERVER_CONTAINER)
             .dependsOn(POSTGRES_CONTAINER);
 
     static {
@@ -54,6 +79,8 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
         RABBITMQ_CONTAINER_1.start();
         RABBITMQ_CONTAINER_2.start();
+
+        OIDC_SERVER_CONTAINER.start();
 
         MAAS_CONTAINER.start();
 
