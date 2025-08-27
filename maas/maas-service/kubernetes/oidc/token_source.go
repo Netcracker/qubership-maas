@@ -11,6 +11,8 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 )
 
+const serviceAccountDir = "/var/run/secrets/kubernetes.io/serviceaccount"
+
 type fileTokenSource struct {
 	mu       sync.RWMutex
 	logger   logging.Logger
@@ -18,7 +20,11 @@ type fileTokenSource struct {
 	tokenDir string
 }
 
+// if tokenDir == "", default /var/run/secrets/kubernetes.io/serviceaccount/token is used
 func NewFileTokenSource(ctx context.Context, tokenDir string) (*fileTokenSource, error) {
+	if tokenDir == "" {
+		tokenDir = serviceAccountDir
+	}
 	ts := &fileTokenSource{
 		logger:   logging.GetLogger("oidc.fileTokenSource"),
 		tokenDir: tokenDir,
