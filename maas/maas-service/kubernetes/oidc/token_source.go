@@ -20,13 +20,16 @@ type fileTokenSource struct {
 	tokenDir string
 }
 
-// if tokenDir == "", default /var/run/secrets/kubernetes.io/serviceaccount/token is used
+func NewFileTokenSourceDefault(ctx context.Context) (*fileTokenSource, error) {
+	return NewFileTokenSource(ctx, serviceAccountDir)
+}
+
 func NewFileTokenSource(ctx context.Context, tokenDir string) (*fileTokenSource, error) {
 	if tokenDir == "" {
 		tokenDir = serviceAccountDir
 	}
 	ts := &fileTokenSource{
-		logger:   logging.GetLogger("oidc.fileTokenSource"),
+		logger:   logger,
 		tokenDir: tokenDir,
 	}
 	err := ts.refreshToken()
