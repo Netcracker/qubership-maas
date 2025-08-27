@@ -14,8 +14,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 
 import static org.qubership.it.maas.MaasITHelper.TEST_NAMESPACE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,10 +49,22 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
         try {
             oidcTokenTempFile = Files.createTempFile("", "");
             Files.writeString(oidcTokenTempFile, Utils.getNewJwt("http://%s:%d".formatted(OIDC_SERVER_CONTAINER.getNetworkAliases().getFirst(), OIDC_SERVER_CONTAINER.getExposedPorts().getFirst())));
+            try {
+                Set<PosixFilePermission> permissions = Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.GROUP_READ,
+                        PosixFilePermission.OTHERS_READ
+                );
+                Files.setPosixFilePermissions(oidcTokenTempFile, permissions);
+            } catch (UnsupportedOperationException e) {
+                oidcTokenTempFile.toFile().setReadable(true, true);
+                oidcTokenTempFile.toFile().setWritable(true, true);
+                oidcTokenTempFile.toFile().setReadable(true, false);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
 
     protected static final GenericContainer<?> MAAS_CONTAINER = new GenericContainer<>(
