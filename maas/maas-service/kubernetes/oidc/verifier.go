@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
-	"regexp"
 
 	openid "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v4"
@@ -94,39 +92,4 @@ func getIssuer(ts utils.TokenSource) (string, error) {
 		return "", fmt.Errorf("jwt token does not have issuer value: %w", err)
 	}
 	return claims.Issuer, nil
-}
-
-const (
-	awsIssRegex       = `^oidc\.eks\..*\.amazonaws\.com$`
-	gcpIssRegex       = `^container.googleapis.com$`
-	localhostIssRegex = `^(localhost|127\.0\.0\.1)(:\d{1,5})?$`
-)
-
-func isSecureIssuer(issuer string) (bool, error) {
-	awsPattern, err := regexp.Compile(awsIssRegex)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse regexp pattern for issuer %s: %w", "AWS", err)
-	}
-	gcpPattern, err := regexp.Compile(gcpIssRegex)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse regexp pattern for issuer %s: %w", "GCP", err)
-	}
-	localhostPattern, err := regexp.Compile(localhostIssRegex)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse regexp pattern for issuer %s: %w", "GCP", err)
-	}
-	issuerUrl, err := url.Parse(issuer)
-	if err != nil {
-		return false, fmt.Errorf("invalid issuer url: %w", err)
-	}
-	switch {
-	case awsPattern.MatchString(issuerUrl.Host):
-		return false, nil
-	case gcpPattern.MatchString(issuerUrl.Host):
-		return false, nil
-	case localhostPattern.MatchString(issuerUrl.Host):
-		return false, nil
-	default:
-		return true, nil
-	}
 }
