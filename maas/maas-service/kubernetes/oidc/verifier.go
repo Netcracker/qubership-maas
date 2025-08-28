@@ -13,7 +13,7 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 )
 
-var logger = logging.GetLogger("oidc.fileTokenSource")
+var logger = logging.GetLogger("oidc")
 
 type Claims struct {
 	jwt.Claims
