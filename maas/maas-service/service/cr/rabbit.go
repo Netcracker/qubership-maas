@@ -2,6 +2,7 @@ package cr
 
 import (
 	"context"
+
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/configurator_service"
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
@@ -11,7 +12,7 @@ type RabbitVhostConfigSpec struct {
 	InstanceId string
 	Entities   *model.RabbitEntities
 	Policies   []interface{}
-	Deletions  *model.RabbitEntities
+	Deletions  *model.RabbitDeletions
 	Classifier *RabbitVhostConfigSpecClassifier
 }
 
@@ -41,7 +42,8 @@ func adaptVhostConfig(config *RabbitVhostConfigSpec, metadata *CustomResourceMet
 
 	if config.Deletions != nil {
 		adaptedConfig.Spec.RabbitDeletions = &model.RabbitDeletions{
-			RabbitEntities: *convertEntities(config.Deletions),
+			RabbitEntities: *convertEntities(&config.Deletions.RabbitEntities),
+			RabbitPolicies: *convertPolicies(config.Deletions.RabbitPolicies.Policies),
 		}
 	}
 
@@ -84,5 +86,23 @@ func convertEntities(entities *model.RabbitEntities) *model.RabbitEntities {
 		Exchanges: cast(entities.Exchanges),
 		Queues:    cast(entities.Queues),
 		Bindings:  cast(entities.Bindings),
+	}
+}
+
+func convertPolicies(policies []interface{}) *model.RabbitPolicies {
+	cast := func(en []any) []any {
+		result := make([]any, 0)
+		for _, q := range en {
+			items := make(map[string]any)
+			for k, v := range q.(CustomResourceSpecRequest) {
+				items[k] = v
+			}
+			result = append(result, items)
+		}
+		return result
+	}
+
+	return &model.RabbitPolicies{
+		Policies: cast(policies),
 	}
 }
