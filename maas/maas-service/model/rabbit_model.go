@@ -3,8 +3,9 @@ package model
 import (
 	"database/sql"
 	"fmt"
-	"github.com/netcracker/qubership-maas/utils"
 	"strings"
+
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 const ALTERNATE_EXCHANGE_SUFFIX = "ae"
@@ -200,8 +201,8 @@ type RabbitPolicies struct {
 }
 
 type RabbitDeletions struct {
-	RabbitEntities
-	RabbitPolicies
+	RabbitEntities `mapstructure:",squash"`
+	RabbitPolicies `mapstructure:",squash"`
 }
 
 type VhostAndVersion struct {
