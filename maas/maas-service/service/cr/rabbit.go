@@ -38,12 +38,14 @@ func adaptVhostConfig(config *RabbitVhostConfigSpec, metadata *CustomResourceMet
 	var adaptedConfig model.RabbitConfigReqDto
 
 	//no versioned entities anymore
-	adaptedConfig.Spec.Entities = convertEntities(config.Entities)
+	if config.Entities != nil {
+		adaptedConfig.Spec.Entities = convertEntities(config.Entities)
+	}
 
 	if config.Deletions != nil {
 		adaptedConfig.Spec.RabbitDeletions = &model.RabbitDeletions{
 			RabbitEntities: *convertEntities(&config.Deletions.RabbitEntities),
-			RabbitPolicies: *convertPolicies(config.Deletions.RabbitPolicies.Policies),
+			RabbitPolicies: *convertPolicies(&config.Deletions.RabbitPolicies),
 		}
 	}
 
@@ -70,39 +72,29 @@ func adaptVhostConfig(config *RabbitVhostConfigSpec, metadata *CustomResourceMet
 }
 
 func convertEntities(entities *model.RabbitEntities) *model.RabbitEntities {
-	cast := func(en []any) []any {
-		result := make([]any, 0)
-		for _, q := range en {
-			items := make(map[string]any)
-			for k, v := range q.(CustomResourceSpecRequest) {
-				items[k] = v
-			}
-			result = append(result, items)
-		}
-		return result
-	}
-
 	return &model.RabbitEntities{
-		Exchanges: cast(entities.Exchanges),
-		Queues:    cast(entities.Queues),
-		Bindings:  cast(entities.Bindings),
+		Exchanges: toSpecMapSlice(entities.Exchanges),
+		Queues:    toSpecMapSlice(entities.Queues),
+		Bindings:  toSpecMapSlice(entities.Bindings),
 	}
 }
 
-func convertPolicies(policies []interface{}) *model.RabbitPolicies {
-	cast := func(en []any) []any {
-		result := make([]any, 0)
-		for _, q := range en {
-			items := make(map[string]any)
-			for k, v := range q.(CustomResourceSpecRequest) {
-				items[k] = v
-			}
-			result = append(result, items)
-		}
-		return result
-	}
-
+func convertPolicies(policies *model.RabbitPolicies) *model.RabbitPolicies {
 	return &model.RabbitPolicies{
-		Policies: cast(policies),
+		Policies: toSpecMapSlice(policies.Policies),
 	}
+}
+
+// toSpecMapSlice converts a slice of CustomResourceSpecRequest (as []interface{})
+// into a slice of map[string]any to be sent further downstream.
+func toSpecMapSlice(en []interface{}) []any {
+	result := make([]any, 0, len(en))
+	for _, q := range en {
+		items := make(map[string]any)
+		for k, v := range q.(CustomResourceSpecRequest) {
+			items[k] = v
+		}
+		result = append(result, items)
+	}
+	return result
 }
