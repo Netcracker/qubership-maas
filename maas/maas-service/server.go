@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
+	"sync/atomic"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -19,6 +23,7 @@ import (
 	"github.com/netcracker/qubership-maas/dr"
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/keymanagement"
+	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/monitoring"
 	"github.com/netcracker/qubership-maas/postdeploy"
 	"github.com/netcracker/qubership-maas/router"
@@ -38,9 +43,7 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
-	"os"
-	"sync/atomic"
-	"time"
+
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
@@ -81,12 +84,18 @@ func main() {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
 	}
 
+	audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
+	oidcVerifier, err := oidc.NewVerifierDefault(ctx, audience)
+	if err != nil {
+		log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
+	}
+
 	compositeRegistrationService := composite.NewRegistrationService(composite.NewPGRegistrationDao(pg))
 	keyManagementHelper := keymanagement.NewPlain()
 	bgService := bg_service.NewBgService(bg_service.NewBgServiceDao(pg))
 	domainDao := domain.NewBGDomainDao(pg)
 	bgDomainService := domain.NewBGDomainService(domainDao)
-	authService := auth.NewAuthService(auth.NewAuthDao(pg), compositeRegistrationService, bgDomainService)
+	authService := auth.NewAuthService(auth.NewAuthDao(pg), compositeRegistrationService, bgDomainService, oidcVerifier)
 
 	kafkaHelper := helper.CreateKafkaHelper(ctx)
 	kafkaInstanceService := instance.NewKafkaInstanceService(instance.NewKafkaInstancesDao(pg, domainDao), kafkaHelper)

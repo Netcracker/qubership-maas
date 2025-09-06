@@ -8,11 +8,17 @@ import org.junit.jupiter.api.TestInfo;
 import org.testcontainers.containers.*;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
+import wf.garnier.testcontainers.dexidp.DexContainer;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 
 import static org.qubership.it.maas.MaasITHelper.TEST_NAMESPACE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +36,39 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
 
+    protected static final DexContainer OIDC_SERVER_CONTAINER = new DexContainer(DexContainer.DEFAULT_IMAGE_NAME.withTag(DexContainer.DEFAULT_TAG))
+            .withNetwork(TEST_NETWORK)
+            .withNetworkAliases("oidc-server")
+            .withExposedPorts(5556, 5557)
+            .withCopyFileToContainer(
+                    MountableFile.forClasspathResource("dex-config.yaml"),
+                    "/etc/dex/config.yaml")
+            .withCommand("dex", "serve", "/etc/dex/config.yaml");
+
+    private static final Path oidcTokenTempFile;
+
+    static {
+        try {
+            oidcTokenTempFile = Files.createTempFile("", "");
+            Files.writeString(oidcTokenTempFile, Utils.getNewJwt("http://%s:%d/dex".formatted(OIDC_SERVER_CONTAINER.getNetworkAliases().getLast(), 5556)));
+            try {
+                Set<PosixFilePermission> permissions = Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.GROUP_READ,
+                        PosixFilePermission.OTHERS_READ
+                );
+                Files.setPosixFilePermissions(oidcTokenTempFile, permissions);
+            } catch (UnsupportedOperationException e) {
+                oidcTokenTempFile.toFile().setReadable(true, true);
+                oidcTokenTempFile.toFile().setWritable(true, true);
+                oidcTokenTempFile.toFile().setReadable(true, false);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     protected static final GenericContainer<?> MAAS_CONTAINER = new GenericContainer<>(
             new ImageFromDockerfile()
                     .withFileFromPath(".", Paths.get("../maas"))
@@ -44,6 +83,8 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
             )
             .withNetwork(TEST_NETWORK)
             .withExposedPorts(8080)
+            .withCopyFileToContainer(MountableFile.forHostPath(oidcTokenTempFile.toAbsolutePath()), "/var/run/secrets/kubernetes.io/serviceaccount/token")
+            .dependsOn(OIDC_SERVER_CONTAINER)
             .dependsOn(POSTGRES_CONTAINER);
 
     static {
@@ -54,6 +95,8 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
         RABBITMQ_CONTAINER_1.start();
         RABBITMQ_CONTAINER_2.start();
+
+        OIDC_SERVER_CONTAINER.start();
 
         MAAS_CONTAINER.start();
 

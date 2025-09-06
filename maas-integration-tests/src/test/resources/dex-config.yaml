@@ -1,0 +1,18 @@
+issuer: http://oidc-server:5556/dex
+
+storage:
+  type: sqlite3
+
+web:
+  http: 0.0.0.0:5556
+
+telemetry:
+  http: 0.0.0.0:5558
+
+grpc:
+  addr: 0.0.0.0:5557
+
+connectors:
+  - type: mockCallback
+    id: mock
+    name: Example
