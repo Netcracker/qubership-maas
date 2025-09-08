@@ -23,7 +23,7 @@ require (
 	github.com/knadh/koanf v1.5.0
 	github.com/lib/pq v1.10.9
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.0.0-20250313075033-4f4481e1b15e
+	github.com/netcracker/qubership-core-lib-go/v3 v3.0.1
 	github.com/onsi/gomega v1.36.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
