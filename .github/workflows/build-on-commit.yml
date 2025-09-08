@@ -10,19 +10,14 @@ jobs:
     with:
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-      go-module-dir: maas/maas-service
+      go-module-dir: maas-service
     secrets:
       sonar-token: ${{ secrets.SONAR_TOKEN }}
 
-  integration-tests:
-    uses: netcracker/qubership-core-infra/.github/workflows/run-maven-with-sonar.yaml@v1.0.3
-    with:
-      event-name: ${{ github.event_name }}
-      actor: ${{ github.actor }}
-
   docker-build:
-    needs: [build, integration-tests]
+    needs: [build]
     uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.0.7
     with:
       dry-run: false
-      config-filename: "maas---docker-dev-config.json"
+      config-filename: "docker-dev-config.json"
+
