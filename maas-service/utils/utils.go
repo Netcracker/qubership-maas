@@ -7,13 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ghodss/yaml"
-	"github.com/go-resty/resty/v2"
-	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
-	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"github.com/netcracker/qubership-maas/msg"
 	"math/rand"
 	"os"
 	"path"
@@ -22,6 +15,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ghodss/yaml"
+	"github.com/go-resty/resty/v2"
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/msg"
 )
 
 var log = logging.GetLogger("utils")
@@ -276,7 +277,7 @@ func FormatterUtil(ai interface{}, state fmt.State, verb int32) {
 	if verb == 's' || verb == 'q' {
 		switch ai.(type) {
 		case fmt.Stringer:
-			fmt.Fprintf(state, ai.(fmt.Stringer).String())
+			fmt.Fprint(state, ai.(fmt.Stringer).String())
 			return
 		default:
 			// override rune and use formatting code below
@@ -310,7 +311,7 @@ func FormatterUtil(ai interface{}, state fmt.State, verb int32) {
 		fmt.Fprint(state, "}")
 	default:
 		fmt.Fprintf(state, "Unsupported format: ")
-		fmt.Fprintf(state, string(verb))
+		fmt.Fprint(state, string(verb))
 	}
 }
 
