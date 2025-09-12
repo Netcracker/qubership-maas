@@ -18,7 +18,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.7.6
 	github.com/jucardi/go-streams/v2 v2.0.2
 	github.com/knadh/koanf v1.5.0
 	github.com/lib/pq v1.10.9
