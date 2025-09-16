@@ -389,8 +389,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
-github.com/netcracker/qubership-core-lib-go/v3 v3.0.0-20250313075033-4f4481e1b15e h1:ZDZoTknGFrWSZHJmmk54lFgcdUPFK+Aiu1rwQUnXRDQ=
-github.com/netcracker/qubership-core-lib-go/v3 v3.0.0-20250313075033-4f4481e1b15e/go.mod h1:1EKZPAtxng7sFKRm+MjnsQ4wJfe1+/zxjuhli6kIRLQ=
+github.com/netcracker/qubership-core-lib-go/v3 v3.1.0 h1:lCPMYkBTjEYJ2H0zGMa31nFiLlwdxNGpnpUaZ8O5Elk=
+github.com/netcracker/qubership-core-lib-go/v3 v3.1.0/go.mod h1:KsApx/jBB+RLvZTNh9mWoDiMR8N+YxTd54Eq3F/WZa4=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/npillmayer/nestext v0.1.3/go.mod h1:h2lrijH8jpicr25dFY+oAJLyzlya6jhnuG+zWp9L0Uk=
 github.com/nxadm/tail v1.4.4 h1:DQuhQpB1tVlglWS2hLQ5OV6B5r8aGxSrPc5Qo6uTN78=
