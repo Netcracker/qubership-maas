@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Create Tag
-        uses: netcracker/qubership-workflow-hub/actions/tag-action@v1.0.3
+        uses: netcracker/qubership-workflow-hub/actions/tag-action@v1.0.6
         with:
           ref: ${{ github.ref }}
           tag-name: v${{ github.event.inputs.version }}
@@ -44,7 +44,7 @@ jobs:
 
   docker-build-publish:
     needs: create-tag
-    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@v1.0.3
+    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@v1.0.6
     with:
       ref: v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete Tag
-        uses: netcracker/qubership-workflow-hub/actions/tag-action@v1.0.3
+        uses: netcracker/qubership-workflow-hub/actions/tag-action@v1.0.6
         with:
           ref: ${{ github.ref }}
           tag-name: v${{ github.event.inputs.version }}
@@ -79,7 +79,7 @@ jobs:
   github-release:
     needs: docker-build-publish
     if: ${{ github.event.inputs.dry-run == 'false' }}
-    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@v1.0.3
+    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@v1.0.6
     with:
       version: ${{ github.event.inputs.version }}
       publish: false
