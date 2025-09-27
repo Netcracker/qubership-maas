@@ -1316,6 +1316,7 @@ func (s *RabbitServiceImpl) DeleteEntitiesByRabbitVersionedEntities(ctx context.
 						return result, err
 					}
 				}
+
 			}
 		} else if versionedEntity.EntityType == "queue" {
 			err := deleteEntity(ctx, versionedEntity.RabbitEntity, rabbitHelper.DeleteQueue, &result.Queues)
