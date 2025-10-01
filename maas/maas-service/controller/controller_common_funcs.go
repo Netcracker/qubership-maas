@@ -342,7 +342,7 @@ func FallbackCrApiVersion(oldCrApi string) func(*fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		if oldCrApi != "" {
 			body := ctx.Body()
-			modifiedBody := bytes.ReplaceAll(body, []byte(oldCrApi), []byte("core.qubership.org/v1"))
+			modifiedBody := bytes.ReplaceAll(body, []byte(oldCrApi), []byte("core.netcracker.com/v1"))
 			ctx.Request().SetBody(modifiedBody)
 		}
 		return ctx.Next()

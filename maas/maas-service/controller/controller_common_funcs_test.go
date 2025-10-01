@@ -162,12 +162,12 @@ func TestFallbackCrApiVersion(t *testing.T) {
 		{
 			config:      "old.api.version/v1",
 			input:       `{"apiVersion": "old.api.version/v1", "kind": "Test"}`,
-			expectation: `{"apiVersion": "core.qubership.org/v1", "kind": "Test"}`,
+			expectation: `{"apiVersion": "core.netcracker.com/v1", "kind": "Test"}`,
 		},
 		{
 			config:      "",
-			input:       `{"apiVersion": "abc.qubership.org/v1", "kind": "Test"}`,
-			expectation: `{"apiVersion": "abc.qubership.org/v1", "kind": "Test"}`,
+			input:       `{"apiVersion": "abc.netcracker.com/v1", "kind": "Test"}`,
+			expectation: `{"apiVersion": "abc.netcracker.com/v1", "kind": "Test"}`,
 		},
 	}
 
