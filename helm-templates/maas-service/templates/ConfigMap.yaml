@@ -6,8 +6,8 @@ metadata:
   labels:
     managed-by: Helm
     app.kubernetes.io/managed-by: Helm
-    qubership.cloud/part-of: disaster-recovery
-    qubership.cloud/used-by: cluster-replicator
+    netcracker.cloud/part-of: disaster-recovery
+    netcracker.cloud/used-by: cluster-replicator
   annotations:
     meta.helm.sh/release-name: {{ .Values.SERVICE_NAME }}
     meta.helm.sh/release-namespace: {{ .Values.NAMESPACE }}
@@ -20,8 +20,8 @@ metadata:
   labels:
     managed-by: Helm
     app.kubernetes.io/managed-by: Helm
-    qubership.cloud/part-of: disaster-recovery
-    qubership.cloud/used-by: cluster-replicator
+    netcracker.cloud/part-of: disaster-recovery
+    netcracker.cloud/used-by: cluster-replicator
     profiles-package-type: default
   annotations:
     meta.helm.sh/release-name: {{ .Values.SERVICE_NAME }}
