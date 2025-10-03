@@ -67,7 +67,7 @@ func (bgds *BGDomainServiceImpl) Bind(ctx context.Context, origin string, peer s
 	}
 }
 
-// its migration hack to add controller namespace missed on first bg2 implementation
+// its migration step to add controller namespace missed on first bg2 implementation
 func (bgds *BGDomainServiceImpl) UpdateController(ctx context.Context, origin string, controller string) error {
 	log.InfoC(ctx, "Update BG Domain: %v, by adding controller ns: %v", origin, controller)
 	if err := bgds.dao.UpdateController(ctx, origin, controller); err == nil {
