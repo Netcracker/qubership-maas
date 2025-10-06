@@ -6,10 +6,10 @@ package mock_instance
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
 )
 
 // MockKafkaInstanceService is a mock of KafkaInstanceService interface.

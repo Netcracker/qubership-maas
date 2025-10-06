@@ -6,11 +6,11 @@ package postdeploy
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
-	utils "github.com/netcracker/qubership-maas/utils"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
+	utils "github.com/netcracker/qubership-maas/utils"
 )
 
 // MockAuthService is a mock of AuthService interface.
