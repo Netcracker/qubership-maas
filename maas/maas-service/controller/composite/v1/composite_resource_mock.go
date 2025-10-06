@@ -6,10 +6,10 @@ package v1
 
 import (
 	context "context"
-	composite "github.com/netcracker/qubership-maas/service/composite"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	composite "github.com/netcracker/qubership-maas/service/composite"
 )
 
 // MockRegistrationService is a mock of RegistrationService interface.
