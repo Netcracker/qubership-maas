@@ -1,0 +1,35 @@
+name: '[MaaS] Go build'
+
+on:
+  push:
+    paths:
+      - 'maas/**'
+      - 'maas-integration-tests/**'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'maas/**'
+      - 'maas-integration-tests/**'
+
+jobs:
+  build:
+    uses: netcracker/qubership-core-infra/.github/workflows/go-build-with-sonar.yaml@v1.0.9
+    with:
+      actor: ${{ github.actor }}
+      sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
+      go-module-dir: maas/maas-service
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+
+  integration-tests:
+    uses: netcracker/qubership-core-infra/.github/workflows/maven-build-with-sonar.yaml@v1.0.9
+    with:
+      event-name: ${{ github.event_name }}
+      actor: ${{ github.actor }}
+
+  docker-build:
+    needs: [build, integration-tests]
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.0.9
+    with:
+      dry-run: false
+      config-filename: "maas---docker-dev-config.json"

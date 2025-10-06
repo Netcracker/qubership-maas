@@ -41,4 +41,3 @@ spec:
         - secretRef:
             name: {{ .Values.SERVICE_NAME }}-v-env-variables
       restartPolicy: Never
-{{- end }}

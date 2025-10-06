@@ -1,0 +1,17 @@
+name: '[MaaS validation image] Go build'
+
+on:
+  push:
+    paths:
+      - 'validation-image/**'
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    paths:
+      - 'validation-image/**'
+
+jobs:
+  docker-build:
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@v1.0.9
+    with:
+      dry-run: false
+      config-filename: "validation-image---docker-dev-config.json"

@@ -1,0 +1,10 @@
+{
+  "components" : [
+    {
+      "name": "qubership-maas",
+      "file": "maas/Dockerfile",
+      "context": "./maas"
+    }
+  ],
+  "platforms" : "linux/amd64"
+}
