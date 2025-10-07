@@ -190,7 +190,25 @@ func (db *TestDatabase) Close(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	err := db.instance.Terminate(ctx)
+
+	// Try to terminate the container with retry logic
+	var err error
+	for i := 0; i < 3; i++ {
+		err = db.instance.Terminate(ctx)
+		if err == nil {
+			db.closed = true
+			return
+		}
+		// If container is already being removed, that's okay
+		if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
+			t.Logf("Container already being removed, continuing...")
+			db.closed = true
+			return
+		}
+		if i < 2 {
+			time.Sleep(time.Second)
+		}
+	}
 	db.closed = true
 	require.NoError(t, err)
 }
