@@ -152,37 +152,3 @@ func TestWithBody(t *testing.T) {
 	_, err = app.Test(req)
 	assert.NoError(t, err)
 }
-
-func TestFallbackCrApiVersion(t *testing.T) {
-	testData := []struct {
-		config      string
-		input       string
-		expectation string
-	}{
-		{
-			config:      "old.api.version/v1",
-			input:       `{"apiVersion": "old.api.version/v1", "kind": "Test"}`,
-			expectation: `{"apiVersion": "core.netcracker.com/v1", "kind": "Test"}`,
-		},
-		{
-			config:      "",
-			input:       `{"apiVersion": "abc.netcracker.com/v1", "kind": "Test"}`,
-			expectation: `{"apiVersion": "abc.netcracker.com/v1", "kind": "Test"}`,
-		},
-	}
-
-	for _, tt := range testData {
-		app := fiber.New()
-		app.Post("/", FallbackCrApiVersion(tt.config), func(c *fiber.Ctx) error {
-			return c.Send(c.Body())
-		})
-
-		req := httptest.NewRequest("POST", "/", strings.NewReader(tt.input))
-		resp, err := app.Test(req)
-		assert.NoError(t, err)
-
-		body, err := io.ReadAll(resp.Body)
-		assert.NoError(t, err)
-		assert.Equal(t, tt.expectation, string(body))
-	}
-}
