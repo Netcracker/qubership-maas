@@ -10,7 +10,7 @@ metadata:
   namespace: '{{ .Values.NAMESPACE }}'
   labels:
     app.kubernetes.io/instance: "{{ .Values.SERVICE_NAME }}"
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
@@ -23,7 +23,7 @@ metadata:
     "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"
   labels:
     app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
     app.kubernetes.io/part-of: maas
 rules:
   - apiGroups:
@@ -50,7 +50,7 @@ metadata:
     "helm.sh/hook-delete-policy": "before-hook-creation, hook-succeeded"
   labels:
     app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
     app.kubernetes.io/part-of: maas
 subjects:
   - kind: ServiceAccount
@@ -72,7 +72,7 @@ metadata:
   labels:
     app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
     app.kubernetes.io/managed-by: "helm"
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
 stringData:
   NAMESPACE: {{ .Values.NAMESPACE }}
   SERVICE_NAME: {{ .Values.SERVICE_NAME | quote }}
@@ -97,7 +97,7 @@ metadata:
     helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
   labels:
     app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
     app.kubernetes.io/part-of: maas
 spec:
   backoffLimit: 1
