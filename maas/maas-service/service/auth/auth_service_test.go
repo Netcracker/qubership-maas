@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/dao"
 	dbc "github.com/netcracker/qubership-maas/dao/db"
 	"github.com/netcracker/qubership-maas/dr"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
@@ -297,14 +297,14 @@ type mockVerifier struct {
 	namespace string
 }
 
-func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*oidc.Claims, error) {
+func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*tokenverifier.Claims, error) {
 	if mv.token != rawToken {
 		return nil, errors.Join(errors.New("invalid token"), msg.AuthError)
 	}
-	return &oidc.Claims{
-		Kubernetes: oidc.K8sClaims{
+	return &tokenverifier.Claims{
+		Kubernetes: tokenverifier.K8sClaims{
 			Namespace: mv.namespace,
-			ServiceAccount: oidc.ServiceAccount{
+			ServiceAccount: tokenverifier.ServiceAccountClaim{
 				Name: mv.username,
 			},
 		},

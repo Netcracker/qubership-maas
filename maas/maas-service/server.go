@@ -12,6 +12,7 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxmanager"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/controller"
 	controllerBluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
 	controllerCompositeV1 "github.com/netcracker/qubership-maas/controller/composite/v1"
@@ -23,7 +24,6 @@ import (
 	"github.com/netcracker/qubership-maas/dr"
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/keymanagement"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/monitoring"
 	"github.com/netcracker/qubership-maas/postdeploy"
 	"github.com/netcracker/qubership-maas/router"
@@ -85,7 +85,7 @@ func main() {
 	}
 
 	audience := configloader.GetKoanf().String("kubernetes.oidc.audience")
-	oidcVerifier, err := oidc.NewVerifierDefault(ctx, audience)
+	oidcVerifier, err := tokenverifier.New(ctx, audience)
 	if err != nil {
 		log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
 	}

@@ -4,14 +4,15 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/dao"
-	"github.com/netcracker/qubership-maas/kubernetes/oidc"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
@@ -56,11 +57,11 @@ type AuthServiceImpl struct {
 	dao                AuthDao
 	bgDomainService    domain.BGDomainService
 	compositeRegistrar CompositeRegistrar
-	oidcVerifier       oidc.Verifier
+	oidcVerifier       tokenverifier.Verifier
 }
 
 
-func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService, oidcVerifier oidc.Verifier) AuthService {
+func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService, oidcVerifier tokenverifier.Verifier) AuthService {
 	return &AuthServiceImpl{
 		dao:                dao,
 		compositeRegistrar: compositeRegistrar,
@@ -192,7 +193,7 @@ func (s *AuthServiceImpl) IsAccessGrantedWithBasic(ctx context.Context, username
 func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
 	claims, err := s.oidcVerifier.Verify(ctx, rawToken)
 	if err != nil {
-		return nil, fmt.Errorf("oidc: failed to verify token: %w", err)
+		return nil, errors.Join(msg.AuthError, fmt.Errorf("oidc: failed to verify token: %w", err))
 	}
 	username := claims.Kubernetes.ServiceAccount.Name
 	log.InfoC(ctx, "Checking access for account with service account '%v', roles '%v'", username, roles)
