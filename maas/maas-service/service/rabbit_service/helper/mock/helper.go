@@ -6,10 +6,10 @@ package mock_helper
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
 )
 
 // MockRabbitHelper is a mock of RabbitHelper interface.

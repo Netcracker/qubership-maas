@@ -15,7 +15,7 @@ cat << EOF | kubectl --namespace="${NAMESPACE}" apply -f -
         "pg_address": "$(printf "${DB_POSTGRESQL_ADDRESS:-}" | base64 -w 0 )",
         "username": "$(printf "${DB_POSTGRESQL_USERNAME:-}" | base64 -w 0 )",
         "password": "$(printf "${DB_POSTGRESQL_PASSWORD:-}" | base64 -w 0 )",
-        "tls": "$(printf "${DB_POSTGRESQL_TLS:-false}" | base64 -w 0 )"
+        "tls": "$(printf "${DB_POSTGRESQL_TLS_ENABLED:-false}" | base64 -w 0 )"
       }
     }
 EOF

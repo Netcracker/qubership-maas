@@ -6,10 +6,10 @@ package mock_bg_service
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
 )
 
 // MockBgServiceDao is a mock of BgServiceDao interface.

@@ -6,11 +6,11 @@ package mock_bg_service
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
-	bg_service "github.com/netcracker/qubership-maas/service/bg_service"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
+	bg_service "github.com/netcracker/qubership-maas/service/bg_service"
 )
 
 // MockBgService is a mock of BgService interface.

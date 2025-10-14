@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/go-errors/errors"
 	"github.com/go-pg/pg/v10"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
@@ -19,8 +22,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/rabbit_service/helper"
 	"github.com/netcracker/qubership-maas/utils"
 	"golang.org/x/exp/maps"
-	"net/http"
-	"strings"
 )
 
 var ErrAggregateConfigParsing = errors.New("configurator_service: bad input, check correctness of your YAML")
@@ -1296,6 +1297,26 @@ func (s *RabbitServiceImpl) DeleteEntitiesByRabbitVersionedEntities(ctx context.
 			if err != nil {
 				log.ErrorC(ctx, "error during exchange deletion for exchange '%+v': %v", versionedEntity, err)
 				return result, err
+			}
+
+			// Also delete AE if no other versioned exchanges remain for this version router
+			exchangeName := versionedEntity.EntityName
+			if exchangeName != "" {
+				// Check if there are any other versioned exchanges with this name in DB
+				remainingEntities, err := s.rabbitDao.GetRabbitVersEntitiesByVhostAndNameAndType(ctx, versionedEntity.MsConfig.VhostID, exchangeName, "exchange")
+				if err != nil {
+					log.ErrorC(ctx, "error checking remaining versioned exchanges for '%v': %v", exchangeName, err)
+					return result, err
+				} else if len(remainingEntities) == 0 {
+					// No other versioned exchanges remain, safe to delete AE
+					aeName := getAltExchNameByVersionRouter(exchangeName)
+					_, err = rabbitHelper.DeleteExchange(ctx, map[string]interface{}{"name": aeName})
+					if err != nil {
+						log.ErrorC(ctx, "error during AE deletion for version router '%v': %v", exchangeName, err)
+						return result, err
+					}
+				}
+
 			}
 		} else if versionedEntity.EntityType == "queue" {
 			err := deleteEntity(ctx, versionedEntity.RabbitEntity, rabbitHelper.DeleteQueue, &result.Queues)

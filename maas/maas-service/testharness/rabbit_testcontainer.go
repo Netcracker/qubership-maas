@@ -3,10 +3,12 @@ package testharness
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/testcontainers/testcontainers-go/wait"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/stretchr/testify/require"
 
@@ -96,6 +98,22 @@ func (db *TestRabbit) AmqpUrl() string {
 func (db *TestRabbit) Close(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	err := db.instance.Terminate(ctx)
+
+	// Try to terminate the container with retry logic
+	var err error
+	for i := 0; i < 3; i++ {
+		err = db.instance.Terminate(ctx)
+		if err == nil {
+			return
+		}
+		// If container is already being removed, that's okay
+		if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
+			t.Logf("Container already being removed, continuing...")
+			return
+		}
+		if i < 2 {
+			time.Sleep(time.Second)
+		}
+	}
 	require.NoError(t, err)
 }

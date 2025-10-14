@@ -6,10 +6,10 @@ package mock_domain
 
 import (
 	context "context"
-	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
 )
 
 // MockBGDomainService is a mock of BGDomainService interface.

@@ -6,13 +6,13 @@ package kafka
 
 import (
 	context "context"
-	eventbus "github.com/netcracker/qubership-maas/eventbus"
-	model "github.com/netcracker/qubership-maas/model"
-	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
 	reflect "reflect"
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	eventbus "github.com/netcracker/qubership-maas/eventbus"
+	model "github.com/netcracker/qubership-maas/model"
+	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
 )
 
 // MockKafkaDao is a mock of KafkaDao interface.
