@@ -6,10 +6,10 @@ package mock_rabbit_service
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
 )
 
 // MockRabbitServiceDao is a mock of RabbitServiceDao interface.

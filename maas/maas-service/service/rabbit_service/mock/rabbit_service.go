@@ -6,12 +6,12 @@ package mock_rabbit_service
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
-	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
-	bg_service "github.com/netcracker/qubership-maas/service/bg_service"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
+	domain "github.com/netcracker/qubership-maas/service/bg2/domain"
+	bg_service "github.com/netcracker/qubership-maas/service/bg_service"
 )
 
 // MockRabbitService is a mock of RabbitService interface.

@@ -6,11 +6,11 @@ package mock_helper
 
 import (
 	context "context"
-	model "github.com/netcracker/qubership-maas/model"
 	reflect "reflect"
 
 	sarama "github.com/IBM/sarama"
 	gomock "github.com/golang/mock/gomock"
+	model "github.com/netcracker/qubership-maas/model"
 )
 
 // MockHelper is a mock of Helper interface.

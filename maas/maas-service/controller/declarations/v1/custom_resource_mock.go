@@ -6,10 +6,10 @@ package v1
 
 import (
 	context "context"
-	cr "github.com/netcracker/qubership-maas/service/cr"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	cr "github.com/netcracker/qubership-maas/service/cr"
 )
 
 // MockCustomResourceProcessorService is a mock of CustomResourceProcessorService interface.
