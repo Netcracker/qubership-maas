@@ -2,7 +2,13 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/dao"
 	dbc "github.com/netcracker/qubership-maas/dao/db"
 	"github.com/netcracker/qubership-maas/dr"
@@ -13,9 +19,6 @@ import (
 	"github.com/netcracker/qubership-maas/testharness"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -28,7 +31,7 @@ func TestAuthServiceImpl_API(t *testing.T) {
 		ctx := context.Background()
 
 		dao := NewAuthDao(baseDao)
-		authService := NewAuthService(dao, nil, nil)
+		authService := NewAuthService(dao, nil, nil, nil)
 
 		account := model.ClientAccountDto{
 			Username:  "scott",
@@ -101,7 +104,7 @@ func TestAuthServiceImpl_UpdateUserPassword(t *testing.T) {
 		defer cancelContext()
 
 		dao := NewAuthDao(baseDao)
-		authService := NewAuthService(dao, nil, nil)
+		authService := NewAuthService(dao, nil, nil, nil)
 
 		{
 			managerExists, err := authService.IsFirstAccountManager(ctx)
@@ -251,7 +254,7 @@ func TestAuthServiceImpl_IsAccessGranted(t *testing.T) {
 
 		dao := NewAuthDao(baseDao)
 		bgDomainService := domain.NewBGDomainService(domain.NewBGDomainDao(baseDao))
-		authService := NewAuthService(dao, nil, bgDomainService)
+		authService := NewAuthService(dao, nil, bgDomainService, nil)
 
 		_, err := authService.CreateUserAccount(ctx, &model.ClientAccountDto{
 			Username:  user,
@@ -261,28 +264,96 @@ func TestAuthServiceImpl_IsAccessGranted(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		isAccessGrantedToFirstNamespace, err := authService.IsAccessGranted(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithBasic(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToFirstNamespace)
 
-		isAccessGrantedToSecondNamespace, err := authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToSecondNamespace, err := authService.IsAccessGrantedWithBasic(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.ErrorIs(t, err, msg.AuthError)
 		assert.Nil(t, isAccessGrantedToSecondNamespace)
 
 		err = bgDomainService.Bind(ctx, firstNamespace, secondNamespace, controllerNamespace)
 		assert.NoError(t, err)
 
-		isAccessGrantedToFirstNamespace, err = authService.IsAccessGranted(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithBasic(ctx, user, password, firstNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToFirstNamespace)
 
-		isAccessGrantedToSecondNamespace, err = authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToSecondNamespace, err = authService.IsAccessGrantedWithBasic(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToSecondNamespace)
 
 		_, err = bgDomainService.Unbind(ctx, secondNamespace)
 		assert.NoError(t, err)
-		isAccessGrantedToFirstNamespace, err = authService.IsAccessGranted(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithBasic(ctx, user, password, secondNamespace, []model.RoleName{model.AgentRole})
+		assert.ErrorIs(t, err, msg.AuthError)
+		assert.Nil(t, isAccessGrantedToFirstNamespace)
+	})
+}
+
+type mockVerifier struct {
+	token     string
+	username  string
+	namespace string
+}
+
+func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*tokenverifier.Claims, error) {
+	if mv.token != rawToken {
+		return nil, errors.Join(errors.New("invalid token"), msg.AuthError)
+	}
+	return &tokenverifier.Claims{
+		Kubernetes: tokenverifier.K8sClaims{
+			Namespace: mv.namespace,
+			ServiceAccount: tokenverifier.ServiceAccountClaim{
+				Name: mv.username,
+			},
+		},
+	}, nil
+}
+
+func TestAuthServiceImpl_IsAccessGrantedWithToken(t *testing.T) {
+	firstNamespace := "first"
+	secondNamespace := "second"
+	controllerNamespace := "controller"
+
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		ctx, cancelContext := context.WithCancel(context.Background())
+		defer cancelContext()
+
+		username := "test-user"
+		token := "my-super-secured-password"
+
+		verifier := mockVerifier{
+			token:     token,
+			username:  username,
+			namespace: firstNamespace,
+		}
+		dao := NewAuthDao(baseDao)
+		bgDomainService := domain.NewBGDomainService(domain.NewBGDomainDao(baseDao))
+		authService := NewAuthService(dao, nil, bgDomainService, verifier)
+
+		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.AgentRole})
+		assert.NoError(t, err)
+		assert.NotNil(t, isAccessGrantedToFirstNamespace)
+
+		isAccessGrantedToSecondNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
+		assert.ErrorIs(t, err, msg.AuthError)
+		assert.Nil(t, isAccessGrantedToSecondNamespace)
+
+		err = bgDomainService.Bind(ctx, firstNamespace, secondNamespace, controllerNamespace)
+		assert.NoError(t, err)
+
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.AgentRole})
+		assert.NoError(t, err)
+		assert.NotNil(t, isAccessGrantedToFirstNamespace)
+
+		isAccessGrantedToSecondNamespace, err = authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
+		assert.NoError(t, err)
+		assert.NotNil(t, isAccessGrantedToSecondNamespace)
+
+		_, err = bgDomainService.Unbind(ctx, secondNamespace)
+		assert.NoError(t, err)
+		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.ErrorIs(t, err, msg.AuthError)
 		assert.Nil(t, isAccessGrantedToFirstNamespace)
 	})
@@ -296,7 +367,7 @@ func TestAuthServiceImpl_CheckSecurityForBoundNamespaces(t *testing.T) {
 		dao := NewAuthDao(baseDao)
 		bgDomainService := domain.NewBGDomainService(domain.NewBGDomainDao(baseDao))
 
-		authService := NewAuthService(dao, composite.NewPGRegistrationDao(baseDao), bgDomainService)
+		authService := NewAuthService(dao, composite.NewPGRegistrationDao(baseDao), bgDomainService, nil)
 
 		err := authService.CheckSecurityForBoundNamespaces(ctx, "test-1-1", &model.Classifier{
 			Name:      "tst-name",

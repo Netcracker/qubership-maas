@@ -28,6 +28,10 @@ db:
   cipher:
     key: thisis32bitlongpassphraseimusing
 
+kubernetes:
+  oidc:
+    audience: maas
+
 
 # DR mode defaults
 execution.mode: active
