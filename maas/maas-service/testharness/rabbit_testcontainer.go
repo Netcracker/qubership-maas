@@ -41,7 +41,7 @@ func newTestRabbit(t *testing.T) *TestRabbit {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	req := testcontainers.ContainerRequest{
-		Image:        "rabbitmq:3-management",
+		Image:        "rabbitmq:3.13.6-management",
 		ExposedPorts: []string{"15672/tcp", "5672/tcp"},
 		HostConfigModifier: func(config *container.HostConfig) {
 			config.AutoRemove = true

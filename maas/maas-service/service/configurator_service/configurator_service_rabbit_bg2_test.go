@@ -3,6 +3,9 @@ package configurator_service
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/jucardi/go-streams/v2/streams"
 	"github.com/netcracker/qubership-maas/dao"
@@ -23,8 +26,6 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	_ "github.com/proullon/ramsql/driver"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 var (
@@ -607,8 +608,8 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 					map[string]interface{}{"name": "e2", "type": "direct"},
 				},
 				Queues: []interface{}{
-					map[string]interface{}{"name": "q1"},
-					map[string]interface{}{"name": "q2"},
+					map[string]interface{}{"name": "q1", "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
+					map[string]interface{}{"name": "q2", "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
 				},
 				Bindings: []interface{}{
 					map[string]interface{}{"source": "e1", "destination": "q1"},
@@ -650,8 +651,8 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			//phase 3
 			rabbitEntitites = model.RabbitEntities{
 				Queues: []interface{}{
-					map[string]interface{}{"name": "q1", "exported": true},
-					map[string]interface{}{"name": "q2"},
+					map[string]interface{}{"name": "q1", "exported": true, "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
+					map[string]interface{}{"name": "q2", "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
 				},
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
@@ -674,8 +675,8 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			//phase 4
 			rabbitEntitites = model.RabbitEntities{
 				Queues: []interface{}{
-					map[string]interface{}{"name": "q1"},
-					map[string]interface{}{"name": "q2", "exported": true},
+					map[string]interface{}{"name": "q1", "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
+					map[string]interface{}{"name": "q2", "exported": true, "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
 				},
 			}
 			configVhost1.Spec.Entities = &rabbitEntitites
@@ -874,7 +875,7 @@ func TestRegistrationService_ExportedVhostExchanges(t *testing.T) {
 					map[string]interface{}{"name": "e1", "type": "direct"},
 				},
 				Queues: []interface{}{
-					map[string]interface{}{"name": "q1"},
+					map[string]interface{}{"name": "q1", "durable": true, "arguments": map[string]interface{}{"x-queue-type": "quorum"}},
 				},
 				Bindings: []interface{}{
 					map[string]interface{}{"source": "e1", "destination": "q1"},
