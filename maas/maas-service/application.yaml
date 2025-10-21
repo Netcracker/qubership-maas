@@ -38,6 +38,3 @@ production.mode: false
 #kafka.topics.update.timeout: 10s - deprecated property
 kafka.client.timeout: 10s
 health.check.interval: 5s
-
-# Migrate cr
-fallback.cr.apiversion: ""
