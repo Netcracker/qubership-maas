@@ -147,7 +147,7 @@ MaaS --> PostgreSQL : 6
 After retrieving a RabbitMQ virtual host using the get-by-classifier API, you can inspect the state of queues to determine if there are any unprocessed messages.
 
 ### Step-by-Step Guide
-Call the API Use the [/api/v2/rabbit/vhost/get-by-classifier]([rest_api.md#get-rabbit-virtual-host-with-config](rest_api.md#get-rabbit-virtual-host-with-config)) endpoint according to documentation.
+Call the API Use the [/api/v2/rabbit/vhost/get-by-classifier](rest_api.md#get-rabbit-virtual-host-with-config) endpoint according to documentation.
 
 Inspect the Response In the response JSON, locate the `entities.queues` array. Each object in this array represents a queue. You need to examine the following fields inside each queue object:
 
@@ -199,9 +199,6 @@ Example:
   ...
 }
 ```
-
-No additional setup needed for microservices. `maas-client` library provides utility method to
-easily format connection properties from topic address response from MaaS [maas-client#kafka-client-usage-example](../maas-client#kafka-client-usage-example).
 
 ## RabbitMQ
 MaaS supports RabbitMQ instances with TLS support. First of all CA certificate should be attached to
