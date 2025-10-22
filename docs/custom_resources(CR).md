@@ -217,23 +217,6 @@ Diagram below describes properties migrations between declarations:
 **Note:** It is also possible to override _topic/vhost_ name from `metadata.name` if it contains prohibited characters by
 putting wanted _topic/vhost_ name to `spec.classifier.name` property.
 
-## Automation
-
-To simplify migration process you can use utility declarative2cr that can convert `maas-configuration.yaml` to cr format automatically.
-
-Download binary for your platform:
-* windows (x86) - [declarative2cr-1.4.0-windows.zip](https://bass.netcracker.com/download/attachments/1878942834/declarative2cr-1.4.0-windows.zip?version=1&modificationDate=1726168682389&api=v2)
-* linux (x86, libc) - [declarative2cr-1.4.0-linux-gnu.tar.gz](https://bass.netcracker.com/download/attachments/1878942834/declarative2cr-1.4.0-linux-gnu.tar.gz?version=1&modificationDate=1726168697969&api=v2)
-* macos (aarch64-darwin) - [declarative2cr-1.4.0-linux-gnu.tar.gz](https://bass.netcracker.com/download/attachments/1878942834/declarative2cr-1.4.0-linux-gnu.tar.gz?version=1&modificationDate=1726168697969&api=v2)
-
-Execute conversion using command line:
-```bash
-$> cd deployments/
-$> declarative2cr <maas-configuration.yaml >charts/maas-service/maas.yaml
-Start convert maas configuration yaml from stdin...
-Done
-```
-
 ## Kafka
 
 Perform these steps to convert declarative entity to CR:
