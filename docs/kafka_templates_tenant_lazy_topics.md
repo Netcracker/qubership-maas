@@ -38,9 +38,6 @@ Deployment and using steps in detail:
   * Message Producers - can use MaaS REST API and search for target topic using [rest_api.md#search-kafka-topics](rest_api.md#search-kafka-topics)
   * Message Consumers - also can use MaaS REST API topic search to subscribe, but also they need to watch for newly created/deleted tenants in runtime and update their subscription lists.
 
-  Or better use [MaaS Java Client Library](../maas-client), that greatly simplifies tedious tasks described above.
-
-
 Steps 1.x are executed in application deployment time. Steps 2.x, 3.x are executed in application runtime time.
 Note, that all interactions of application microservices with MaaS should be go through `maas-agent` microservice, that acts as
 security proxy transforming application scoped M2M auth to Basic auth credentials specific for MaaS.
