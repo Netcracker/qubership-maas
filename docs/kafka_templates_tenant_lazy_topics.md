@@ -2,9 +2,9 @@
 You can create your `templates` with necessary properties and then just mention it during topic or lazy-topic creation instead of describing properties. Adding a new template to MaaS doesn't trigger any topic creations. The main purpose of this entity is to reduce configuration repetitions during topic definitions. The link to the template is stored to derived topics. So, when you change original template parameters, it triggers new value propagation to all linked topics. Template parameters have higher priority over parameters declared on target entities. The api is described in api doc.
 
 Another feature is `lazy-topic` - postponed creation of topic. You can think of it like a request of topic creation, which is stored in MaaS DB and could be triggered by corresponding api endpoint only by classifier. It could be useful if you want to describe topic beforehand using declarative approach and then just create it by name in your code.
-Lazy topic is an entity stored in register of maas, defining lazy topic does not create anything in Kafka  
-Main feature of lazy topic is that you can define topic with partially-filled classifier (e.g. `{ "name" : "my-topic", "namespace" : "my-namespace" }` ) with all proper configurations  
-Then you can create topic by lazy topic (see api below) only with fully-filled classifier, adding for example tenantId (e.g. `{ "name" : "my-topic",  "namespace" : "my-namespace", "tenantId" : "123" }` )  
+Lazy topic is an entity stored in register of maas, defining lazy topic does not create anything in Kafka
+Main feature of lazy topic is that you can define topic with partially-filled classifier (e.g. `{ "name" : "my-topic", "namespace" : "my-namespace" }` ) with all proper configurations
+Then you can create topic by lazy topic (see api below) only with fully-filled classifier, adding for example tenantId (e.g. `{ "name" : "my-topic",  "namespace" : "my-namespace", "tenantId" : "123" }` )
 And topic will be created with fully-filled classifier but with configs from lazy topics.
 The api is also described in api doc.
 
@@ -41,4 +41,4 @@ Deployment and using steps in detail:
 Steps 1.x are executed in application deployment time. Steps 2.x, 3.x are executed in application runtime time.
 Note, that all interactions of application microservices with MaaS should be go through `maas-agent` microservice, that acts as
 security proxy transforming application scoped M2M auth to Basic auth credentials specific for MaaS.
-    
+

@@ -7,13 +7,11 @@
     - [How to register instance](#how-to-register-instance)
   - [Why Kafka instance could be unhealthy](#why-kafka-instance-could-be-unhealthy)
     - [Amazon case](#amazon-case)
-  - [Why maas-agent responds with Bad Gateway (502) status](#why-maas-agent-responds-with-bad-gateway-502-status)
-  - [Where to find MaaS libs examples](#where-to-find-maas-libs-examples)
-  - [My instance has crashed and I want to change it to new instance](#change-instance-after-crush)
-  - [Kafka fails with timeout](#kafka-timeout)
+  - [My instance has crashed and I want to change it to new instance](#change-instance-after-crash)
+  - [Kafka fails with timeout](#kafka-broker-operations-timeout)
 
 ## Why MaaS responds with Forbidden (403) error code with correct credentials
-Case 1: it is MaaS clean install or rolling update error - script failing doesn't fail whole job 
+Case 1: it is MaaS clean install or rolling update error - script failing doesn't fail whole job
 Before 3.0.0 version any sh script in deployment (openshift) folder didn't have proper error handling behavior and in case of failing of sh script, e.g. creating account manager, whole Jenkins job wouldn't fail. So if you have some problems with accounts, database or secrets check if there is any error in Jenkins job. Sometimes container could have not been created inside pod and that leads to fail of scripts. In that case just run the job again.
 
 Case 2: inappropriate role usage. Different requests require creds with different roles (agent or manager), they are mentioned in [rest_api.md](rest_api.md) file. See security model of MaaS for more info: ../README.md#security-model
@@ -26,12 +24,12 @@ Due to the fact, that MaaS is usually installed by Cloud Ops and then used by di
 
 There is a validation.sh script for Cloud Core, checking that at least one instance is registered either for Rabbit or Kafka. In that case, error in deployer will look like this:
 
-```
+```json
 MAAS_ROUTE_HEALTH={"postgres":{"status":"UP"},"status":"UP"}
 There are no one registered broker!
 ```
 
-### How to check instance is registered:
+### How to check instance is registered
 The easiest way is to send GET request to `/health` endpoint of MaaS.
 In case if only Kafka is registered the response should look like:
 ```json
@@ -51,14 +49,14 @@ Parameters of request depend on the broker configuration, see the description be
 
 ## Why Kafka instance could be unhealthy
 
-Reason: Kafka instance was not registered correctly. The error could look like ` Failed to create kafka admin client for [localhost:9092]: kafka: client has run out of available brokers to talk to (Is your cluster reachable?)`
-Kafka has many different ways to both authenticate users and use encryption. MaaS supports the most of such configurations, they are described here:    
+Reason: Kafka instance was not registered correctly. The error could look like `Failed to create kafka admin client for [localhost:9092]: kafka: client has run out of available brokers to talk to (Is your cluster reachable?)`
+Kafka has many different ways to both authenticate users and use encryption. MaaS supports the most of such configurations, they are described here:
 
 [rest_api.md#kafka-auth-dto](rest_api.md#kafka-auth-dto)
 
 ### Amazon case
 
-Amazon's Kafka (Amazon MSK) is fully supported by MaaS, but it could have its special namings and certificates. In case if Kafka is used without authentication, then typical configuration for instance is : 
+Amazon's Kafka (Amazon MSK) is fully supported by MaaS, but it could have its special namings and certificates. In case if Kafka is used without authentication, then typical configuration for instance is :
 
 ```json
 {
@@ -77,7 +75,7 @@ where CA cert is an Amazon root certificate
 
 ## Change instance after crash
 
-Assume, your instance become broken and you want to change it to new instance. You want to make a reconciliation of all maas entities (topics/vhosts/...) - move them to new instance.  
+Assume, your instance become broken and you want to change it to new instance. You want to make a reconciliation of all maas entities (topics/vhosts/...) - move them to new instance.
 Then you need to look at instance update guide - it allows you to either update instance registration and trigger recovery endpoint or to redeploy your application with new maas configuration:
 [Instance update](./maintenance.md#instance-update)
 

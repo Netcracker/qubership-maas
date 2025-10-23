@@ -1,9 +1,9 @@
-[[_TOC_]]
-
 # Declaring Kafka topics and RabbitMQ VHosts using Custom Resource syntax
 
-Create file with appropriate name and `.yaml` extensions in you helm charts folder. Contents of this file may contain one 
-or more topic or vhost declarations separated by triple dash `---` separator. 
+[[_TOC_]]
+
+Create file with appropriate name and `.yaml` extensions in you helm charts folder. Contents of this file may contain one
+or more topic or vhost declarations separated by triple dash `---` separator.
 
 After deploying those CRs on cloud you can watch its processing status by monitoring kubernetes events on your namespace.
 Processing details also will be published in CR itself in `status` section.
@@ -35,8 +35,8 @@ spec:
     retention.ms: '1000'
     flush.ms: '1000'
 
-  # this classifier section is optional and only needed to demonstrate one specific case: metadata.name value should 
-  # conform to DNS spec and prohibits chars like underscore and colon. To provide backward compatibility with old configuration 
+  # this classifier section is optional and only needed to demonstrate one specific case: metadata.name value should
+  # conform to DNS spec and prohibits chars like underscore and colon. To provide backward compatibility with old configuration
   # maas-configuration.xml that permits such chars, we introduce this classifier name override section
   # Resulting classifier.name will be overridden by defined value below
   classifier:
@@ -113,7 +113,7 @@ spec:
 ## RabbitMQ VHost
 
 In `entities` section you can put 3 types of entities: exchanges, queues, bindings. Parameters that you set there are defined by RabbitMq itself - MaaS just send them as is. The mandatory parameter for queue and exchange is "name". For binding - source and destination.
-`deletions` section allows declarative deletion. It is applied before other sections. 
+`deletions` section allows declarative deletion. It is applied before other sections.
 `policies` section allows creation of policies of RabbitMQ.
 
 
@@ -214,7 +214,7 @@ spec:
 Diagram below describes properties migrations between declarations:
 ![declarative-to-cr.png](img%2Fdeclarative-to-cr.png)
 
-**Note:** It is also possible to override _topic/vhost_ name from `metadata.name` if it contains prohibited characters by
+Note: It is also possible to override _topic/vhost_ name from `metadata.name` if it contains prohibited characters by
 putting wanted _topic/vhost_ name to `spec.classifier.name` property.
 
 ## Kafka

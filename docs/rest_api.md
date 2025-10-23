@@ -1,19 +1,19 @@
-[[_TOC_]]
-
 # Rest API
+
+[[_TOC_]]
 ## RabbitMQ API
 ### Register Rabbit instance
 First instance registered in MaaS becomes `default`. This instance will be used as `default` for all items with empty instance field. Only one instance can be marked as `default` at particular moment of time. To switch `default` to other instance, just update its declaration with `default` field set to true.
 Instance field and its value can be explicitly specified in item declaration. But, explicit declaration of instance id in item configuration is discouraged due to insufficient portability. It's better to move 'item-to-instance' distribution rules to instance-designators configuration. [Instance designators API](#instance-designators-api)
 
-* **URI:**  `{maas_host}/api/v2/rabbit/instance`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with connection properties for Rabbit instance: 
+* URI:  `{maas_host}/api/v2/rabbit/instance`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with connection properties for Rabbit instance:
     ```json
     {
       "id" : "<[optional] id for rabbit instance. For example namespace name>",
@@ -24,28 +24,28 @@ Instance field and its value can be explicitly specified in item declaration. Bu
       "default": "<[optional] bool flag that indicates whether this RabbitMQ instnace should be used by default>"
     }
     ```
-    apiUrl format: `http://<your-host>:<http-port>/api`, e.g. `http://rabbit-service.cpq-rabbit:15672/api"` 
-    amqpUrl format: `amqp://<your-host>:<amqp-port>`, e.g. `amqp://rabbit-service.cpq-rabbit:5672`  
-    Field `"default": true` sets default RabbitMQ instance to this one.     
-    Default instance will be used for virtual hosts registration if another RabbitMQ instance is not specified in virtual host registration request.   
-* **Success Response:**  
-    `200` - Rabbit instance was registered successfully.  
-* **Error Response:**   
+    apiUrl format: `http://<your-host>:<http-port>/api`, e.g. `http://rabbit-service.cpq-rabbit:15672/api"`
+    amqpUrl format: `amqp://<your-host>:<amqp-port>`, e.g. `amqp://rabbit-service.cpq-rabbit:5672`
+    Field `"default": true` sets default RabbitMQ instance to this one.
+    Default instance will be used for virtual hosts registration if another RabbitMQ instance is not specified in virtual host registration request.
+* Success Response:
+    `200` - Rabbit instance was registered successfully.
+* Error Response:
     *Http code*: `409`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "can't register the instance. An instance with specified id/address already exists"
     }
     ```
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -65,29 +65,29 @@ Instance field and its value can be explicitly specified in item declaration. Bu
     ```
 
 ### Get Rabbit instances
-This API allows to get Rabbit instances in Maas.  
-* **URI:**  `{maas_host}/api/v2/rabbit/instances`  
-* **Method:** `GET`
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
+This API allows to get Rabbit instances in Maas.
+* URI:  `{maas_host}/api/v2/rabbit/instances`
+* Method: `GET`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
     No body
-* **Success Response:**  
-    `200` - Rabbit instances were requested successfully.  
-* **Error Response:**   
+* Success Response:
+    `200` - Rabbit instances were requested successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
-    
+* Sample call
+
     Request:
     ```bash
     curl --location --request GET 'http://localhost:8080/api/v2/rabbit/instances' \
-    --header 'Authorization: Basic bWFuYWdlcjoyNDAwMmVhZGJj' 
+    --header 'Authorization: Basic bWFuYWdlcjoyNDAwMmVhZGJj'
     ```
     Response: `200`
     ```json
@@ -104,15 +104,15 @@ This API allows to get Rabbit instances in Maas.
     ```
 
 ### Update Rabbit instance registration
-This API allows to update connection properties for RabbitMQ instance in Maas.  
-* **URI:**  `{maas_host}/api/v2/rabbit/instance`  
-* **Method:** `PUT`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with connection properties for Rabbit instance: 
+This API allows to update connection properties for RabbitMQ instance in Maas.
+* URI:  `{maas_host}/api/v2/rabbit/instance`
+* Method: `PUT`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with connection properties for Rabbit instance:
     ```json
     {
       "id" : "<id for rabbit instance. For example namespace name>",
@@ -122,19 +122,19 @@ This API allows to update connection properties for RabbitMQ instance in Maas.
       "default": "<[optional] bool flag that indicates whether this RabbitMQ instnace should be used by default>"
     }
     ```
-    Field `"default": true` sets default RabbitMQ instance to this one. 
-    Default instance will be used for virtual hosts registration if another RabbitMQ instance is not specified in virtual host registration request. 
-* **Success Response:**  
-    `200` - Rabbit instance was updated successfully.  
-* **Error Response:**   
+    Field `"default": true` sets default RabbitMQ instance to this one.
+    Default instance will be used for virtual hosts registration if another RabbitMQ instance is not specified in virtual host registration request.
+* Success Response:
+    `200` - Rabbit instance was updated successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -154,31 +154,31 @@ This API allows to update connection properties for RabbitMQ instance in Maas.
     ```
 
 ### Remove Rabbit instance registration
-This API allows to remove RabbitMQ instance registration from Maas.  
-* **URI:**  `{maas_host}/api/v2/rabbit/instance`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with connection properties for Rabbit instance: 
+This API allows to remove RabbitMQ instance registration from Maas.
+* URI:  `{maas_host}/api/v2/rabbit/instance`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with connection properties for Rabbit instance:
     ```json
     {
       "id" : "<id for rabbit instance. For example namespace name>"
     }
     ```
-* **Success Response:**  
-    `200` - Rabbit instance was removed successfully.  
-* **Error Response:**   
+* Success Response:
+    `200` - Rabbit instance was removed successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -196,37 +196,37 @@ This API allows to remove RabbitMQ instance registration from Maas.
 
 ### Create Rabbit virtual host
 
-This API allows to create and get a Rabbit MQ virtual host connection.   
-* **URI:**  `{maas_host}/api/v2/rabbit/vhost?extended=true`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Openshift namespace (project name) where a virtual host will be used;  
-* **Parameters:**
-    `instance` - rabbitmq instance for virtual host. If not specified default instance will be used  
-* **Query params:**
+This API allows to create and get a Rabbit MQ virtual host connection.
+* URI:  `{maas_host}/api/v2/rabbit/vhost?extended=true`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Openshift namespace (project name) where a virtual host will be used;
+* Parameters:
+    `instance` - rabbitmq instance for virtual host. If not specified default instance will be used
+* Query params:
   `extended` - values can be either `true` or `false`.
     * `true` - will return extended response with additional parameters like `apiUrl`
 
-* **Authorization:**
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     ```json
     {
       "classifier": {
         "name": "<your any custom name>",
         "tenantId": "[optional]<external tenant identifier>",
         "namespace": "<namespace where service is deployed>"
-      }, 
+      },
       "instance": "<[optional] rabbitmq instance for virtual host. if not specified default instance will be used>"
     }
     ```
     The request body contains a composite identification key that is called `virtual host classifier`. You need to know it for other APIs. More about classifier and its mandatory and optional fields you can find in [README.md](../README.md#classifier)
-* **Success Response:**  
-    `201` - If a virtual host was created on your request.  
-    or  
-    `200` - If a virtual host was created early.  
-     Response body:  
+* Success Response:
+    `201` - If a virtual host was created on your request.
+    or
+    `200` - If a virtual host was created early.
+     Response body:
     ```json
     {
       "cnn": "ampq://<rabbit_host>:<rabbit_port>/<virtual_host_name>",
@@ -235,28 +235,28 @@ This API allows to create and get a Rabbit MQ virtual host connection.
       "password": "[plain|km]:<password or password id>"
     }
     ```
-  
-    Classifier is used to generate vhost name by next contract: 
+
+    Classifier is used to generate vhost name by next contract:
     In case if you have "tenantId" field:
     ```
-    "maas.<namespace>.<tenantId>.<name>" 
+    "maas.<namespace>.<tenantId>.<name>"
     ```
-    
+
     In case if you don't have "tenantId" field:
     ```
-    "maas.<namespace>.<name>" 
+    "maas.<namespace>.<name>"
     ```
-  
-* **Error Response:**
-  
-    *Http code*: `500`  
-    *Response body:* 
+
+* Error Response:
+
+    *Http code*: `500`
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -280,21 +280,21 @@ This API allows to create and get a Rabbit MQ virtual host connection.
       "password": "km:6a2d8ed5-268f-4409-8a77-f2e52ff518fa"
     }
     ```
-  
+
 ### Get Rabbit virtual host with config
 
-This API allows getting a Rabbit MQ virtual host connection with additional config info about rabbit entities.   
-* **URI:**  `{maas_host}/api/v2/rabbit/vhost/get-by-classifier`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
+This API allows getting a Rabbit MQ virtual host connection with additional config info about rabbit entities.
+* URI:  `{maas_host}/api/v2/rabbit/vhost/get-by-classifier`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
     `X-Origin-Namespace` - Kubernetes namespace (project name) where a virtual host will be used;
-* **Query params:**
+* Query params:
   `extended` - values can be either `true` or `false`.
     * `true` - will return extended response with additional parameters like `apiUrl`
-* **Authorization:**
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     ```json
       {
         "name": "<your any custom name>",
@@ -303,9 +303,9 @@ This API allows getting a Rabbit MQ virtual host connection with additional conf
       }
     ```
     The request body contains a composite identification key that is called `virtual host classifier`.
-* **Success Response:**  
-    `200` - If a virtual host was created early.  
-     Response body:  
+* Success Response:
+    `200` - If a virtual host was created early.
+     Response body:
     ```json
     {
       "vhost" : {
@@ -317,26 +317,26 @@ This API allows getting a Rabbit MQ virtual host connection with additional conf
       "entities": {
           "exchanges": [
                  {..}, {..}
-          ],           
+          ],
           "queues": [
                  {..}, {..}
-          ],           
+          ],
           "bindings": [
                  {..}, {..}
           ]
-       } 
+       }
     }
     ```
-* **Error Response:**
-  
-    *Http code*: `500`  
-    *Response body:* 
+* Error Response:
+
+    *Http code*: `500`
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-  * **Sample call**  
+  * Sample call
 
       Request:
       ```bash
@@ -471,14 +471,14 @@ This API allows getting a Rabbit MQ virtual host connection with additional conf
 
 ### Search Rabbit vhosts
 This API allows to search Rabbit vhosts.
-* **URI:**  `{maas_host}/api/v2/rabbit/vhost/search`
-* **Method:** `POST`
-* **Headers:**  
-  `Content-Type: application/json`  
+* URI:  `{maas_host}/api/v2/rabbit/vhost/search`
+* Method: `POST`
+* Headers:
+  `Content-Type: application/json`
   `X-Origin-Namespace` - Namespace (project name) where a vhost will be used;
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   Body can contain any combination of the following fields (all of them are optional).
 
   Search will find results by exact match with the provided field values (so e.g. you cannot search topics by classifier part).
@@ -488,13 +488,13 @@ This API allows to search Rabbit vhosts.
             "name": "<your any custom name>",
             "tenantId": "<external tenant identifier>",
             ...
-        }, 
+        },
         "vhost": "<exact vhost name in rabbit>",
         "namespace": "<namespace to which vhost belong>"
         "instance": "<id of rabbit instance where vhost was created>"
     }
     ```
-  * **Success Response:**
+  * Success Response:
 
     *HTTP code:* `200`
 
@@ -512,7 +512,7 @@ This API allows to search Rabbit vhosts.
       ]
       ```
 
-* **Error Response:**
+* Error Response:
 
   *HTTP code*: `500` in case of internal server errors; `400` in case of invalid request data
 
@@ -522,7 +522,7 @@ This API allows to search Rabbit vhosts.
       "error": "<error message>"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -537,31 +537,31 @@ This API allows to search Rabbit vhosts.
     ```
 
 ### Delete virtual host
-This API allows to delete virtual hosts by search parameters.  
-* **URI:**  `{maas_host}/api/v2/rabbit/vhost`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Openshift namespace (project name) for which this virtual host was created;  
-* **Authorization:**
+This API allows to delete virtual hosts by search parameters.
+* URI:  `{maas_host}/api/v2/rabbit/vhost`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Openshift namespace (project name) for which this virtual host was created;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     You should pass body with parameters (all of them are optional), so vhosts that matched these parameters will be removed. In case of classifier you are able to provide only a part of it.
     ```json
     {
       "vhost": "<virtual host id>",
-      "user": "<virtual host owner>",   
+      "user": "<virtual host owner>",
       "namespace": "<core namespace where maas-agent installed>",
       "instance": "<rabbitmq instance id>",
       "classifier": "<partly or fully described virtual host classifier>"
     }
     ```
-* **Success Response:**  
-    `204` - Virtual hosts were deleted successfully.  
-* **Error Response:**   
+* Success Response:
+    `204` - Virtual hosts were deleted successfully.
+* Error Response:
 
-    *Http code*: `404`  - In case when there was no virtual hosts that matched search parameters   
-    *Response body:* 
+    *Http code*: `404`  - In case when there was no virtual hosts that matched search parameters
+    *Response body:*
     ```json
     {
       "error": "No virtual hosts matched search parameters were found"
@@ -569,13 +569,13 @@ This API allows to delete virtual hosts by search parameters.
     ```
     ---
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -596,18 +596,18 @@ This API allows to delete virtual hosts by search parameters.
 
 ### Validate Rabbit Configs
 
-This API allows rabbit configs bg validation. It helps getting lazy bindings - versioned bindings in rabbit v2 configuration, which yet have not exchange source and expected to appear during app update or new app deployment with exchange declaration    
+This API allows rabbit configs bg validation. It helps getting lazy bindings - versioned bindings in rabbit v2 configuration, which yet have not exchange source and expected to appear during app update or new app deployment with exchange declaration
 
-* **URI:**  `{maas_host}/api/v2/rabbit/validations`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Openshift/kubernetes namespace (project name) of your application  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/rabbit/validations`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Openshift/kubernetes namespace (project name) of your application
+* Authorization:
     Basic type with credentials with 'agent' role
-* **Success Response:**  
-    `200` 
-     Response body:  
+* Success Response:
+    `200`
+     Response body:
     ```json
     {
         "bindings": [
@@ -619,25 +619,25 @@ This API allows rabbit configs bg validation. It helps getting lazy bindings - v
             "exchangeVersion": <exchange version>,
             "queueVersion": <queue version>
         }
-      ] 
-    }   
+      ]
+    }
 
     ```
-* **Error Response:**
-    *Http code*: `500`  
-    *Response body:* 
+* Error Response:
+    *Http code*: `500`
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
     curl --location --request GET 'http://localhost:8080/api/v2/rabbit/validations' \
     --header 'X-Origin-Namespace: core-dev' \
-    --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
+    --header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
      ```
     Response: 200
     ```json
@@ -659,33 +659,33 @@ This API allows rabbit configs bg validation. It helps getting lazy bindings - v
 
 ### Rabbit namespace recovery
 
-This API allows recovering of all RabbitMQ entities, stored in MaaS registry. It includes both versioned and non-versioned entites.   
+This API allows recovering of all RabbitMQ entities, stored in MaaS registry. It includes both versioned and non-versioned entites.
 
-* **URI:**  `{maas_host}/api/v2/rabbit/recovery/{namespace}`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Openshift/kubernetes namespace (project name) of your application  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/rabbit/recovery/{namespace}`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Openshift/kubernetes namespace (project name) of your application
+* Authorization:
     Basic type with credentials with 'agent' role
-* **Success Response:**  
+* Success Response:
     `200`
-* 
-* **Error Response:**
-    *Http code*: `500`  
-    *Response body:* 
+*
+* Error Response:
+    *Http code*: `500`
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
     curl --location --request POST 'http://localhost:8080/api/v2/rabbit/recovery/core-dev' \
     --header 'X-Origin-Namespace: core-dev' \
-    --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
+    --header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
      ```
     Response: 200
 
@@ -693,25 +693,25 @@ This API allows recovering of all RabbitMQ entities, stored in MaaS registry. It
 
 This API allows password rotation to all vhosts by search form. The response shows all affected vhosts. New password you can get via GET vhost operation.
 
-* **URI:**  `{maas_host}/api/v2/rabbit/password-rotation`
-* **Method:** `POST`
-* **Headers:**  
-  `Content-Type: application/json`  
+* URI:  `{maas_host}/api/v2/rabbit/password-rotation`
+* Method: `POST`
+* Headers:
+  `Content-Type: application/json`
   `X-Origin-Namespace` - Openshift/kubernetes namespace (project name) of your application
-* **Authorization:**
+* Authorization:
   Basic type with credentials
-* **Request body:**
+* Request body:
   You should pass body with parameters (all of them are optional), so vhosts that matched these parameters will be affected.
     ```json
     {
       "vhost": "<virtual host id>",
-      "user": "<virtual host owner>",   
+      "user": "<virtual host owner>",
       "namespace": "<core namespace where maas-agent installed>",
       "instance": "<rabbitmq instance id>",
       "classifier": "<virtual host classifier>"
     }
     ```
-* **Success Response:**  
+* Success Response:
   `200`
   Response body:
     ```json
@@ -724,20 +724,20 @@ This API allows password rotation to all vhosts by search form. The response sho
             "instanceId": <id>,
             "classifier": <classifier>
         },
-    
+
        ...
     ]
     ```
 
-* **Error Response:**
-  *Http code*: `500`  
+* Error Response:
+  *Http code*: `500`
   *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -747,7 +747,7 @@ This API allows password rotation to all vhosts by search form. The response sho
     --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
     --data '{
     "namespace": "my-namespace"
-    }' 
+    }'
      ```
   Response: 200
     ```json
@@ -774,19 +774,19 @@ This API allows password rotation to all vhosts by search form. The response sho
 
 ## Kafka API
 ### Register Kafka instance
-This API allows to register Kafka instance in Maas.  
-* **URI:**  `{maas_host}/api/v2/kafka/instance`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with connection properties for Kafka instance: 
+This API allows to register Kafka instance in Maas.
+* URI:  `{maas_host}/api/v2/kafka/instance`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with connection properties for Kafka instance:
     ```json
     {
       "id" : "<[optional] id for kafka instance, e.g. 'my-namespace-kafka'>",
-      "addresses": "<map protocol: addresses list>", 
+      "addresses": "<map protocol: addresses list>",
       "maasProtocol": "<[optional] procol used by MaaS for communcating with this kafka; default - PLAINTEXT",
       "default": "<[optional] bool flag that indicates whether this kafka instnace should be used by default>",
       "caCert": "<[optional] base64 CA certificate of this Kafka instance>",
@@ -795,30 +795,30 @@ This API allows to register Kafka instance in Maas.
         "client": [ "<[required] List of Kafka Auth DTOs containing client credentials>" ]
     }
     ```
-    Field addresses contains map where the key is protocol and value is a list of broker addresses. Allowed protocol values: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`. 
+    Field addresses contains map where the key is protocol and value is a list of broker addresses. Allowed protocol values: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`.
 
     Field `"default": true` sets default Kafka instance to this one.
     Default instance will be used for new topics registration if another kafka instance is not specified in topic registration request.
 
-    See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format. 
-* **Success Response:**  
-    `200` - Kafka instance was registered successfully.  
-* **Error Response:**   
+    See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format.
+* Success Response:
+    `200` - Kafka instance was registered successfully.
+* Error Response:
     *Http code*: `409`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "can't register the instance. An instance with specified id/address already exists"
     }
     ```
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -827,16 +827,16 @@ This API allows to register Kafka instance in Maas.
       -H 'Content-Type: application/json' \
       -d '{
         "id": "localkafka",
-        "addresses": { "PLAINTEXT": ["localk8s:9092"] }, 
+        "addresses": { "PLAINTEXT": ["localk8s:9092"] },
         "default": true,
         "maasProtocol": "PLAINTEXT",
         "caCert": "MIIDPjCCAiYCCQCNmVmmEXs5XjANBgkqhkiG9w0BAQsFADBVMQswCQYDVQQGEwJYWDEVMBMGA1UEBwwMRGVmYXVsdCBDaXR5MRwwGgYDVQQKDBNEZWZhdWx0IENvbXBhbnkgTHRkMREwDwYDVQQDDAhsb2NhbGs4czAeFw0yMDA4MTgxMjUzMDFaFw0yMDExMjUxMjUzMDFaMG0xEDAOBgNVBAYTB1Vua25vd24xEDAOBgNVBAgTB1Vua25vd24xEDAOBgNVBAcTB1Vua25vd24xEDAOBgNVBAoTB1Vua25vd24xEDAOBgNVBAsTB1Vua25vd24xETAPBgNVBAMTCGxvY2FsazhzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjcTaRTo7E7UI9jO9gtRAi5au57elqRX2YMj/OOGcwQdzP6JfMFZsKFNUoIoF8bJ51JXhbDxVgB+GHvEMmQ0jqGnMjSTsdxEQUCRTnINMAIAYLBKm5FGi5pJodZRzhNKoWhloRO9/2p2AYB+T39MxXFch3fwMdghVKbSqOCo0nsqCZwyB5CcZgLi69qifZPQAIFPUPDHG5Z6oGUjE/p+45RnOcAdCOgO0QllxO+fioCMPizRqIiim88UuZU7EjhaIwSTjOIohcPQStNU6vAp0ZGIgr8BhAZHiL8JRDto37ayo7ltDYtLg4Ojo3e9ue8Dwo5PSs+N6Od8Z//Xq6V8zwQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQCDsV/jDojj4t977V5BMSTDeELEvNX8VMMtqAGpB1jtVNVXRLfG2SAcv6ZdOUbyuBagF8D0dsV5VvcqPw8YHNpHMKCTSdcida28rV2C31M+XRvvh90eoPtXfE60wo4Ky4UbKiJERiBIXMFLrg8PZ51PukT4fD0DioNpIxzRFb4VkypYv4srADX5shSvJN9Zxdj2EywR+S1k2F4TIDdOnWY9xGMftJz1fc58dMFMwGi7Evr+pR/w7yWDcvRgdgAYUpGaehmnYhzuw4XKWmVX1D6aVFRhonHaxN0rUemPZYSqjHp+lWOiUsYqatxB5MGQqj1/QV3XTAWglFbk1BB2stQg",
-        "credentials": {      
+        "credentials": {
             "admin": [{
                 "type": "SCRAM",
                 "username": "admin",
                 "password": "plain:admin-secret"
-            }],   
+            }],
             "client": [{
                 "type": "sslCert+SCRAM",
                 "clientKey": "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCnOnudBE9HbwLT+0xurpJylZO3A+jCMtGSUsSiYbv3YNASk14HJhcVAnWvdZkOpU5vM/HyokrS4ag9qx4dLHZVImulqxXjV394rwK8LK9FDlrxcyakx2iuWXURj0mWe+S+1US+KPo4HHJ0pRzA+aYTKQ3fkBVBNNZE+6dBHaqY7AejZsa/oYrK+7oZKxMmQZePoyWhldAputGsRbJ7V7bt+0LU0GNGaEq2KwhIIOLxxpI+DaUZM6vnxFise2A7w6dM/mA5QrZt/cyENbX28DHIWKz428XhP1NS5oIgs++DcWWJB/SuPaQo7t212WDSuXAtei9EBmQ5o5LxK6+x1k23AgMBAAECggEBAJrqqqkC3Q6n4E7QdjXysuhDeNwKWw3MVijfVBm5wI+iuB79NhYZSzjDVpJ8tpXCva52yKSlg/tn4JuAch1Emzqy8FZA773zyLrcJgR8wMGQUt9qdVohAPDDHphtzRYDIB1JJK2k+GgSslUswD5lB1yoo5l/uLD3aafuGTtRaEDQp57dM8n4W/QMzvmiPHr1jEMlx9WDAuS1Nw53nBg5Uf4mp6nZ/sCFyR7l09VIWrMueqt7qUSsH0l5UGW04UO6eFBPcWyEtFDiJNwKso/Y2lrUbf/3AM6fotnKhcXtuFkEJ8s5cwpm7+OA01zr/uW5L0wGVO0rw9Kv+w7TYIA0TkECgYEAyPvSz0SYD3NXsOAmuGpks7oadAHY1cgV1xu6dAyOooOLqnEjrrr5/wrqu6eK+rVrno1NZEQGEC6b260NQg3v5AJHITzoiNYcRjDLm4aZjnx3dwNGXvcylOkidI8XG4KgR1veM85dgObFKTMyQJ+0eUYJL/UjhZAIC/n8lM5VgosCgYEA1QE4Viw4HA/JQ7jtdSicDvEnF3M7eahH7VwG90G6ofY5DuQwxH1g9s+ExBAW3l7tOjfKltm+PSVfBtXIBVCxADO1/ZgsTDMGkraorxbudgLaU2PEsUWZcCWAUaPhlVUhZipTBCfafqGF757BUftkrXqg7Yy/6wyQcESs5frtYwUCgYEAknqWReFkQb56prp2/ejsw+Ba7zl5YzWUVVYsKfAM9HyTCgGzU+GJ2kuGkIWnUNlwOfoZ8X1yPdD6Xrxc8UtfDvpqBNtzTmdd6/ocKpmKyMIF/4Mvgn7/KnBPYEv5N1+YmOlnpLI+i3elMkXR1i+PROO6Rm2PGgTDGJd1cq5+u8kCgYBQUiJ1VD1gT4+civp4CHU4qTUNgbV2vb9JwT8bM9z1wAxqEiBVp9XNnBk7ebm15uPb5TfuxHMZSaNYx3qijngAVH+W/jAOF9utrVVUmPgY5iB/+4orMsyWXn3Ry1OAZVav2NvvIDwjLjN8VUge6wZe6HQQv9eLAfThcPQl0QZ9JQKBgBz+L3HfvHLGghZaAfIUzwOryRRmkjJNFErZEntLVqGYj3FZiEEwWMm2BZ9hm9nIWBPyIBJ1rZ5aGGjtNz8Lwb97LjrlsgVjI6QIGfuFfw9SgGiFo9f8vEQwzLPoceze2MAJLJo7p6RIOCwxqKzYTJXjXhjQPg6crgqNWWODus4H",
@@ -851,16 +851,16 @@ This API allows to register Kafka instance in Maas.
     ```json
     {
         "id": "localkafka",
-        "addresses": { "PLAINTEXT": ["localk8s:9092"] }, 
+        "addresses": { "PLAINTEXT": ["localk8s:9092"] },
         "default": true,
         "maasProtocol": "PLAINTEXT",
         "caCert": "MIIDPjCCAiYCCQCNmVmmEXs5XjANBgkqhkiG9w0BAQsFADBVMQswCQYDVQQGEwJYWDEVMBMGA1UEBwwMRGVmYXVsdCBDaXR5MRwwGgYDVQQKDBNEZWZhdWx0IENvbXBhbnkgTHRkMREwDwYDVQQDDAhsb2NhbGs4czAeFw0yMDA4MTgxMjUzMDFaFw0yMDExMjUxMjUzMDFaMG0xEDAOBgNVBAYTB1Vua25vd24xEDAOBgNVBAgTB1Vua25vd24xEDAOBgNVBAcTB1Vua25vd24xEDAOBgNVBAoTB1Vua25vd24xEDAOBgNVBAsTB1Vua25vd24xETAPBgNVBAMTCGxvY2FsazhzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjcTaRTo7E7UI9jO9gtRAi5au57elqRX2YMj/OOGcwQdzP6JfMFZsKFNUoIoF8bJ51JXhbDxVgB+GHvEMmQ0jqGnMjSTsdxEQUCRTnINMAIAYLBKm5FGi5pJodZRzhNKoWhloRO9/2p2AYB+T39MxXFch3fwMdghVKbSqOCo0nsqCZwyB5CcZgLi69qifZPQAIFPUPDHG5Z6oGUjE/p+45RnOcAdCOgO0QllxO+fioCMPizRqIiim88UuZU7EjhaIwSTjOIohcPQStNU6vAp0ZGIgr8BhAZHiL8JRDto37ayo7ltDYtLg4Ojo3e9ue8Dwo5PSs+N6Od8Z//Xq6V8zwQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQCDsV/jDojj4t977V5BMSTDeELEvNX8VMMtqAGpB1jtVNVXRLfG2SAcv6ZdOUbyuBagF8D0dsV5VvcqPw8YHNpHMKCTSdcida28rV2C31M+XRvvh90eoPtXfE60wo4Ky4UbKiJERiBIXMFLrg8PZ51PukT4fD0DioNpIxzRFb4VkypYv4srADX5shSvJN9Zxdj2EywR+S1k2F4TIDdOnWY9xGMftJz1fc58dMFMwGi7Evr+pR/w7yWDcvRgdgAYUpGaehmnYhzuw4XKWmVX1D6aVFRhonHaxN0rUemPZYSqjHp+lWOiUsYqatxB5MGQqj1/QV3XTAWglFbk1BB2stQg",
-        "credentials": {      
+        "credentials": {
             "admin": [{
                 "type": "SCRAM",
                 "username": "admin",
                 "password": "plain:admin-secret"
-            }],   
+            }],
             "client": [{
                 "type": "sslCert+SCRAM",
                 "clientKey": "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCnOnudBE9HbwLT+0xurpJylZO3A+jCMtGSUsSiYbv3YNASk14HJhcVAnWvdZkOpU5vM/HyokrS4ag9qx4dLHZVImulqxXjV394rwK8LK9FDlrxcyakx2iuWXURj0mWe+S+1US+KPo4HHJ0pRzA+aYTKQ3fkBVBNNZE+6dBHaqY7AejZsa/oYrK+7oZKxMmQZePoyWhldAputGsRbJ7V7bt+0LU0GNGaEq2KwhIIOLxxpI+DaUZM6vnxFise2A7w6dM/mA5QrZt/cyENbX28DHIWKz428XhP1NS5oIgs++DcWWJB/SuPaQo7t212WDSuXAtei9EBmQ5o5LxK6+x1k23AgMBAAECggEBAJrqqqkC3Q6n4E7QdjXysuhDeNwKWw3MVijfVBm5wI+iuB79NhYZSzjDVpJ8tpXCva52yKSlg/tn4JuAch1Emzqy8FZA773zyLrcJgR8wMGQUt9qdVohAPDDHphtzRYDIB1JJK2k+GgSslUswD5lB1yoo5l/uLD3aafuGTtRaEDQp57dM8n4W/QMzvmiPHr1jEMlx9WDAuS1Nw53nBg5Uf4mp6nZ/sCFyR7l09VIWrMueqt7qUSsH0l5UGW04UO6eFBPcWyEtFDiJNwKso/Y2lrUbf/3AM6fotnKhcXtuFkEJ8s5cwpm7+OA01zr/uW5L0wGVO0rw9Kv+w7TYIA0TkECgYEAyPvSz0SYD3NXsOAmuGpks7oadAHY1cgV1xu6dAyOooOLqnEjrrr5/wrqu6eK+rVrno1NZEQGEC6b260NQg3v5AJHITzoiNYcRjDLm4aZjnx3dwNGXvcylOkidI8XG4KgR1veM85dgObFKTMyQJ+0eUYJL/UjhZAIC/n8lM5VgosCgYEA1QE4Viw4HA/JQ7jtdSicDvEnF3M7eahH7VwG90G6ofY5DuQwxH1g9s+ExBAW3l7tOjfKltm+PSVfBtXIBVCxADO1/ZgsTDMGkraorxbudgLaU2PEsUWZcCWAUaPhlVUhZipTBCfafqGF757BUftkrXqg7Yy/6wyQcESs5frtYwUCgYEAknqWReFkQb56prp2/ejsw+Ba7zl5YzWUVVYsKfAM9HyTCgGzU+GJ2kuGkIWnUNlwOfoZ8X1yPdD6Xrxc8UtfDvpqBNtzTmdd6/ocKpmKyMIF/4Mvgn7/KnBPYEv5N1+YmOlnpLI+i3elMkXR1i+PROO6Rm2PGgTDGJd1cq5+u8kCgYBQUiJ1VD1gT4+civp4CHU4qTUNgbV2vb9JwT8bM9z1wAxqEiBVp9XNnBk7ebm15uPb5TfuxHMZSaNYx3qijngAVH+W/jAOF9utrVVUmPgY5iB/+4orMsyWXn3Ry1OAZVav2NvvIDwjLjN8VUge6wZe6HQQv9eLAfThcPQl0QZ9JQKBgBz+L3HfvHLGghZaAfIUzwOryRRmkjJNFErZEntLVqGYj3FZiEEwWMm2BZ9hm9nIWBPyIBJ1rZ5aGGjtNz8Lwb97LjrlsgVjI6QIGfuFfw9SgGiFo9f8vEQwzLPoceze2MAJLJo7p6RIOCwxqKzYTJXjXhjQPg6crgqNWWODus4H",
@@ -873,24 +873,24 @@ This API allows to register Kafka instance in Maas.
     ```
 
 ### Get Kafka instances
-This API allows to get Kafka instances in Maas.  
-* **URI:**  `{maas_host}/api/v2/kafka/instances`  
-* **Method:** `GET`
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
+This API allows to get Kafka instances in Maas.
+* URI:  `{maas_host}/api/v2/kafka/instances`
+* Method: `GET`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
     No body
-* **Success Response:**  
-    `200` - Kafka instances were requested successfully.  
-* **Error Response:**   
+* Success Response:
+    `200` - Kafka instances were requested successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -931,19 +931,19 @@ This API allows to get Kafka instances in Maas.
 
 
 ### Update Kafka instance registration
-This API allows to update connection properties for Kafka instance in Maas.  
-* **URI:**  `{maas_host}/api/v2/kafka/instance`  
-* **Method:** `PUT`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with connection properties for Kafka instance: 
+This API allows to update connection properties for Kafka instance in Maas.
+* URI:  `{maas_host}/api/v2/kafka/instance`
+* Method: `PUT`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with connection properties for Kafka instance:
     ```json
     {
       "id" : "<[optional] id for kafka instance, e.g. 'my-namespace-kafka'>",
-      "addresses": "<map protocol: addresses list>", 
+      "addresses": "<map protocol: addresses list>",
       "maasProtocol": "<[optional] procol used by MaaS for communcating with this kafka; default - PLAINTEXT",
       "default": "<[optional] bool flag that indicates whether this kafka instnace should be used by default>",
       "caCert": "<[optional] base64 CA certificate of this Kafka instance>",
@@ -952,23 +952,23 @@ This API allows to update connection properties for Kafka instance in Maas.
         "client": [ "<[optional] List of Kafka Auth DTOs containing client credentials>" ]
     }
     ```
-    Field addresses contains map where the key is protocol and value is a list of broker addresses. Allowed protocol values: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`. 
+    Field addresses contains map where the key is protocol and value is a list of broker addresses. Allowed protocol values: `PLAINTEXT`, `SSL`, `SASL_PLAINTEXT`, `SASL_SSL`.
 
     Field `"default": true` sets default Kafka instance to this one.
     Default instance will be used for new topics registration if another kafka instance is not specified in topic registration request.
 
-    See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format. 
-* **Success Response:**  
-    `200` - Kafka instance was updated successfully.  
-* **Error Response:**   
+    See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format.
+* Success Response:
+    `200` - Kafka instance was updated successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -977,16 +977,16 @@ This API allows to update connection properties for Kafka instance in Maas.
       -H 'Content-Type: application/json' \
       -d '{
         "id": "localkafka",
-        "addresses": { "PLAINTEXT": ["localk8s:9092"] }, 
+        "addresses": { "PLAINTEXT": ["localk8s:9092"] },
         "default": true,
         "maasProtocol": "PLAINTEXT",
         "caCert": "MIIDPjCCAiYCCQCNmVmmEXs5XjANBgkqhkiG9w0BAQsFADBVMQswCQYDVQQGEwJYWDEVMBMGA1UEBwwMRGVmYXVsdCBDaXR5MRwwGgYDVQQKDBNEZWZhdWx0IENvbXBhbnkgTHRkMREwDwYDVQQDDAhsb2NhbGs4czAeFw0yMDA4MTgxMjUzMDFaFw0yMDExMjUxMjUzMDFaMG0xEDAOBgNVBAYTB1Vua25vd24xEDAOBgNVBAgTB1Vua25vd24xEDAOBgNVBAcTB1Vua25vd24xEDAOBgNVBAoTB1Vua25vd24xEDAOBgNVBAsTB1Vua25vd24xETAPBgNVBAMTCGxvY2FsazhzMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjcTaRTo7E7UI9jO9gtRAi5au57elqRX2YMj/OOGcwQdzP6JfMFZsKFNUoIoF8bJ51JXhbDxVgB+GHvEMmQ0jqGnMjSTsdxEQUCRTnINMAIAYLBKm5FGi5pJodZRzhNKoWhloRO9/2p2AYB+T39MxXFch3fwMdghVKbSqOCo0nsqCZwyB5CcZgLi69qifZPQAIFPUPDHG5Z6oGUjE/p+45RnOcAdCOgO0QllxO+fioCMPizRqIiim88UuZU7EjhaIwSTjOIohcPQStNU6vAp0ZGIgr8BhAZHiL8JRDto37ayo7ltDYtLg4Ojo3e9ue8Dwo5PSs+N6Od8Z//Xq6V8zwQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQCDsV/jDojj4t977V5BMSTDeELEvNX8VMMtqAGpB1jtVNVXRLfG2SAcv6ZdOUbyuBagF8D0dsV5VvcqPw8YHNpHMKCTSdcida28rV2C31M+XRvvh90eoPtXfE60wo4Ky4UbKiJERiBIXMFLrg8PZ51PukT4fD0DioNpIxzRFb4VkypYv4srADX5shSvJN9Zxdj2EywR+S1k2F4TIDdOnWY9xGMftJz1fc58dMFMwGi7Evr+pR/w7yWDcvRgdgAYUpGaehmnYhzuw4XKWmVX1D6aVFRhonHaxN0rUemPZYSqjHp+lWOiUsYqatxB5MGQqj1/QV3XTAWglFbk1BB2stQg",
-        "credentials": {      
+        "credentials": {
             "admin": [{
                 "type": "SCRAM",
                 "username": "admin",
                 "password": "plain:admin-secret"
-            }],   
+            }],
             "client": [{
                 "type": "SCRAM",
                 "username": "alice",
@@ -1028,39 +1028,39 @@ This API allows to update connection properties for Kafka instance in Maas.
 
 
 ### Remove Kafka instance registration
-This API allows remove Kafka instance from Maas.  
-* **URI:**  `{maas_host}/api/v2/kafka/instance`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with Kafka instance id: 
+This API allows remove Kafka instance from Maas.
+* URI:  `{maas_host}/api/v2/kafka/instance`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with Kafka instance id:
     ```json
     {
       "id" : "<id of kafka instance, e.g. 'my-namespace-kafka'>"
     }
     ```
-* **Success Response:**  
-    `200` - Kafka instance was deleted successfully.  
-* **Error Response:**   
-    *Http code*: `400` - in case of removing kafka instance registration which has registered topics  
-    *Response body:*  
+* Success Response:
+    `200` - Kafka instance was deleted successfully.
+* Error Response:
+    *Http code*: `400` - in case of removing kafka instance registration which has registered topics
+    *Response body:*
     ```json
     {
       "error": "can't delete instance registration due of registered topics. Delete topics first"
     }
-    ```     
+    ```
     ---
-    *Http code*: `500` - in case of internal server errors  
-    *Response body:*  
+    *Http code*: `500` - in case of internal server errors
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -1083,21 +1083,21 @@ This API allows remove Kafka instance from Maas.
 
 ### Get or Create Kafka topic
 
-This API allows to get or create Kafka topic.   
-* **URI:**  `{maas_host}/api/v2/kafka/topic`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+This API allows to get or create Kafka topic.
+* URI:  `{maas_host}/api/v2/kafka/topic`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Query parameters:**
-  * `onTopicExists` - This flag controls how MaaS should behave in following case: classifier specified in request is new to MaaS, but 
-  physical topic with specified name is already presented in Kafka. 
+* Query parameters:
+  * `onTopicExists` - This flag controls how MaaS should behave in following case: classifier specified in request is new to MaaS, but
+  physical topic with specified name is already presented in Kafka.
       * `fail` - (defaults) fail applying configuration on such collision. MaaS assumes that topic shouldn't be exists in Kafka. This default behavior should prevents
         consuming toppic by typo or misconfiguration.
       * `merge` - ignore collision if it happens. Take existing topic if it exists (create new if not) and continue processing configuration. This option helps migrate existing topics to MaaS. Use this option with caution.
-* **Request body:**
+* Request body:
     ```json
     {
       "name": "<[optional] actual name of the topic that will be created in kafka. It could have a template value like 'maas.{{namespace}}.{{tenantId}}.{{name}}'. If not specified, name will be generated based on classifier info, more about classifier and its mandatory and optional fields you can find in README.md>",
@@ -1105,41 +1105,41 @@ This API allows to get or create Kafka topic.
         "name": "<your any custom name, it will be used as a part of generated topic name if no concrete name is specified in request>",
         "tenantId": "[optional]<external tenant identifier>",
         "namespace": "<namespace where service is deployed>"
-      }, 
+      },
       "instance": "<[optional] id of kafka instance in which topic will be created. If not specified, default instance will be used>",
-      "numPartitions": "<[optional] number of partitions for topic>; mutually exclusive to minNumPartitions", 
-      "minNumPartitions": "<[optional] minimum number of partitions for topic>; mutually exclusive to numPartitions", 
+      "numPartitions": "<[optional] number of partitions for topic>; mutually exclusive to minNumPartitions",
+      "minNumPartitions": "<[optional] minimum number of partitions for topic>; mutually exclusive to numPartitions",
       "replicationFactor": "<[optional] replication factor for topic. Value can be either positive integer or `inherit' (if Kafka version 2.4+) for server defaults>",
-      "externallyManaged": "<[optional] property turns off all operations on Kafka instance. In case set true, topic name have to be set>", 
-      "versioned": "<[optional] if set to true new topic will be created for each bg version", 
+      "externallyManaged": "<[optional] property turns off all operations on Kafka instance. In case set true, topic name have to be set>",
+      "versioned": "<[optional] if set to true new topic will be created for each bg version",
       "replicaAssignment": { //[optional] replica assignment for topic
           "0": [0, 1, 2]
-      }, 
+      },
       "configs": { //[optional] topic configs
         "retention.ms": "1000"
       }
     }
     ```
-    The request body contains a composite identification key that is called `classifier`. You need to know it for other APIs.  
-* **Success Response:**  
-    `201` - If the topic was created on your request.  
-    or  
-    `200` - If the topic was created earlier.  
-     Response body:  
+    The request body contains a composite identification key that is called `classifier`. You need to know it for other APIs.
+* Success Response:
+    `201` - If the topic was created on your request.
+    or
+    `200` - If the topic was created earlier.
+     Response body:
     ```json
     {
-      "addresses": <map protocol: addresses list>, 
+      "addresses": <map protocol: addresses list>,
       "name": "<actual name of the topic that was created in kafka and can be used to access the topic>"
       "classifier": {
         "name": "<your any custom name>",
         "tenantId": "<external tenant identifier>",
         "namespace": "<namespace where service is deployed>"
-      }, 
+      },
       "namespace": "my-namespace",
       "instance": "my-kafka-instance",
       "externallyManaged": "false",
       "versioned": "false",
-      "caCert": "<[optional] base64 CA certificate of Kafka instance>", 
+      "caCert": "<[optional] base64 CA certificate of Kafka instance>",
       "credentials": // [optional] client credentials if present
         {
            "client": [] // <List of Kafka Auth DTO objects (described below)>
@@ -1166,29 +1166,29 @@ This API allows to get or create Kafka topic.
       },
     }
     ```
-    For Kafka topic in case if you don't put "name" field in request (outside of classifier), then classifier is used to generate Kafka topic name by next contract: 
+    For Kafka topic in case if you don't put "name" field in request (outside of classifier), then classifier is used to generate Kafka topic name by next contract:
     In case if you have "tenantId" field:
     ```
-    "maas.<namespace>.<tenantId>.<name>" 
+    "maas.<namespace>.<tenantId>.<name>"
     ```
-    
+
     In case if you don't have "tenantId" field:
     ```
-    "maas.<namespace>.<name>" 
+    "maas.<namespace>.<name>"
     ```
-    Please note, that overall topic name length (including namespace, tenantId and randomly generated part of the name) is limited to 249 symbols. 
+    Please note, that overall topic name length (including namespace, tenantId and randomly generated part of the name) is limited to 249 symbols.
 
-    See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format. 
-* **Error Response:**
-  
+    See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format.
+* Error Response:
+
     *Http code*: `500` in case of internal server errors; `400` in case of invalid request data
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -1284,16 +1284,16 @@ This API allows to get or create Kafka topic.
     ```
 
 ### Delete Kafka topic
-This API allows to bulk delete Kafka topics by search parameters.  
-* **URI:**  `{maas_host}/api/v2/kafka/topic`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Project namespace (project name) for which this topic was created;  
-* **Authorization:**
+This API allows to bulk delete Kafka topics by search parameters.
+* URI:  `{maas_host}/api/v2/kafka/topic`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Project namespace (project name) for which this topic was created;
+* Authorization:
     Basic type
-* **Request body:**
-    You should pass body with parameters (all of them are optional), so topics that matched these parameters will be removed. 
+* Request body:
+    You should pass body with parameters (all of them are optional), so topics that matched these parameters will be removed.
     In case `classifier` field is specified, MaaS will search for exact match (only `namespace` field of the classifier can be ommitted).
     ```json
     {
@@ -1304,11 +1304,11 @@ This API allows to bulk delete Kafka topics by search parameters.
       "leaveRealTopicIntact": "<true, if you want topic to be deleted only in MaaS db, not in Kafka broker>"
     }
     ```
-* **Response:**  
-    `200` - all matched topics were deleted successfully.  
-    `500` - deletion of some topics failed.  
-    `405` - topic deletion is not allowed by kafka server configuration. 
-* **Response body:**
+* Response:
+    `200` - all matched topics were deleted successfully.
+    `500` - deletion of some topics failed.
+    `405` - topic deletion is not allowed by kafka server configuration.
+* Response body:
     ```json
     {
       "deletedSuccessfully": [ { <succesfully deleted topics DTOs (same as in Create Topic response) } ],
@@ -1321,18 +1321,18 @@ This API allows to bulk delete Kafka topics by search parameters.
     }
     ```
 
-* **Error Response:**   
+* Error Response:
 
-    **Http code**: `500`  - In case not a single topic was deleted  
-    **Response body:** 
+    Http code: `500`  - In case not a single topic was deleted
+    Response body:
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample calls**  
+* Sample calls
 
-    **Delete all topics in namespace (useful for deployer)**
+    Delete all topics in namespace (useful for deployer)
 
     Request:
     ```bash
@@ -1412,7 +1412,7 @@ This API allows to bulk delete Kafka topics by search parameters.
     }
     ```
 
-    **Delete single topic by it's classifier and namespace**
+    Delete single topic by it's classifier and namespace
 
     Request:
     ```bash
@@ -1467,15 +1467,15 @@ This API allows to bulk delete Kafka topics by search parameters.
 
 ### Get Kafka topic by classifier
 This API allows to get Kafka topic by exact match to given classifier. If you need to search topics by partial matching use [Search Kafka topics](#search-kafka-topics).
-* **URI:**  `{maas_host}/api/v2/kafka/topic/get-by-classifier`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/topic/get-by-classifier`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:** 
-    Body must contain topic classifier fields. 
+* Request body:
+    Body must contain topic classifier fields.
     ```json
     {
         "name": "<your any custom name>",
@@ -1483,23 +1483,23 @@ This API allows to get Kafka topic by exact match to given classifier. If you ne
         "namespace": "<namespace where service is deployed>"
     }
     ```
-    The request body contains a composite identification key that is called `classifier`. You need to know it for other APIs.  
-* **Success Response:**  
+    The request body contains a composite identification key that is called `classifier`. You need to know it for other APIs.
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     {
       "addresses": {
           "PLAINTEXT": [
               "my-kafka.kafka-cluster:9092"
            ]
-      }, 
+      },
       "name": "<actual name of the topic that was created in kafka and can be used to access the topic>"
       "classifier": {
         "name": "<your any custom name, it will be used as a part of actual topic name>",
         "tenantId": "<external tenant identifier>",
         "namespace": "<namespace where service is deployed>"
-      }, 
+      },
       "namespace": "my-namespace",
       "instance": "my-kafka-instance",
       "versioned": "false",
@@ -1518,22 +1518,22 @@ This API allows to get Kafka topic by exact match to given classifier. If you ne
         "configs": {
           "cleanup.policy": "delete"
           }
-        } 
+        }
     }
     ```
 
 Null value means that it was not specified during creation.
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors; `400` in case of invalid request data
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -1612,47 +1612,47 @@ Null value means that it was not specified during creation.
     ```
 
 ### Search Kafka topics
-This API allows to search Kafka topics. 
-* **URI:**  `{maas_host}/api/v2/kafka/topic/search`  
-* **Method:** `POST`
-* **Headers:**  
-`Content-Type: application/json`  
-`X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+This API allows to search Kafka topics.
+* URI:  `{maas_host}/api/v2/kafka/topic/search`
+* Method: `POST`
+* Headers:
+`Content-Type: application/json`
+`X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
 Basic type
-* **Request body:** 
-    Body can contain any combination of the following fields (all of them are optional). 
-    
-    Search will find results by exact match with the provided field values (so e.g. you cannot search topics by classifier part). 
+* Request body:
+    Body can contain any combination of the following fields (all of them are optional).
+
+    Search will find results by exact match with the provided field values (so e.g. you cannot search topics by classifier part).
     ```json
     {
         "classifier": {
             "name": "<your any custom name>",
             "tenantId": "<external tenant identifier>",
             ...
-        }, 
+        },
         "topic": "<exact topic name in kafka>",
         "namespace": "<namespace to which topics belong>"
         "instance": "<id of kafka instance where topics are created>"
     }
     ```
-* **Success Response:** 
+* Success Response:
 
     *HTTP code:* `200`
-    
+
     *Response body:*
     ```json
     [
         {
             "addresses": {
                 "PLAINTEXT": [ "my-kafka.kafka-cluster:9092" ]
-            }, 
+            },
             "name": "<actual name of the topic that was created in kafka and can be used to access the topic>"
             "classifier": {
                 "name": "<your any custom name, it will be used as a part of actual topic name>",
                 "tenantId": "<external tenant identifier>",
                 "namespace": "<namespace where service is deployed>"
-            }, 
+            },
             "namespace": "my-namespace"
             "instance": "my-kafka-instance",
             "requestedSettings": {
@@ -1670,24 +1670,24 @@ Basic type
                 "configs": {
                     "cleanup.policy": "delete"
                 }
-            } 
+            }
         },
         ...
     ]
     ```
 
-* **Error Response:**
-    
+* Error Response:
+
     *HTTP code*: `500` in case of internal server errors; `400` in case of invalid request data
-    
-    *Response body:* 
+
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
-    
+* Sample call
+
     Request:
     ```bash
     curl -X POST \
@@ -1789,28 +1789,28 @@ Basic type
 ### Kafka Auth DTO
 | Field name | Data type | Required | Description |
 |------------|-----------|----------|-------------|
-|  **type** | string | true | Authorization mechanism type. Possible values: `plain`, `sslCert`, `SCRAM` (which stands for SASL-SCRAM-SHA512), `sslCert+plain`, `sslCert+SCRAM` |
-| **username** | string | false | Holds username for SASL Plain or SASL-SCRAM-SHA512 authorization. Must not be empty in case `plain`, `SCRAM`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. |
-| **password** | string | false | Holds password for SASL Plain or SASL-SCRAM-SHA512 authorization. Must not be empty in case `plain`, `SCRAM`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. Password is specified in format `"<password storage type>:<value>"`, e.g. `"plain:alice-secret"`. Currently only plaintext password passing is supported. |
-| **clientKey** | string | false | Holds Base64-encoded client SSL private key for `sslCert` authorization. Must not be empty in case `sslCert`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. |
-| **clientCert** | string | false | Holds Base64-encoded client SSL certificate for `sslCert` authorization. Must not be empty in case `sslCert`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. |
+|  type | string | true | Authorization mechanism type. Possible values: `plain`, `sslCert`, `SCRAM` (which stands for SASL-SCRAM-SHA512), `sslCert+plain`, `sslCert+SCRAM` |
+| username | string | false | Holds username for SASL Plain or SASL-SCRAM-SHA512 authorization. Must not be empty in case `plain`, `SCRAM`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. |
+| password | string | false | Holds password for SASL Plain or SASL-SCRAM-SHA512 authorization. Must not be empty in case `plain`, `SCRAM`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. Password is specified in format `"<password storage type>:<value>"`, e.g. `"plain:alice-secret"`. Currently only plaintext password passing is supported. |
+| clientKey | string | false | Holds Base64-encoded client SSL private key for `sslCert` authorization. Must not be empty in case `sslCert`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. |
+| clientCert | string | false | Holds Base64-encoded client SSL certificate for `sslCert` authorization. Must not be empty in case `sslCert`, `sslCert+plain`, or `sslCert+SCRAM` auth is used. |
 
 
 ### Get templates by namespace
 
 This API allows getting templates with namespace header
-* **URI:**  `{maas_host}/api/v2/kafka/topic-templates`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/topic-templates`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     None
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     [
      {
@@ -1832,23 +1832,23 @@ This API allows getting templates with namespace header
     ]
     ```
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
       curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic-templates' \
       --header 'X-Origin-Namespace: namespace' \
       --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
-      --header 'Content-Type: application/json' 
+      --header 'Content-Type: application/json'
     ```
     Response:
     `200 OK`
@@ -1877,22 +1877,22 @@ This API allows getting templates with namespace header
 ### Delete template
 
 This API allows deleting template
-* **URI:**  `{maas_host}/api/v2/kafka/topic-template`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/topic-template`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     ```json
   {
       "name": "<template name>"
   }
   ```
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     {
         "Name": "my-template",
@@ -1904,16 +1904,16 @@ This API allows deleting template
     }
     ```
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -1941,29 +1941,29 @@ This API allows deleting template
 
 ### Define lazy topic
 
-This API allows defining lazy topic 
-Lazy topic is an entity stored in register of maas, defining lazy topic does not create anything in Kafka  
-Main feature of lazy topic is that you can define topic with partially-filled classifier (e.g. `{ "name" : "my-topic", "namespace" : "my-namespace" }` ) with all proper configurations  
-Then you can create topic by lazy topic (see api below) only with fully-filled classifier, adding for example tenantId (e.g. `{ "name" : "my-topic",  "namespace" : "my-namespace", "tenantId" : "123" }` )  
-And topic will be created with fully-filled classifier but with configs from lazy topics  
+This API allows defining lazy topic
+Lazy topic is an entity stored in register of maas, defining lazy topic does not create anything in Kafka
+Main feature of lazy topic is that you can define topic with partially-filled classifier (e.g. `{ "name" : "my-topic", "namespace" : "my-namespace" }` ) with all proper configurations
+Then you can create topic by lazy topic (see api below) only with fully-filled classifier, adding for example tenantId (e.g. `{ "name" : "my-topic",  "namespace" : "my-namespace", "tenantId" : "123" }` )
+And topic will be created with fully-filled classifier but with configs from lazy topics
 
-Proper lazy topic is chosen by the rule, that all fields with their values of defined lazy topic should be present in requested classifier  
-Please notice, that if more than one lazy topic is compatible with requested topic it will be a conflict  
+Proper lazy topic is chosen by the rule, that all fields with their values of defined lazy topic should be present in requested classifier
+Please notice, that if more than one lazy topic is compatible with requested topic it will be a conflict
 
-* **URI:**  `{maas_host}/api/v2/kafka/lazy-topic/definition`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/lazy-topic/definition`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     Same as for topic
-    
-* **Success Response:**  
+
+* Success Response:
     `201` - if created
     `200` - if exists or updated
-     Response body:  
+     Response body:
     ```json
     {
         "classifier": {
@@ -1977,15 +1977,15 @@ Please notice, that if more than one lazy topic is compatible with requested top
     }
     ```
 
-* **Error Response:**
+* Error Response:
     *Http code*: `500` in case of internal server errors; `400` in case of bad request
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2019,39 +2019,39 @@ Please notice, that if more than one lazy topic is compatible with requested top
         }
     }
      ```
-  
+
 ### Create topic by lazy topic
 
-This API allows creating topic by lazy topic  
+This API allows creating topic by lazy topic
 More info in `Define lazy topic` section
-* **URI:**  `{maas_host}/api/v2/kafka/lazy-topic`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/lazy-topic`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     ```json
       {
         "name": "<your any custom name, it will be used as a part of generated topic name if no concrete name is specified in request>",
         "tenantId": "[optional]<external tenant identifier>",
         "namespace": "<namespace where service is deployed>"
       }
-  
+
   ```
-* **Success Response:**  
+* Success Response:
     same as for topic
 
-* **Error Response:**
+* Error Response:
     *Http code*: `500` in case of internal server errors; `400` in case of bad request; `404` in case if any compatible lazy topic was not found; `409` in casi if more than one topic is compatible with your classifier
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2126,25 +2126,25 @@ More info in `Define lazy topic` section
         "template": "my-template444"
     }
      ```
-  
-  
-  
+
+
+
 ### Get lazy topic definitions
 
-This API allows getting lazy topics with namespace header  
+This API allows getting lazy topics with namespace header
 More info in `Define lazy topic` section
-* **URI:**  `{maas_host}/api/v2/kafka/lazy-topics/definitions`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/lazy-topics/definitions`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     None
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     [
         {
@@ -2168,16 +2168,16 @@ More info in `Define lazy topic` section
     ]
     ```
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2216,14 +2216,14 @@ More info in `Define lazy topic` section
 
 This API allows deleting lazy topic definition. All topics that has been created by lazy topic definition stay
 intact and can be deleted by using its classifier by separate calls.
-* **URI:**  `{maas_host}/api/v2/kafka/lazy-topic`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/lazy-topic`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     ```json
       {
         "name": "<your any custom name, it will be used as a part of generated topic name if no concrete name is specified in request>",
@@ -2231,9 +2231,9 @@ intact and can be deleted by using its classifier by separate calls.
         "namespace": "<namespace where service is deployed>"
       }
   ```
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
         {
             "Classifier": "{\"name\":\"my-lazy-topic\"}",
@@ -2246,16 +2246,16 @@ intact and can be deleted by using its classifier by separate calls.
         }
     ```
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2264,9 +2264,9 @@ intact and can be deleted by using its classifier by separate calls.
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' \
         --data-raw '{
-           
+
                 "name": "my-lazy-topic"
-            
+
         }'
     ```
     Response:
@@ -2286,20 +2286,20 @@ intact and can be deleted by using its classifier by separate calls.
 
 ### Get tenant topics declarations by namespace
 
-Get list of tenant topic definitions filtered by namespace. 
-Creation of tenant topics could be done using declarative approach 
+Get list of tenant topic definitions filtered by namespace.
+Creation of tenant topics could be done using declarative approach
 (more info in `declarative_approach.md` ). More info about tenant-topics in [Readme](../README.md)
 
-* **URI:**  `{maas_host}/api/v2/kafka/tenant-topics`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/tenant-topics`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     [
         {
@@ -2323,16 +2323,16 @@ Creation of tenant topics could be done using declarative approach
     ]
     ```
 
-* **Error Response:**
+* Error Response:
 
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2368,28 +2368,28 @@ Creation of tenant topics could be done using declarative approach
      ```
 ### Delete tenant topic definition
 
-Deletes tenant-topic definition by given classifier. Note that tenant topics already produced by this defintion 
-stay intact. You can delete these tenant topics by using [Delete topic](rest_api.md#delete-kafka-topic) API 
-* **URI:**  `{maas_host}/api/v2/kafka/tenant-topic`
-* **Method:** `DELETE`
-* **Headers:**  
-  `Content-Type: application/json`  
+Deletes tenant-topic definition by given classifier. Note that tenant topics already produced by this defintion
+stay intact. You can delete these tenant topics by using [Delete topic](rest_api.md#delete-kafka-topic) API
+* URI:  `{maas_host}/api/v2/kafka/tenant-topic`
+* Method: `DELETE`
+* Headers:
+  `Content-Type: application/json`
   `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
     ```json
       {
         "name": "<tenant topic name part>",
         "namespace": "<namespace where service is deployed>"
       }
   ```
-* **Success Response:**  
+* Success Response:
   `200`
   Response body:
     ```json
         {
-            "Classifier": { 
+            "Classifier": {
               "name": "my-lazy-topic",
                "namespace": "namespace"
             },
@@ -2398,17 +2398,17 @@ stay intact. You can delete these tenant topics by using [Delete topic](rest_api
         }
     ```
 
-* **Error Response:**
-  * Http code*: `404` tenant topic definition with given classifier is not found 
+* Error Response:
+  * Http code*: `404` tenant topic definition with given classifier is not found
   * Http code*: `500` internal server error
-  
+
   *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -2439,20 +2439,20 @@ stay intact. You can delete these tenant topics by using [Delete topic](rest_api
 ### Kafka Topics Reconciliation
 
 Allows to recreate kafka topics that exists in maas, but not in kafka
-* **URI:**  `{maas_host}/api/v2/kafka/recovery/{namespace}`
-* **Method:** `POST`
-* **Headers:**  
+* URI:  `{maas_host}/api/v2/kafka/recovery/{namespace}`
+* Method: `POST`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
-  `200`  
-  Response body:  
+* Success Response:
+  `200`
+  Response body:
   see sample
 
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -2494,19 +2494,19 @@ Allows to recreate kafka topics that exists in maas, but not in kafka
 ### Kafka Single Topic Recovery
 
 Allows to recreate kafka topics that exists in maas, but not in kafka
-* **URI:**  `{maas_host}/api/v2/kafka/recover-topic`
-* **Method:** `POST`
-* **Headers:**  
+* URI:  `{maas_host}/api/v2/kafka/recover-topic`
+* Method: `POST`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   Classifier of required topic (see example)
-* **Success Response:**  
-  `200`  
-  Response body:  
+* Success Response:
+  `200`
+  Response body:
   see sample
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -2516,7 +2516,7 @@ Allows to recreate kafka topics that exists in maas, but not in kafka
     }
     ```
 
-  * **Sample call**
+  * Sample call
 
     Request:
       ```bash
@@ -2542,30 +2542,30 @@ Allows to recreate kafka topics that exists in maas, but not in kafka
     "status": "exists"
     }
       ```
-    
+
 Possible statuses: `"exists", "added", "not_found"`
 
 ### Discrepancy Report
 
 Allows to get discrepancy between Kafka topics from MaaS database and Kafka
-* **URI:**  `{maas_host}/api/v2/kafka/discrepancy-report/{namespace}?status=ok|absent`
-* **Method:** `GET`
-* **Headers:**  
+* URI:  `{maas_host}/api/v2/kafka/discrepancy-report/{namespace}?status=ok|absent`
+* Method: `GET`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   None
-* **Request body:**
+* Request body:
   None
-* **Query params:**
-  `status` - values can be either `ok` or `absent`. 
+* Query params:
+  `status` - values can be either `ok` or `absent`.
   * `ok` - existing kafka topic we have valid registration record in MaaS
-  * `absent` - MaaS has registration record in its database, but real topic is absent or missed in kafka 
+  * `absent` - MaaS has registration record in its database, but real topic is absent or missed in kafka
 
-* **Success Response:**  
-  `200`  
-  Response body:  
+* Success Response:
+  `200`
+  Response body:
   see example
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -2574,7 +2574,7 @@ Allows to get discrepancy between Kafka topics from MaaS database and Kafka
       "error": "<error message>"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -2611,18 +2611,18 @@ Allows to get discrepancy between Kafka topics from MaaS database and Kafka
 
 This API allows getting tenants stored in maas
 It is used for tenant-topics, more info about tenant-topics in README.md
-* **URI:**  `{maas_host}/api/v2/tenants`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/tenants`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     Empty
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
   [
       {
@@ -2642,16 +2642,16 @@ It is used for tenant-topics, more info about tenant-topics in README.md
   ]
     ```
 
-* **Error Response:**
+* Error Response:
 
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2686,14 +2686,14 @@ It is used for tenant-topics, more info about tenant-topics in README.md
 This API allows sychronizing tenant in maas
 It means that list of tenants you send will be compared with already stored in maas and new tenants will be added to register and all tenant-topics of your namespace will be created for new tenants
 It is used for tenant-topics, more info about tenant-topics in README.md
-* **URI:**  `{maas_host}/api/v2/synchronize-tenants`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/synchronize-tenants`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
 ```json
     [
         {
@@ -2705,9 +2705,9 @@ It is used for tenant-topics, more info about tenant-topics in README.md
         ...
     ]
 ```
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     [
     {
@@ -2728,16 +2728,16 @@ It is used for tenant-topics, more info about tenant-topics in README.md
     ]
     ```
 
-* **Error Response:**
+* Error Response:
 
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -2752,7 +2752,7 @@ It is used for tenant-topics, more info about tenant-topics in README.md
                 "tenantPresentation": {
                     "externalId": "101"
                 }
-              } 
+              }
           ]
       '
     ```
@@ -2956,18 +2956,18 @@ It is used for tenant-topics, more info about tenant-topics in README.md
 ### Get blue green status
 
 This API allows getting control plane messages stored in maas by namespace
-* **URI:**  `{maas_host}/api/v2/bg-status`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/bg-status`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     Empty
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     [
         {
@@ -2981,16 +2981,16 @@ This API allows getting control plane messages stored in maas by namespace
     ]
     ```
 
-* **Error Response:**
+* Error Response:
 
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -3021,17 +3021,17 @@ This API allows getting control plane messages stored in maas by namespace
     ]
      ```
 
-### Apply control plane message 
+### Apply control plane message
 This API allows apply cp message with blue-green status to maas
 You MUST NOT do it manually, it is done via control-plane and maas-agent in cloud-core
-* **URI:**  `{maas_host}/api/v2/bg-status`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/bg-status`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
 ```json
     [
       {
@@ -3041,22 +3041,22 @@ You MUST NOT do it manually, it is done via control-plane and maas-agent in clou
         "updatedWhen": "<timestamp>"
       },
       ...
-    ] 
+    ]
 ```
-* **Success Response:**  
-    `200`   
+* Success Response:
+    `200`
      Response body:  no body
 
-* **Error Response:**
+* Error Response:
 
-    *Http code*: `500` in case of internal server errors;   
-    *Response body:* 
+    *Http code*: `500` in case of internal server errors;
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -3078,29 +3078,29 @@ You MUST NOT do it manually, it is done via control-plane and maas-agent in clou
         "createdWhen": "2021-08-18T16:33:15.142354459Z",
         "updatedWhen": "2021-08-18T16:33:15.14235456Z"
       }
-    ] 
+    ]
       '
     ```
-    Response:   
+    Response:
     `200 OK`
- 
+
 
 ## Accounts API
 ### Get accounts
 
 This API allows getting accounts
-* **URI:**  `{maas_host}/api/v2/auth/accounts`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/auth/accounts`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     None
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
     [
         {
@@ -3125,23 +3125,23 @@ This API allows getting accounts
     ]
     ```
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
       curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/accounts' \
       --header 'X-Origin-Namespace: namespace' \
       --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
-      --header 'Content-Type: application/json' 
+      --header 'Content-Type: application/json'
     ```
     Response:
     `200 OK`
@@ -3174,31 +3174,31 @@ This API allows getting accounts
 ### Create manager account
 Manager account has a role `manager` who is able to manage broker instances.
 
-* **URI:**  `{maas_host}/api/v2/auth/account/manager`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    No auth for first manager creation. Basic type with credentials with `manager` role for all except first. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
-    You need to pass body with connection properties for Rabbit instance: 
+* URI:  `{maas_host}/api/v2/auth/account/manager`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    No auth for first manager creation. Basic type with credentials with `manager` role for all except first. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
+    You need to pass body with connection properties for Rabbit instance:
     ```json
     {
       "username": "<manager username>",
       "password": "<manager password>"
     }
     ```
-* **Success Response:**  
-    `201` - Manager account was created successfully.  
-* **Error Response:**   
+* Success Response:
+    `201` - Manager account was created successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -3217,20 +3217,20 @@ Manager account has a role `manager` who is able to manage broker instances.
 ### Update manager's password
 Update password for manager account.
 
-* **URI:**  `{maas_host}/api/v2/auth/account/manager/{name}/password`
-* **Method:** `PUT`
-* **Headers:**  
+* URI:  `{maas_host}/api/v2/auth/account/manager/{name}/password`
+* Method: `PUT`
+* Headers:
   _None_
-* **Authorization:**
+* Authorization:
   Basic type with credentials for `manager` role.
-* **Request body:**
+* Request body:
   New password as _plain text_
     ```text
     new-password
     ```
-* **Success Response:**  
+* Success Response:
   `200` - Manager account password was changed successfully.
-* **Error Response:**   
+* Error Response:
   *Http code*: `500`
   *Response body:*
     ```json
@@ -3238,7 +3238,7 @@ Update password for manager account.
       "error": "<error message>"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -3255,13 +3255,13 @@ Update password for manager account.
 ### Create client account
 Client account has a role `agent` who is able to manage broker entities of given instance.
 
-* **URI:**  `{maas_host}/api/v2/auth/account/client`  
-* **Method:** `POST`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
+* URI:  `{maas_host}/api/v2/auth/account/client`
+* Method: `POST`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
     ```json
     {
       "username": "<client username>",
@@ -3272,17 +3272,17 @@ Client account has a role `agent` who is able to manage broker entities of given
         ]
     }
     ```
-* **Success Response:**  
-    `201` - Client account was created successfully.  
-* **Error Response:**   
+* Success Response:
+    `201` - Client account was created successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -3307,13 +3307,13 @@ Client account has a role `agent` who is able to manage broker entities of given
 
 ### Delete client account
 
-* **URI:**  `{maas_host}/api/v2/auth/account/client`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-* **Authorization:**
-    Basic type with credentials with `manager` role specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.  
-* **Request body:**
+* URI:  `{maas_host}/api/v2/auth/account/client`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+* Authorization:
+    Basic type with credentials with `manager` role specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* Request body:
     ```json
     {
       "username": "<client username>",
@@ -3324,17 +3324,17 @@ Client account has a role `agent` who is able to manage broker entities of given
         ]
     }
     ```
-* **Success Response:**  
-    `204` - Client account was deleted successfully.  
-* **Error Response:**   
+* Success Response:
+    `204` - Client account was deleted successfully.
+* Error Response:
     *Http code*: `500`
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -3355,26 +3355,26 @@ Client account has a role `agent` who is able to manage broker entities of given
     ```json
     200
     ```
-  
+
 ## Instance designators API
 
-Note, that same API exists for RabbitMQ, but URI should be `{maas_host}/api/v2/rabbit/instance-designator`  
+Note, that same API exists for RabbitMQ, but URI should be `{maas_host}/api/v2/rabbit/instance-designator`
 
 ### Get kafka instance designators
 Get kafka instance designator. You can have only one instance designator of broker per namespace.
 
-* **URI:**  `{maas_host}/api/v2/kafka/instance-designator`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name);  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/instance-designator`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name);
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     None
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
     ```json
      {
          "namespace": "...",
@@ -3396,22 +3396,22 @@ Get kafka instance designator. You can have only one instance designator of brok
      }
     ```
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
         curl --location --request GET 'localhost:8080/api/v2/kafka/instance-designator' \
         --header 'X-Origin-Namespace: namespace' \
-        --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
+        --header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
     ```
     Response:
     `200 OK`
@@ -3442,60 +3442,60 @@ Get kafka instance designator. You can have only one instance designator of brok
 
 Delete Kafka instance designator
 
-* **URI:**  `{maas_host}/api/v2/kafka/instance-designator`  
-* **Method:** `GET`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name);  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/kafka/instance-designator`
+* Method: `GET`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name);
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     None
-* **Success Response:**  
+* Success Response:
     `200`
-     Response body:  
+     Response body:
      None
 
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
         curl --location --request DELETE 'localhost:8080/api/v2/kafka/instance-designator' \
         --header 'X-Origin-Namespace: namespace' \
-        --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
+        --header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
     ```
     Response:
     `200 OK`
 
-  
-  
-  
+
+
+
 
 ### Get rabbit instance designators
 Get rabbit instance designator. You can have only one instance designator of broker per namespace.
 
-* **URI:**  `{maas_host}/api/v2/rabbit/instance-designator`  
-* **Method:** `GET`
-* **Headers:**  
-  `Content-Type: application/json`  
-  `X-Origin-Namespace` - Namespace (project name);  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/rabbit/instance-designator`
+* Method: `GET`
+* Headers:
+  `Content-Type: application/json`
+  `X-Origin-Namespace` - Namespace (project name);
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
+* Success Response:
   `200`
-   Response body:  
+   Response body:
   ```json
    {
        "namespace": "...",
@@ -3517,22 +3517,22 @@ Get rabbit instance designator. You can have only one instance designator of bro
    }
   ```
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
-  *Response body:* 
+  *Response body:*
   ```json
   {
     "error": "<error message>"
   }
   ```
-* **Sample call**  
+* Sample call
 
   Request:
   ```bash
       curl --location --request GET 'localhost:8080/api/v2/rabbit/instance-designator' \
       --header 'X-Origin-Namespace: namespace' \
-      --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
+      --header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
   ```
   Response:
   `200 OK`
@@ -3563,59 +3563,59 @@ Get rabbit instance designator. You can have only one instance designator of bro
 
 Delete rabbit instance designator
 
-* **URI:**  `{maas_host}/api/v2/rabbit/instance-designator`  
-* **Method:** `GET`
-* **Headers:**  
-  `Content-Type: application/json`  
-  `X-Origin-Namespace` - Namespace (project name);  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/rabbit/instance-designator`
+* Method: `GET`
+* Headers:
+  `Content-Type: application/json`
+  `X-Origin-Namespace` - Namespace (project name);
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
+* Success Response:
   `200`
-   Response body:  
+   Response body:
    None
 
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
-  *Response body:* 
+  *Response body:*
   ```json
   {
     "error": "<error message>"
   }
   ```
-* **Sample call**  
+* Sample call
 
   Request:
   ```bash
       curl --location --request DELETE 'localhost:8080/api/v2/rabbit/instance-designator' \
       --header 'X-Origin-Namespace: namespace' \
-      --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
+      --header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
   ```
   Response:
   `200 OK`
 
 
 
-    
+
 ## Apply Configuration v1
 
 Note, that this endpoint can't be used for nc.maas.rabbit/v2 config, it could be used only with aggregated config which is sent by deployer, see [Apply Configuration v2](#apply-configuration-v2)
 
-***Configuration format***
+*Configuration format*
 
-MaaS service has a universal endpoint to apply set of configurations by one call. Given configurations set can be encoded either in JSON or 
+MaaS service has a universal endpoint to apply set of configurations by one call. Given configurations set can be encoded either in JSON or
 YAML format. Each configuration should contain a preamble with `apiVersion`, `kind` and `spec` mandatory fields and optional `pragma`:
 ```yaml
-apiVersion: nc.maas.kafka/v1 
+apiVersion: nc.maas.kafka/v1
 kind: topic
 pragma:
   kube-secret: topic-acccess-secret
   on-entity-exists: merge
-spec: 
+spec:
   ...
 ```
 or in JSON:
@@ -3624,25 +3624,25 @@ or in JSON:
   "apiVersion": "nc.maas.kafka/v1",
   "kind": "topic",
   "pragma": {"kube-secret": "topic-acccess-secret", "on-entity-exists": "merge"},
-  "spec": { 
+  "spec": {
     ...
   }
 }
 ```
-In case of passing multiple configurations at the time you should separate it by `---` in YAML: 
+In case of passing multiple configurations at the time you should separate it by `---` in YAML:
 ```yaml
-apiVersion: nc.maas.kafka/v1 
+apiVersion: nc.maas.kafka/v1
 kind: topic
-spec: 
-  classifier: 
+spec:
+  classifier:
     name: events
     namespace: ${ENV_NAMESPACE}
 
 ---
-apiVersion: nc.maas.kafka/v1 
+apiVersion: nc.maas.kafka/v1
 kind: topic
-spec: 
-  classifier: 
+spec:
+  classifier:
     name: orders
     namespace: ${ENV_NAMESPACE}
 ```
@@ -3673,46 +3673,46 @@ or form as array in JSON format:
 ]
 ```
 Pragma section intended to contain some sort of instructions or options to correctly process configuration. Available fields are:
-* `kube-secret` - string. Not processed by MaaS itself but used by platform cloud deployer. Deployer saves response 
-data to secret with given name in project namespace. So microservice can attach this secret in its deployment configuration 
+* `kube-secret` - string. Not processed by MaaS itself but used by platform cloud deployer. Deployer saves response
+data to secret with given name in project namespace. So microservice can attach this secret in its deployment configuration
 and access to topic at start time not need to request maas-agent/maas.
 * `on-entity-exists` - flag with available `merge` or `fail` values. If topic in Kafka with `name` already exists and:
-  * `on-entity-exists` set to `fail`, MaaS processing will fail with collision error: topic in Kafka with such name already exists. 
+  * `on-entity-exists` set to `fail`, MaaS processing will fail with collision error: topic in Kafka with such name already exists.
   * `on-entity-exists` set to `merge`, MaaS skip error and continue processing, going to second phase: apply requested topic properties on existsing topic. This phase can fail if, for example, requested `numPartitions` value is less than found on existing topic in Kafka and can't be downscaled automatically by MaaS.
 
 
-***Supported configuration types***
+*Supported configuration types*
 
-* apiVersion: "nc.maas.kafka/v1", kind: "topic" 
-* apiVersion: "nc.maas.kafka/v1", kind: "topic-template" 
-* apiVersion: "nc.maas.kafka/v1", kind: "lazy-topic" 
-* apiVersion: "nc.maas.kafka/v1", kind: "tenant-topic" 
+* apiVersion: "nc.maas.kafka/v1", kind: "topic"
+* apiVersion: "nc.maas.kafka/v1", kind: "topic-template"
+* apiVersion: "nc.maas.kafka/v1", kind: "lazy-topic"
+* apiVersion: "nc.maas.kafka/v1", kind: "tenant-topic"
 
-* apiVersion: "nc.maas.kafka/v2", kind: "instance-designator" 
+* apiVersion: "nc.maas.kafka/v2", kind: "instance-designator"
 
-* apiVersion: "nc.maas.rabbit/v1", kind: "vhost" 
+* apiVersion: "nc.maas.rabbit/v1", kind: "vhost"
 
-***Endpoint details*** 
-* **URI:**  `{maas_host}/api/v1/config`  
-* **Method:** `POST`
-* **Headers:**  
+*Endpoint details*
+* URI:  `{maas_host}/api/v1/config`
+* Method: `POST`
+* Headers:
     * `Content-Type: application/json`
     * `X-Origin-Namespace: <ns>`
-* **Authorization:**
-    Basic type with agent credentials  
-* **Request body:**
+* Authorization:
+    Basic type with agent credentials
+* Request body:
     Text in JSON/YAML format. See details in topics this chapter above
 
-***Responses:***
-***OK 200***
-All set of configurations is applied without errors. Example output: 
+*Responses:*
+*OK 200*
+All set of configurations is applied without errors. Example output:
 ```json
 [
   {
     "request": <...>,
     "result": {
        "status": "ok",
-       "data": { ... } 
+       "data": { ... }
     }
   },
   ...
@@ -3720,18 +3720,18 @@ All set of configurations is applied without errors. Example output:
       "request": <...>,
       "result": {
          "status": "error",
-         "error": "error message" 
+         "error": "error message"
       }
     }
 
 ]
 ```
 
-***BadRequest 400*** 
-Invalid user input. Server can't parse request body neither as JSON nor as YAML. Response is plain text with error 
+*BadRequest 400*
+Invalid user input. Server can't parse request body neither as JSON nor as YAML. Response is plain text with error
 
-***ServerError 500***
-Errors exists during configuration apply. Returns list of configurations with corresponding processing status. Note that 
+*ServerError 500*
+Errors exists during configuration apply. Returns list of configurations with corresponding processing status. Note that
 some of configurations can be applied and some can be failed. For results with failed result field `status` has `error` value:
 ```json
 [
@@ -3739,7 +3739,7 @@ some of configurations can be applied and some can be failed. For results with f
     "request": <...>,
     "response": {
        "status": "ok",
-       "data": { ... } 
+       "data": { ... }
     }
   },
   ...
@@ -3747,15 +3747,15 @@ some of configurations can be applied and some can be failed. For results with f
       "request": <...>,
       "response": {
          "status": "error",
-         "error": "error message" 
+         "error": "error message"
      }
   }
   ...
 ]
 ```
 
-***Sample request:***
-**Request**
+*Sample request:*
+Request
 ```bash
 curl --location --request POST 'localhost:8080/api/v1/config' \
     --header 'X-Origin-Namespace: cloud-dev' \
@@ -3763,7 +3763,7 @@ curl --location --request POST 'localhost:8080/api/v1/config' \
     --data-raw '---
 apiVersion: nc.maas.kafka/v1
 kind: topic
-spec: 
+spec:
   classifier:
     name: events
     namespace: my-namespace
@@ -3771,14 +3771,14 @@ spec:
 ---
 apiVersion: nc.maas.kafka/v1
 kind: topic
-spec: 
+spec:
   classifier:
     name: orders
     namespace: my-namespace
-' 
+'
 ```
 
-**Response**
+Response
 ```json
 [
     {
@@ -3928,19 +3928,19 @@ spec:
 
 This endpoint should be used mainly by deployer, because it aggregates all configs from every microservice and put its name both with its config. To send config manually use [Apply Configuration v1](#apply-configuration-v1)
 
-***Configuration format***
+*Configuration format*
 
 ```yaml
 apiVersion: nc.maas.config/v2
 kind: config
-spec: 
+spec:
   version: <version>
   namespace: <namespace>
-  services: 
+  services:
     - serviceName: <service-1-name>
       config: |+
           <configs of particular type body>
-      
+
     - serviceName: <service-2-name>
       config: |+
           <configs of particular type body>
@@ -3948,34 +3948,34 @@ spec:
     - ...
 ```
 
-***Supported configuration types***
+*Supported configuration types*
 
-* apiVersion: "nc.maas.kafka/v1", kind: "topic" 
-* apiVersion: "nc.maas.kafka/v1", kind: "topic-template" 
-* apiVersion: "nc.maas.kafka/v1", kind: "lazy-topic" 
-* apiVersion: "nc.maas.kafka/v1", kind: "tenant-topic" 
+* apiVersion: "nc.maas.kafka/v1", kind: "topic"
+* apiVersion: "nc.maas.kafka/v1", kind: "topic-template"
+* apiVersion: "nc.maas.kafka/v1", kind: "lazy-topic"
+* apiVersion: "nc.maas.kafka/v1", kind: "tenant-topic"
 
 
-* apiVersion: "nc.maas.kafka/v2", kind: "instance-designator" 
+* apiVersion: "nc.maas.kafka/v2", kind: "instance-designator"
 
 
 * apiVersion: "nc.maas.rabbit/v1", kind: "vhost"
-* apiVersion: "nc.maas.rabbit/v2", kind: "vhost" 
+* apiVersion: "nc.maas.rabbit/v2", kind: "vhost"
 
 
-***Endpoint details*** 
-* **URI:**  `{maas_host}/api/v2/config`  
-* **Method:** `POST`
-* **Headers:**  
+*Endpoint details*
+* URI:  `{maas_host}/api/v2/config`
+* Method: `POST`
+* Headers:
     * `Content-Type: application/json`
     * `X-Origin-Namespace: <ns>`
-* **Authorization:**
+* Authorization:
     Basic type with credentials with 'agent' role
-* **Request body:**
+* Request body:
     Text in YAML format - see format above (JSON also can be used)
 
-***Responses:***
-***OK***
+*Responses:*
+*OK*
 
 ```json
 {
@@ -4009,35 +4009,35 @@ spec:
                 }
             }
         },
-        ...       
+        ...
     ]
 }
 ```
 
-***Error***
-There could be mistakes of two main types: config parsing and internal server error in the particular config. In both cases you'll get overall field "status": "error".  
+*Error*
+There could be mistakes of two main types: config parsing and internal server error in the particular config. In both cases you'll get overall field "status": "error".
 
-We save first error to return it on outer level of response, inner errors are described for any specific ms inside it anyway.  
-So if no inner errors, but outer - user will see outer overall error (as for rabbit validation).  
-If there is inner error, then user will see first inner error for kafka and we continue to process other configs if mistake is in one of kafka's configs.  
-Or if it is rabbit error, then user will see first inner error for rabbit and no more rabbit configs are processed.  
- 
+We save first error to return it on outer level of response, inner errors are described for any specific ms inside it anyway.
+So if no inner errors, but outer - user will see outer overall error (as for rabbit validation).
+If there is inner error, then user will see first inner error for kafka and we continue to process other configs if mistake is in one of kafka's configs.
+Or if it is rabbit error, then user will see first inner error for rabbit and no more rabbit configs are processed.
+
 In case you have overall error in your config, you will get no msResponses, but error body, for example for config with bad kafka kind in second microservice:
 
 ```yaml
 apiVersion: nc.maas.config/v2
 kind: config
-spec: 
+spec:
   version: v1
   namespace: core-dev
-  services: 
+  services:
     - serviceName: order-processor
       config: |+
           apiVersion: nc.maas.kafka/v1
           kind: topic
           spec:
              classifier: { name: abc, namespace: namespace}
-      
+
     - serviceName: order-executor
       config: |+
           ---
@@ -4048,7 +4048,7 @@ spec:
 
 ```
 
-**Response**
+Response
 
 ```json
 {
@@ -4063,17 +4063,17 @@ If you got some error during applying config in broker, you'll get overall error
 ```yaml
 apiVersion: nc.maas.config/v2
 kind: config
-spec: 
+spec:
   version: v1
   namespace: core-dev
-  services: 
+  services:
     - serviceName: order-processor
       config: |+
           apiVersion: nc.maas.kafka/v1
           kind: topic
           spec:
              classifier: { name: abc, namespace: namespace}
-      
+
     - serviceName: order-executor
       config: |+
           ---
@@ -4084,7 +4084,7 @@ spec:
 
 ```
 
-**Response**
+Response
 
 ```json
 {
@@ -4188,8 +4188,8 @@ spec:
 }
 ```
 
-***Sample request:***
-**Request**:
+*Sample request:*
+Request:
 
 ```bash
 curl --location --request POST 'localhost:8080/api/v2/config' \
@@ -4197,23 +4197,23 @@ curl --location --request POST 'localhost:8080/api/v2/config' \
     --data-raw '---
 apiVersion: nc.maas.config/v2
 kind: config
-spec: 
+spec:
   version: v1
   namespace: core-dev
-  services: 
+  services:
     - serviceName: order-processor
       config: |+
           apiVersion: nc.maas.kafka/v1
           kind: topic
           spec:
              classifier: { name: abc, namespace: namespace}
-       
+
           ---
           apiVersion: nc.maas.kafka/v1
           kind: topic
           spec:
              classifier: { name: cde, namespace: namespace}
-      
+
     - serviceName: order-executor
       config: |+
           ---
@@ -4221,16 +4221,16 @@ spec:
           kind: topic
           spec:
              classifier: { name: foo, namespace: namespace}
-          
+
           ---
           apiVersion: nc.maas.kafka/v1
           kind: topic
           spec:
              classifier: { name: bar1, namespace: namespace}
-' 
+'
 ```
 
-**Response**
+Response
 
 ```json
 {
@@ -4550,46 +4550,46 @@ namespace: cloudbss-kube-csrd-dev2
 services:
 {serviceName: security-scripts-cli, config: ''}
 {serviceName: wp-runtime, config: ''}
-' 
+'
 ```
 
 
 ## Delete namespace
 
 This API allows deleting ALL entities in particular namespace (topic, template, lazy topic, tenant topic, tenant, vhost)
-* **URI:**  `{maas_host}/api/v2/namespace`  
-* **Method:** `DELETE`
-* **Headers:**  
-    `Content-Type: application/json`  
-    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;  
-* **Authorization:**
+* URI:  `{maas_host}/api/v2/namespace`
+* Method: `DELETE`
+* Headers:
+    `Content-Type: application/json`
+    `X-Origin-Namespace` - Namespace (project name) where a topic will be used;
+* Authorization:
     Basic type
-* **Request body:**
+* Request body:
     ```json
       {
         "namespace": "<your namespace>"
       }
   ```
-* **Success Response:**  
+* Success Response:
     `200`
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
         curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/namespace' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
-        --header 'Content-Type: application/json' 
+        --header 'Content-Type: application/json'
     ```
     Response:
     `200 OK`
@@ -4598,29 +4598,29 @@ This API allows deleting ALL entities in particular namespace (topic, template, 
 ## Monitoring
 
 This API allows getting accounts
-* **URI:**  `{maas_host}/api/v2/monitoring/entity-distribution`  
-* **Method:** `GET`
-* **Headers:**  
+* URI:  `{maas_host}/api/v2/monitoring/entity-distribution`
+* Method: `GET`
+* Headers:
     None
-* **Authorization:**
+* Authorization:
     Basic type with account with 'manager' role
-* **Request body:**
+* Request body:
     None
-* **Success Response:**  
-    `200`  
-     Response body:  
+* Success Response:
+    `200`
+     Response body:
      see example
 
-* **Error Response:**
-  
+* Error Response:
+
     *Http code*: `500` in case of internal server errors;
-    *Response body:* 
+    *Response body:*
     ```json
     {
       "error": "<error message>"
     }
     ```
-* **Sample call**  
+* Sample call
 
     Request:
     ```bash
@@ -4639,20 +4639,20 @@ This API allows getting accounts
 ## vhost/topic request audit
 
 This API allows getting vhost/topic request metrics in Prometheus format
-* **URI:**  `{maas_host}/api/v2/monitoring/entity-request-audit`
-* **Method:** `GET`
-* **Headers:**  
+* URI:  `{maas_host}/api/v2/monitoring/entity-request-audit`
+* Method: `GET`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   None
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
-  `200`  
-  Response body:  
+* Success Response:
+  `200`
+  Response body:
   see example
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -4661,7 +4661,7 @@ This API allows getting vhost/topic request metrics in Prometheus format
       "error": "<error message>"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -4680,20 +4680,20 @@ This API allows getting vhost/topic request metrics in Prometheus format
 ### List composite structures
 
 Get list of all registered composites. This method is useful for debug purposes
-* **URI:**  `{maas_host}/api/composite/v1/structures`
-* **Method:** `GET`
-* **Headers:**  
+* URI:  `{maas_host}/api/composite/v1/structures`
+* Method: `GET`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
-  `200`  
-  Response body:  
+* Success Response:
+  `200`
+  Response body:
   see example
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -4707,7 +4707,7 @@ Get list of all registered composites. This method is useful for debug purposes
       "@type": "NC.TMFErrorResponse.v1.0"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -4740,20 +4740,20 @@ Get list of all registered composites. This method is useful for debug purposes
 ### Get composite structure by id
 
 Get structure by id
-* **URI:**  `{maas_host}/api/composite/v1/structure/{id}`
-* **Method:** `GET`
-* **Headers:**  
+* URI:  `{maas_host}/api/composite/v1/structure/{id}`
+* Method: `GET`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
-  `200`  
-  Response body:  
+* Success Response:
+  `200`
+  Response body:
   see example
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -4767,7 +4767,7 @@ Get structure by id
       "@type": "NC.TMFErrorResponse.v1.0"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -4790,13 +4790,13 @@ Get structure by id
 ### Initialize/Update Composite Structure
 
 Insert or update composite structure in XaaS. Validation should be performed on XaaS side that neither of namespaces is used in other composite
-* **URI:**  `{maas_host}/api/composite/v1/structure`
-* **Method:** `POST`
-* **Headers:**  
+* URI:  `{maas_host}/api/composite/v1/structure`
+* Method: `POST`
+* Headers:
   `X-Origin-Namespace` - Namespace (project name)
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   ```json
   {
      "id": "base",
@@ -4806,12 +4806,12 @@ Insert or update composite structure in XaaS. Validation should be performed on 
      ]
   }
   ```
-* **Success Response:**  
-  `204`  
-  Response body:  
+* Success Response:
+  `204`
+  Response body:
   None
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -4825,7 +4825,7 @@ Insert or update composite structure in XaaS. Validation should be performed on 
       "@type": "NC.TMFErrorResponse.v1.0"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash
@@ -4848,20 +4848,20 @@ Insert or update composite structure in XaaS. Validation should be performed on 
 ### Destroy composite structure registration
 
 This method intended to destroy composite and remove its registration from MaaS
-* **URI:**  `{maas_host}/api/composite/v1/structure/{id}`
-* **Method:** `DELETE`
-* **Headers:**  
+* URI:  `{maas_host}/api/composite/v1/structure/{id}`
+* Method: `DELETE`
+* Headers:
   None
-* **Authorization:**
+* Authorization:
   Basic type
-* **Request body:**
+* Request body:
   None
-* **Success Response:**  
-  `204`  
-  Response body:  
+* Success Response:
+  `204`
+  Response body:
   see example
 
-* **Error Response:**
+* Error Response:
 
   *Http code*: `500` in case of internal server errors;
   *Response body:*
@@ -4875,7 +4875,7 @@ This method intended to destroy composite and remove its registration from MaaS
       "@type": "NC.TMFErrorResponse.v1.0"
     }
     ```
-* **Sample call**
+* Sample call
 
   Request:
     ```bash

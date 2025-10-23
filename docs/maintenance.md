@@ -6,10 +6,10 @@ In some cases, you can use instance-designators, you can read about them in [REA
 
 You have 2 options how to move existing topics/vhosts to another instance:
 
-1. First method could be used if you want to use rolling update in deployer. You can change maas-configuration.yaml file and put new instance name in request. If you used instance-designator and changed it - it will also work.   
+1. First method could be used if you want to use rolling update in deployer. You can change maas-configuration.yaml file and put new instance name in request. If you used instance-designator and changed it - it will also work.
    For example, you had rabbit config using default instance:
 
-```yaml
+```yamlyaml
       serviceName: order-processor
       config: |+
         ---
@@ -24,10 +24,10 @@ You have 2 options how to move existing topics/vhosts to another instance:
                 - name: e1
                   type: direct
                   durable: false
-```
+```yaml
 
 You decided to create new instance with name `rabbit-ci` and put your entities to this new instance. Then you can change your config and make rolling update for your application:
-```yaml
+```yamlyaml
       serviceName: order-processor
       config: |+
         ---
@@ -43,7 +43,7 @@ You decided to create new instance with name `rabbit-ci` and put your entities t
                 - name: e1
                   type: direct
                   durable: false
-```
+```yaml
 
 In that case, old topic/vhost WILL NOT BE deleted in broker, but removed from MaaS registry and then created in new broker instance and saved in MaaS with new instance.
 As we described, for that you need to either put new instance id in vhost/kafka during getOrCreate request/maas yaml config. Or if you have instance designator and instance is resolved by it and it differs from existing instance id in topic/vhost, then topic/vhost will be moved to new instance broker. Note, that you CANNOT use both designators and instance id in request.
@@ -52,7 +52,7 @@ If you're using default RabbitMQ/Kafka instance (not putting any instance in req
 2. Second method does not demand you to change instance in config, therefore no need to do rolling update for either your application or instance designator. For that, you first change the parameters of your instance using REST api and then use reconciliation endpoint to run recovery of namespace.
    For example, you had your default rabbit instance with these properties:
 
-```json
+```yamljson
 {
     "id": "rabbit-ci",
     "apiUrl": "https://rabbitmq.maas-rabbitmq-2:15671/api",
@@ -61,10 +61,10 @@ If you're using default RabbitMQ/Kafka instance (not putting any instance in req
     "password": "admin",
     "default": true
 }
-```
+```yaml
 
 You already have vhosts with entities in this instance, but you want to copy them to another instance. Then you need to UPDATE your rabbit properties with new url-s (and credentials if they differs in new instance):
-```
+```yaml
 curl --location --request PUT 'http://localhost:8080/api/v1/rabbit/instance' \
 --header 'Authorization: Basic bWFuYWdlcjoyNDAwMmVhZGJj' \
 --header 'Content-Type: application/json' \
@@ -76,20 +76,20 @@ curl --location --request PUT 'http://localhost:8080/api/v1/rabbit/instance' \
     "password": "admin",
     "default": true
 }'
-```
+```yaml
 
 Now you need to run reconciliation endpoint for rabbit for your namespace:
-```
+```yaml
 curl --location --request POST 'localhost:8080/api/v2/rabbit/recovery/my-namespace' \
 --header 'X-Origin-Namespace: my-namespace' \
---header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' 
-```
+--header 'Authorization: Basic Y2xpZW50OmNsaWVudA=='
+```yaml
 
 If you received success response, then you have copied all vhosts with entities to new instance of rabbit. Note, that vhosts on previous instance WON'T be deleted, you should now do it manually if you need it.
 
 ## Passwords rotation
 Diagram below shows different type of credentials used in applications built on MaaS. What each arrow number means is described in table below. Each number corresponds to top level bullet in list.
-```plantuml
+```yamlplantuml
 @startuml
 node "Application" {
   [Microservice] --> [maas-agent] : M2M
@@ -111,7 +111,7 @@ MaaS --> RabbitMQ : 4
 [Microservice] --> VHost1 : 5
 MaaS --> PostgreSQL : 6
 @enduml
-```
+```yaml
 1. `maas-agent` use Basic authorization mechanism proxying microservice calls to MaaS. MaaS REST API requires Basic authorization.
    1. Login and password for basic auth stored in secret `cluster-maas-agent-credentials-secret` in application namespace.
    2. Password change:
@@ -141,7 +141,7 @@ MaaS --> PostgreSQL : 6
       2. Update secret `maas-db-postgresql-credentials-secret`
       3. Restart MaaS pod
 
-   
+
 ## How to Check if There Are No Unprocessed Messages in RabbitMQ
 
 After retrieving a RabbitMQ virtual host using the get-by-classifier API, you can inspect the state of queues to determine if there are any unprocessed messages.
@@ -158,13 +158,13 @@ Inspect the Response In the response JSON, locate the `entities.queues` array. E
 ### Example
 
 Here’s a snippet from a successful response that indicates no unprocessed messages:
-```json
+```yamljson
 {
   "messages": 0,
   "messages_ready": 0,
   "messages_unacknowledged": 0
 }
-```
+```yaml
 
 This means:
 * No messages are waiting in the queue.
@@ -174,7 +174,7 @@ This means:
 ### Noteworthy properties
 
 `state` - Queue State. Ensure the queue is in "running" state. This confirms that the queue is operational.
-`consumers` - Number of running consumers on specific queue. If queue is not empty and no consumers, then re-check application configuration or consumer program logic 
+`consumers` - Number of running consumers on specific queue. If queue is not empty and no consumers, then re-check application configuration or consumer program logic
 
 
 # TLS setup
@@ -182,7 +182,7 @@ This means:
 ## PostgreSQL
 MaaS can connect to PostgreSQL using TLS transport. Set `DB_POSTGRESQL_TLS` to `true` property in
 properties and install or rolling update MaaS installation. TLS certificates should be attached to MaaS
-deployment using platform deployer. 
+deployment using platform deployer.
 
 ## Kafka
 MaaS supports Kafka instances with enabled TLS transport. To register Kafka instance with TLS:
@@ -190,7 +190,7 @@ MaaS supports Kafka instances with enabled TLS transport. To register Kafka inst
 * attach TLS CA certificate using field: `caCert`. Value should be encoded in base64 format.
 
 Example:
-```json
+```yamljson
 {
   "addresses": {
     "SSL": ["localkafka.kafka-cluster:9094"]
@@ -198,18 +198,18 @@ Example:
   "caCert": "MIID7j...6038=",
   ...
 }
-```
+```yaml
 
 ## RabbitMQ
 MaaS supports RabbitMQ instances with TLS support. First of all CA certificate should be attached to
 MaaS server deployment before RabbitMQ instance registration. It can be done using platform deployer.
 all that you need to register RabbitMQ instance with TLS is to change protocols to its secured versions:
 
-```json
+```yamljson
 {
   "apiUrl": "https://rabbitmq.maas-rabbitmq-2:15671/api",
   "amqpUrl": "amqps://rabbitmq.maas-rabbitmq-2:5671",
   ...
 }
-```
-Client microservices also should attach CA certificate to its cert storage using platform deployer.  
+```yaml
+Client microservices also should attach CA certificate to its cert storage using platform deployer.

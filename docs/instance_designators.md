@@ -1,4 +1,4 @@
-## Instance designators
+# Instance designators
 
 Instance designator is a feature that allows you to choose instance for your kafka topic/rabbit vhost more selectively. For example, you can designate the specific instance for topics of special tenant or exclusive instance for the particular topic.
 
@@ -22,7 +22,7 @@ Let's observe this example of config:
 * `apiVersion`, `kind` - mandatory fields which defines config type
 * `namespace` - your project namespace. Note, that you can have only one instance designator config per namespace
 * `defaultInstance` - optional field if you want to declare default instance for all unmatched topics. See the priority of instance choosing described below.
-* `selectors` - structure that consists of `classifierMatch` and `instance` fields. Instance would be used if `classifierMatch` matched with particular classifier of the topic.  
+* `selectors` - structure that consists of `classifierMatch` and `instance` fields. Instance would be used if `classifierMatch` matched with particular classifier of the topic.
   Classifier Match structure is similar with approach used in lazy topic - selector will be chosen if all fields from classifier match structure are a subset of classifier fields. For example, if classifier match has field `name: production-topic` and topic has classifier `{ "name" : "production-topic",  "namespace" : "my-namespace"}`, then selector will be chosen for this topic. That's how you can declare instance for all topics of particular tenant.
 
 Note, that order in selectors list is important and declares matching priority. In our example at first selector with classifier match with name `name: topic-in-internal-kafka` will be tried. And, if it is not compatible with topic classifier, next selector with classifier match with `name: production-topic` will be tried and so on.

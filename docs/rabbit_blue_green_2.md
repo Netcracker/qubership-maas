@@ -15,11 +15,11 @@ MaaS makes dedicated new vhost for every version in bg v2, on the contrary to bg
 * Promote and Rollback - these operations don't affect RabbitMQ, because Origin and Peer use their dedicated vhosts and they are isolated from each other
 * Commit - operation removes legacy version and returns system to initial state
 
-# RabbitMQ blue-green 2 migration
+## RabbitMQ blue-green 2 migration
 
 Since introduction of blue-green version 2 `versionedEntities` concept is deprecated. That means that maas-configuration.yaml must not use `versionedEntities`, just `entities` should be used instead.
 If you deployed your application in bg v1 mode, then you need to perform a migration before switching to bg v2.
-  
+
 For example, your current application active version in bg v1 mode is v10:
 
 1. Make rolling update of your active version with `maas-configuration.yaml` changed from `versionedEntities` to `entities`
@@ -72,7 +72,7 @@ spec:
 ```
 
 
-# Exported Vhost
+## Exported Vhost
 
 Cloud-Core Blue/Green concept for RabbitMQ implies that for Origin and Peer side used totally independent VHosts. This concept
 drastically simplifies update process for VHost either Blue or Green side of domain. But this approach creates difficulties to integrate
@@ -92,22 +92,22 @@ using origin classifier by adding suffix `-exported` to `classifier.name` and se
 Source VHost Classifier:
 ```yaml
  ...
- classifier: 
-   name: public 
+ classifier:
+   name: public
    namespace: ${NAMESPACE}
  ...
-``` 
+```
 
 Exported VHost Classifier:
 ```yaml
  ...
- classifier: 
+ classifier:
    name: public-exported
    namespace: ${ORIGIN_NAMESPACE}
  ...
 ```
 
-# Exported Queues
+## Exported Queues
 
 To export queue just add additional boolean property `exported`:
 ```yaml
@@ -125,7 +125,7 @@ spec:
 
 MaaS creates VHost for exported queues and start shovel plugin. Shovel plugin moves messages from Origin/Peer VHost queues to exported queue.
 ```plantuml
-skinparam componentStyle rectangle 
+skinparam componentStyle rectangle
 
 package Export/public-exported {
   Component "shovel" as origin_shovel
@@ -146,9 +146,9 @@ package b as "Peer/public-v2" {
 
 a -[hidden]right- b
 
-``` 
+```
 
-# Exported Exchange
+## Exported Exchange
 
 Just add `exported` boolean field with value `true` to exchange you want to export:
 ```yaml
@@ -211,7 +211,7 @@ package Peer/public-v2 {
 2. Upload updated configuration to MaaS.
 3. Application that resides outside BG Domain should connect to exported VHost. Application should update classifier for target VHost using pattern:
 ```yaml
- classifier: 
+ classifier:
    name: <vhost-classifier-name>-exported
    namespace: <vhost-classifier-namespace>
 ```
