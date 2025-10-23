@@ -205,7 +205,7 @@ package Peer/public-v2 {
 - added alternate exchange for messages without `version` header. The name of alternate exchange is formatted by pattern `{original-exchange-name}-ae`
 - there are queues for each version as a temporary buffer to avoid losing messages in case of shovel plugin failure or restarts.
 
-# Client Migration
+## Client Migration
 
 1. Update VHost configuration and add `exported` property to all entities intended to be export.
 2. Upload updated configuration to MaaS.

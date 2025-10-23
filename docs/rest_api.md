@@ -1,6 +1,79 @@
 # Rest API
 
-[[_TOC_]]
+## Table of Contents
+
+### RabbitMQ API
+- [Register Rabbit instance](#register-rabbit-instance)
+- [Get Rabbit instances](#get-rabbit-instances)
+- [Update Rabbit instance registration](#update-rabbit-instance-registration)
+- [Remove Rabbit instance registration](#remove-rabbit-instance-registration)
+- [Create Rabbit virtual host](#create-rabbit-virtual-host)
+- [Get Rabbit virtual host with config](#get-rabbit-virtual-host-with-config)
+- [Search Rabbit vhosts](#search-rabbit-vhosts)
+- [Delete virtual host](#delete-virtual-host)
+- [Validate Rabbit Configs](#validate-rabbit-configs)
+- [Rabbit namespace recovery](#rabbit-namespace-recovery)
+- [Rotate vhosts passwords](#rotate-vhosts-passwords)
+
+### Kafka API
+- [Register Kafka instance](#register-kafka-instance)
+- [Get Kafka instances](#get-kafka-instances)
+- [Update Kafka instance registration](#update-kafka-instance-registration)
+- [Remove Kafka instance registration](#remove-kafka-instance-registration)
+- [Get or Create Kafka topic](#get-or-create-kafka-topic)
+- [Delete Kafka topic](#delete-kafka-topic)
+- [Get Kafka topic by classifier](#get-kafka-topic-by-classifier)
+- [Search Kafka topics](#search-kafka-topics)
+- [Kafka Auth DTO](#kafka-auth-dto)
+- [Get templates by namespace](#get-templates-by-namespace)
+- [Delete template](#delete-template)
+- [Define lazy topic](#define-lazy-topic)
+- [Create topic by lazy topic](#create-topic-by-lazy-topic)
+- [Get lazy topic definitions](#get-lazy-topic-definitions)
+- [Delete lazy topic](#delete-lazy-topic)
+- [Get tenant topics declarations by namespace](#get-tenant-topics-declarations-by-namespace)
+- [Delete tenant topic definition](#delete-tenant-topic-definition)
+- [Kafka Topics Reconciliation](#kafka-topics-reconciliation)
+- [Kafka Single Topic Recovery](#kafka-single-topic-recovery)
+- [Discrepancy Report](#discrepancy-report)
+
+### Tenants API
+- [Get tenants](#get-tenants)
+- [Synchronize tenants](#synchronize-tenants)
+
+### Blue green API
+- [Get blue green status](#get-blue-green-status)
+- [Apply control plane message](#apply-control-plane-message)
+
+### Accounts API
+- [Get accounts](#get-accounts)
+- [Create manager account](#create-manager-account)
+- [Update manager's password](#update-managers-password)
+- [Create client account](#create-client-account)
+- [Delete client account](#delete-client-account)
+
+### Instance designators API
+- [Get kafka instance designators](#get-kafka-instance-designators)
+- [Delete kafka instance designators](#delete-kafka-instance-designators)
+- [Get rabbit instance designators](#get-rabbit-instance-designators)
+- [Delete rabbit instance designators](#delete-rabbit-instance-designators)
+
+### Configuration Management
+- [Apply Configuration v1](#apply-configuration-v1)
+- [Apply Configuration v2](#apply-configuration-v2)
+- [Delete namespace](#delete-namespace)
+
+### Monitoring and Audit
+- [Monitoring](#monitoring)
+- [vhost/topic request audit](#vhosttopic-request-audit)
+
+### Composite
+- [List composite structures](#list-composite-structures)
+- [Get composite structure by id](#get-composite-structure-by-id)
+- [Initialize/Update Composite Structure](#initializeupdate-composite-structure)
+- [Destroy composite structure registration](#destroy-composite-structure-registration)
+
+---
 ## RabbitMQ API
 ### Register Rabbit instance
 First instance registered in MaaS becomes `default`. This instance will be used as `default` for all items with empty instance field. Only one instance can be marked as `default` at particular moment of time. To switch `default` to other instance, just update its declaration with `default` field set to true.
