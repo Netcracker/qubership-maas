@@ -43,7 +43,7 @@ func TestCustomResourceController_Apply_Topic(t *testing.T) {
 		}, cr.ActionCreate)
 
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(`
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: MaaS
 subKind: Topic
 metadata:
@@ -65,7 +65,7 @@ spec:
 	assert.Contains(t, string(responseBody), "{\"status\":\"COMPLETED\",\"conditions\":[{\"type\":\"Validated\",\"state\":\"COMPLETED\"},{\"type\":\"DependenciesResolved\",\"state\":\"COMPLETED\"},{\"type\":\"Created\",\"state\":\"COMPLETED\"}]}")
 
 	reqNamespaceToLong := httptest.NewRequest("POST", "/test", strings.NewReader(`
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: MaaS
 subKind: Topic
 metadata:
@@ -121,7 +121,7 @@ func TestCustomResourceController_Apply_Topic_With_Template(t *testing.T) {
 	}, nil)
 
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(`
-apiVersion: core.qubership.org/v1
+apiVersion: core.netcracker.com/v1
 kind: MaaS
 subKind: Topic
 metadata:

@@ -13,7 +13,7 @@ const (
 )
 
 type CustomResourceRequest struct {
-	ApiVersion string                         `yaml:"apiVersion" validate:"required,eq_ignore_case=core.qubership.org/v1"`
+	ApiVersion string                         `yaml:"apiVersion" validate:"required,eq_ignore_case=core.netcracker.com/v1"`
 	Kind       string                         `yaml:"kind" validate:"required,eq_ignore_case=maas"`
 	SubKind    string                         `yaml:"subKind" validate:"required,oneof=Topic TopicTemplate LazyTopic TenantTopic VHost"`
 	Metadata   *CustomResourceMetadataRequest `yaml:"metadata" validate:"required"`

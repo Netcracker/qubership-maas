@@ -5,9 +5,9 @@ metadata:
   name: "{{ .Values.SERVICE_NAME }}"
   labels:
     name: "{{ .Values.SERVICE_NAME }}"
-    qubership.cloud/disaster-recovery.manageable: 'true'
+    netcracker.cloud/disaster-recovery.manageable: 'true'
   annotations:
-    qubership.cloud/start.stage: '0'
+    netcracker.cloud/start.stage: '0'
 spec:
   selector:
     matchLabels:

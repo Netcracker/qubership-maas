@@ -4,7 +4,7 @@ apiVersion: v1
 metadata:
     name: "{{ .Values.SERVICE_NAME }}"
     annotations:
-        qubership.cloud/start.stage: '0'
+        netcracker.cloud/start.stage: '0'
 spec:
     ports:
         - name: web
