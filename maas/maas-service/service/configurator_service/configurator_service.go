@@ -31,7 +31,7 @@ const (
 	KafkaConfigV1ApiVersion    = "nc.maas.kafka/v1"
 	KafkaConfigV2ApiVersion    = "nc.maas.kafka/v2"
 	AggregatedConfigApiVersion = "nc.maas.config/v2"
-	CoreNcV1ApiVersion         = "core.qubership.org/v1"
+	CoreNcV1ApiVersion         = "core.netcracker.com/v1"
 )
 
 const (

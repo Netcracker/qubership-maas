@@ -9,7 +9,7 @@ metadata:
     helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
   labels:
     app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
     app.kubernetes.io/part-of: maas
 stringData:
 {{- tpl (.Files.Get "data/variables.yaml") $ | nindent 2 }}
@@ -24,7 +24,7 @@ metadata:
     helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
   labels:
     app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.qubership.org/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
     app.kubernetes.io/part-of: maas
 spec:
   backoffLimit: 5
