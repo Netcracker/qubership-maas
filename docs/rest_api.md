@@ -50,7 +50,7 @@ Instance field and its value can be explicitly specified in item declaration. Bu
     Request:
     ```bash
     curl -X POST \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/instance \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/instance \
       -H 'Content-Type: application/json' \
       -d '{
       "id" : "maas-rabbitmq-code-dev",
@@ -139,7 +139,7 @@ This API allows to update connection properties for RabbitMQ instance in Maas.
     Request:
     ```bash
     curl -X PUT \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/instance \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/instance \
       -H 'Content-Type: application/json' \
       -d '{
       "id" : "maas-rabbitmq-code-dev",
@@ -183,7 +183,7 @@ This API allows to remove RabbitMQ instance registration from Maas.
     Request:
     ```bash
     curl -X DELETE \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/instance \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/instance \
       -H 'Content-Type: application/json' \
       -d '{
       "id" : "maas-rabbitmq-code-dev"
@@ -261,7 +261,7 @@ This API allows to create and get a Rabbit MQ virtual host connection.
     Request:
     ```bash
     curl -X POST \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/vhost \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/vhost \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: cloudbss311-platform-core-support-dev3' \
@@ -340,7 +340,7 @@ This API allows getting a Rabbit MQ virtual host connection with additional conf
 
       Request:
       ```bash
-        curl --location --request POST 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/vhost/get-by-classifier' \
+        curl --location --request POST 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/vhost/get-by-classifier' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' \
@@ -527,7 +527,7 @@ This API allows to search Rabbit vhosts.
   Request:
     ```bash
     curl -X POST \
-    http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/vhost/search \
+    http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/vhost/search \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: local' \
@@ -580,7 +580,7 @@ This API allows to delete virtual hosts by search parameters.
     Request:
     ```bash
     curl -X DELETE \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/rabbit/vhost \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/rabbit/vhost \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: cloudbss311-platform-core-support-dev3' \
@@ -823,7 +823,7 @@ This API allows to register Kafka instance in Maas.
     Request:
     ```bash
     curl -X POST \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/instance \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/instance \
       -H 'Content-Type: application/json' \
       -d '{
         "id": "localkafka",
@@ -894,7 +894,7 @@ This API allows to get Kafka instances in Maas.
 
     Request:
     ```bash
-    curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/instances' \
+    curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/instances' \
     --header 'Authorization: Basic bWFuYWdlcjoyNDAwMmVhZGJj' \
     ```
     Response: `200`
@@ -973,7 +973,7 @@ This API allows to update connection properties for Kafka instance in Maas.
     Request:
     ```bash
     curl -X PUT \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/instance \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/instance \
       -H 'Content-Type: application/json' \
       -d '{
         "id": "localkafka",
@@ -1065,7 +1065,7 @@ This API allows remove Kafka instance from Maas.
     Request:
     ```bash
     curl -X DELETE \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/instance \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/instance \
       -H 'Content-Type: application/json' \
       -d '{ "id": "14708d42-4344-4212-bf15-5a036a3e2437" }'
     ```
@@ -1193,7 +1193,7 @@ This API allows to get or create Kafka topic.
     Request:
     ```bash
     curl -X POST \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: local' \
@@ -1337,7 +1337,7 @@ This API allows to bulk delete Kafka topics by search parameters.
     Request:
     ```bash
     curl -X DELETE \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: local' \
@@ -1417,7 +1417,7 @@ This API allows to bulk delete Kafka topics by search parameters.
     Request:
     ```bash
     curl -X DELETE \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: local' \
@@ -1538,7 +1538,7 @@ Null value means that it was not specified during creation.
     Request:
     ```bash
     curl -X POST \
-      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic/get-by-classifier \
+      http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic/get-by-classifier \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: local' \
@@ -1691,7 +1691,7 @@ Basic type
     Request:
     ```bash
     curl -X POST \
-    http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic/search \
+    http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic/search \
       -u maas:maas \
       -H 'Content-Type: application/json' \
       -H 'X-Origin-Namespace: local' \
@@ -1845,7 +1845,7 @@ This API allows getting templates with namespace header
 
     Request:
     ```bash
-      curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic-templates' \
+      curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic-templates' \
       --header 'X-Origin-Namespace: namespace' \
       --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
       --header 'Content-Type: application/json' 
@@ -1917,7 +1917,7 @@ This API allows deleting template
 
     Request:
     ```bash
-        curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/topic-template' \
+        curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/topic-template' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' \
@@ -1989,7 +1989,7 @@ Please notice, that if more than one lazy topic is compatible with requested top
 
     Request:
     ```bash
-        curl --location --request POST 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/lazy-topic/definition' \
+        curl --location --request POST 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/lazy-topic/definition' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' \
@@ -2055,7 +2055,7 @@ More info in `Define lazy topic` section
 
     Request:
     ```bash
-        curl --location --request POST 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/lazy-topic' \
+        curl --location --request POST 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/lazy-topic' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' \
@@ -2181,7 +2181,7 @@ More info in `Define lazy topic` section
 
     Request:
     ```bash
-        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/lazy-topics' \
+        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/lazy-topics' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json'
@@ -2259,7 +2259,7 @@ intact and can be deleted by using its classifier by separate calls.
 
     Request:
     ```bash
-        curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/lazy-topic' \
+        curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/lazy-topic' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' \
@@ -2336,7 +2336,7 @@ Creation of tenant topics could be done using declarative approach
 
     Request:
     ```bash
-        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/kafka/tenant-topics' \
+        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/kafka/tenant-topics' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json'
@@ -2655,7 +2655,7 @@ It is used for tenant-topics, more info about tenant-topics in README.md
 
     Request:
     ```bash
-        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/tenants' \
+        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/tenants' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json'
@@ -2741,7 +2741,7 @@ It is used for tenant-topics, more info about tenant-topics in README.md
 
     Request:
     ```bash
-        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/synchronize-tenants' \
+        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/synchronize-tenants' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json'
@@ -2994,7 +2994,7 @@ This API allows getting control plane messages stored in maas by namespace
 
     Request:
     ```bash
-        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/bg-status' \
+        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/bg-status' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json'
@@ -3060,7 +3060,7 @@ You MUST NOT do it manually, it is done via control-plane and maas-agent in clou
 
     Request:
     ```bash
-        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/bg-status' \
+        curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/bg-status' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json'
@@ -3138,7 +3138,7 @@ This API allows getting accounts
 
     Request:
     ```bash
-      curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/accounts' \
+      curl --location --request GET 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/accounts' \
       --header 'X-Origin-Namespace: namespace' \
       --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
       --header 'Content-Type: application/json' 
@@ -4586,7 +4586,7 @@ This API allows deleting ALL entities in particular namespace (topic, template, 
 
     Request:
     ```bash
-        curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.netcracker.com/api/v2/namespace' \
+        curl --location --request DELETE 'http://maas-service-maas-core-dev.paas-apps8.openshift.sdntest.qubership.org/api/v2/namespace' \
         --header 'X-Origin-Namespace: namespace' \
         --header 'Authorization: Basic Y2xpZW50OmNsaWVudA==' \
         --header 'Content-Type: application/json' 
