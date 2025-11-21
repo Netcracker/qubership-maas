@@ -14,7 +14,7 @@ chmod +x /bootstrap.sh
 chmod -R +x /scripts
 
 GSDK=https://dl.k8s.io/release
-curl -L "${GSDK}"/v1.29.0/bin/linux/amd64/kubectl  -o /bin/kubectl
+curl -L "${GSDK}"/v1.34.1/bin/linux/amd64/kubectl  -o /bin/kubectl
 chmod +x /bin/kubectl*
 
 exit 0
