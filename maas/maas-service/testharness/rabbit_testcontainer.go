@@ -3,14 +3,14 @@ package testharness
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/testcontainers/testcontainers-go/wait"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/require"
-
 	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type TestRabbit struct {
@@ -97,5 +97,11 @@ func (db *TestRabbit) Close(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	err := db.instance.Terminate(ctx)
-	require.NoError(t, err)
+	if err != nil {
+		errStr := err.Error()
+		if strings.Contains(errStr, "removal of container") && strings.Contains(errStr, "is already in progress") {
+			return
+		}
+		require.NoError(t, err)
+	}
 }
