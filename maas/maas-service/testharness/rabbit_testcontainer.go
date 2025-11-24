@@ -11,7 +11,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/stretchr/testify/require"
-
 	"github.com/testcontainers/testcontainers-go"
 )
 
