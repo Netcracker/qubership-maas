@@ -3,11 +3,12 @@ set -e
 
 if [[ ${FWD_DBAAS_URL} ]]; then
   export dbaas_url=${FWD_DBAAS_URL}
+elif [[ ${DBAAS_AGGREGATOR_ADDRESS} ]]; then
+  echo "Deprecated parameter DBAAS_AGGREGATOR_ADDRESS is not empty and will be used instead of FWD_DBAAS_URL and API_DBAAS_ADDRESS"
+  echo "Please, consider using API_DBAAS_ADDRESS instead"
+  export dbaas_url="${DBAAS_AGGREGATOR_ADDRESS}"
 else
-  #Parameter DBAAS_AGGREGATOR_ADDRESS is deprecated and will be deleted
-  echo "Old deployer version is detected. Deprecated parameter DBAAS_AGGREGATOR_ADDRESS will be used instead of FWD_DBAAS_URL"
-  echo "Please, use deployer version greater than or equal to 7.13"
-  export dbaas_url="${DBAAS_AGGREGATOR_ADDRESS:=http://aggregator-dbaas.${CLOUD_PUBLIC_HOST}}"
+  export dbaas_url="${API_DBAAS_ADDRESS:=http://dbaas-aggregator.dbaas:8080}"
 fi
 
 
