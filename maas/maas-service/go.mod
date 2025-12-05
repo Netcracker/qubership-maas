@@ -5,7 +5,7 @@ go 1.25.2
 require (
 	github.com/IBM/sarama v1.46.1
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/docker v28.5.1+incompatible
+	github.com/docker/docker v28.5.2+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/glebarez/go-sqlite v1.22.0
 	github.com/glebarez/sqlite v1.11.0
