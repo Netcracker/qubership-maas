@@ -8,6 +8,7 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/utils"
+	"github.com/go-resty/resty/v2"
 	"io"
 	"net/http"
 	"reflect"
