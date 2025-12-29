@@ -2,17 +2,18 @@ package v1
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/composite"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 func TestRegistrationController_Create(t *testing.T) {
@@ -60,7 +61,7 @@ func TestRegistrationController_Create(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(responseBody), "namespaces[1] length must be less than or equal to '63'")
 
-	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{"a", []string{"a", "b", "c"}})
+	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{Id: "a", Namespaces: []string{"a", "b", "c"}})
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(`
 			{
 			  "id": "a",
@@ -75,6 +76,54 @@ func TestRegistrationController_Create(t *testing.T) {
 	responseBody, err = io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Empty(t, responseBody)
+}
+
+func TestRegistrationController_CreateWithModifyIndex(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	registrationService := NewMockRegistrationService(mockCtrl)
+
+	app := fiber.New(fiber.Config{ErrorHandler: controller.TmfErrorHandler})
+	c := NewRegistrationController(registrationService)
+
+	app.Post("/test", controller.WithJson[RegistrationRequest](c.Create))
+
+	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{Id: "a", Namespaces: []string{"a", "b", "c"}})
+	req := httptest.NewRequest("POST", "/test", strings.NewReader(`
+			{
+			  "id": "a",
+			  "namespaces": ["a", "b", "c"],
+              "index": 100
+			}
+		`))
+
+	resp, err := app.Test(req, 100)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{Id: "a", Namespaces: []string{"a", "b", "c"}})
+	req = httptest.NewRequest("POST", "/test", strings.NewReader(`
+			{
+			  "id": "a",
+			  "namespaces": ["a", "b", "c"],
+              "index": 110
+			}
+		`))
+
+	resp, err = app.Test(req, 100)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	req = httptest.NewRequest("POST", "/test", strings.NewReader(`
+			{
+			  "id": "a",
+			  "namespaces": ["a", "b", "c"],
+              "index": 105
+			}
+		`))
+
+	resp, err = app.Test(req, 100)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode)
 }
 
 func TestRegistrationController_DeleteById(t *testing.T) {

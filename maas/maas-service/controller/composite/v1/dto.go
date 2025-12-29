@@ -5,6 +5,7 @@ import "github.com/netcracker/qubership-maas/service/composite"
 type RegistrationRequest struct {
 	Id         string   `json:"id" validate:"required"`
 	Namespaces []string `json:"namespaces" validate:"required,gt=0,dive,lte=63"`
+	Index      int64    `json:"index"`
 }
 
 func (r RegistrationRequest) ToCompositeRegistration() *composite.CompositeRegistration {
