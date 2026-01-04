@@ -30,7 +30,7 @@ func WithTransactionContextValue[T any](ctx context.Context, f func(ctx context.
 	var tx *TransactionContext
 	if tx = TransactionContextOf(ctx); tx == nil {
 		ctx, tx = newTransactionContext(ctx)
-		txLog.InfoC(ctx, "Starting transaction: %+v", tx)
+		txLog.InfoC(ctx, "Starting global transaction: %+v", tx)
 	} else {
 		// nested transactions is not supported, use already opened
 		tx.nesting += 1
@@ -45,10 +45,10 @@ func WithTransactionContextValue[T any](ctx context.Context, f func(ctx context.
 	}
 
 	if err == nil {
-		txLog.InfoC(ctx, "Commit transaction context: %+v", tx)
+		txLog.InfoC(ctx, "Commit global transaction context: %+v", tx)
 		return result, tx.commit()
 	} else {
-		txLog.InfoC(ctx, "Rollback transaction context: %+v", tx)
+		txLog.InfoC(ctx, "Rollback global transaction context: %+v", tx)
 		errRollback := tx.rollback()
 		if errRollback != nil {
 			return result, fmt.Errorf("error rolling back transaction: %v, original error: %w", errRollback, err)
