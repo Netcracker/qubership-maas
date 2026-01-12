@@ -75,6 +75,19 @@ func TestPGRegistrationDao_Upsert_Conflicts(t *testing.T) {
 	})
 }
 
+func TestPGRegistrationDao_Upsert_WrongModifyIndex(t *testing.T) {
+	ctx := context.Background()
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		dao := NewPGRegistrationDao(baseDao)
+
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 100}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 200}))
+		assert.ErrorContains(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 100}),
+			"new modify index '100' should be greater than current index '200'",
+		)
+	})
+}
+
 func TestPGRegistrationDao_FindByNamespace(t *testing.T) {
 	ctx := context.Background()
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
