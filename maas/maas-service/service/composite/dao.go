@@ -2,6 +2,7 @@ package composite
 
 import (
 	"context"
+
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
@@ -37,6 +38,22 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 	log.InfoC(ctx, "Upsert composite registration: %+v", registration)
 	return d.base.WithLock(ctx, registration.Id, func(ctx context.Context) error {
 		return d.base.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
+			var currentModifyIndex uint64
+			result := cnn.Raw(`
+				SELECT c.modify_index
+				FROM composite_namespace_modify_indexes c
+				JOIN composite_namespaces_v2 n ON n.id = c.composite_namespace_id
+				WHERE n.base_namespace = ?
+			`, registration.Id).Scan(&currentModifyIndex)
+
+			if result.Error != nil {
+				return utils.LogError(log, ctx, "error get current modify index: %w", result.Error)
+			}
+
+			if registration.ModifyIndex < currentModifyIndex {
+				return utils.LogError(log, ctx, "new modify index '%d' should be greater than current index '%d'", registration.ModifyIndex, currentModifyIndex)
+			}
+
 			if err := d.DeleteByBaseline(ctx, registration.Id); err != nil {
 				return utils.LogError(log, ctx, "error update composite namespace: %w", err)
 			}
@@ -49,11 +66,30 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 			if err := cnn.Create(insertions).Error; err != nil {
 				if pgErr, ok := err.(*pgconn.PgError); ok {
 					return utils.LogError(log, ctx, "error insert composite registration %+v, %s: %w", registration, pgErr.Detail, pgErr)
-				} else {
-					// generic message
-					return utils.LogError(log, ctx, "error insert composite registration %+v: %w", registration, err)
 				}
+
+				// generic message
+				return utils.LogError(log, ctx, "error insert composite registration %+v: %w", registration, err)
 			}
+
+			result = cnn.Exec(`
+				WITH ns AS (
+					SELECT id
+					FROM composite_namespaces_v2
+					WHERE base_namespace = $1 AND namespace = $1
+				)
+				INSERT INTO composite_namespace_modify_indexes (composite_namespace_id, modify_index)
+				SELECT id, $2 FROM ns
+			`, registration.Id, registration.ModifyIndex)
+
+			if result.Error != nil {
+				return utils.LogError(log, ctx, "error insert composite registration modify index %+v: %w", registration, result.Error)
+			}
+
+			if result.RowsAffected == 0 {
+				return utils.LogError(log, ctx, "lastAppliedIndex did not increase")
+			}
+
 			return nil
 		})
 	})

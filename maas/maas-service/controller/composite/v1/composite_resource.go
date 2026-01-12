@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
-	"sync/atomic"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-maas/controller"
@@ -15,7 +13,6 @@ import (
 )
 
 type RegistrationController struct {
-	lastAppliedIndexes  sync.Map
 	registrationService RegistrationService
 }
 
@@ -47,31 +44,11 @@ func (c *RegistrationController) Create(fiberCtx *fiber.Ctx, registrationRequest
 	if !slices.Contains(registrationRequest.Namespaces, registrationRequest.Id) {
 		return fmt.Errorf("'namespaces' array MUST contain namespace from 'id' param: %w", msg.BadRequest)
 	}
-
-	id := registrationRequest.Id
-	var indexPtr *atomic.Int64
-
-	actual, _ := c.lastAppliedIndexes.LoadOrStore(id, &atomic.Int64{})
-	indexPtr = actual.(*atomic.Int64)
-
-	for {
-		currentIndex := indexPtr.Load()
-
-		if registrationRequest.Index < currentIndex {
-			return fmt.Errorf("new composite version %d is less that last applied version %d: %w",
-				registrationRequest.Index, currentIndex, msg.Conflict)
-		}
-
-		if indexPtr.CompareAndSwap(currentIndex, registrationRequest.Index) {
-			err := c.registrationService.Upsert(fiberCtx.UserContext(),
-				registrationRequest.ToCompositeRegistration())
-			if err != nil {
-				return err
-			}
-
-			return controller.Respond(fiberCtx, http.StatusNoContent)
-		}
+	err := c.registrationService.Upsert(fiberCtx.UserContext(), registrationRequest.ToCompositeRegistration())
+	if err != nil {
+		return err
 	}
+	return controller.Respond(fiberCtx, http.StatusNoContent)
 }
 
 // @Summary Get Composite Registration By ID

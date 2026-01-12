@@ -2,9 +2,10 @@ package composite
 
 import (
 	"context"
+	"testing"
+
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestPGRegistrationDao_API(t *testing.T) {
@@ -32,8 +33,8 @@ func TestPGRegistrationDao_API(t *testing.T) {
 		list, err := dao.List(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, []CompositeRegistration{
-			{"a", []string{"a", "b"}},
-			{"f", []string{"d", "e", "f"}},
+			{Id: "a", Namespaces: []string{"a", "b"}},
+			{Id: "f", Namespaces: []string{"d", "e", "f"}},
 		}, list)
 
 		// update registration with new member "c"
@@ -59,7 +60,7 @@ func TestPGRegistrationDao_API(t *testing.T) {
 		{
 			registration, err := dao.GetByBaseline(ctx, "f")
 			assert.NoError(t, err)
-			assert.Equal(t, &CompositeRegistration{"f", []string{"d", "e", "f"}}, registration)
+			assert.Equal(t, &CompositeRegistration{Id: "f", Namespaces: []string{"d", "e", "f"}}, registration)
 		}
 	})
 }
