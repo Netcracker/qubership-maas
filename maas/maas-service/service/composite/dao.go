@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
 )
@@ -51,7 +52,7 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 			}
 
 			if registration.ModifyIndex != 0 && registration.ModifyIndex < currentModifyIndex {
-				return utils.LogError(log, ctx, "new modify index '%d' should be greater than current index '%d'", registration.ModifyIndex, currentModifyIndex)
+				return utils.LogError(log, ctx, "new modify index '%d' cannot be less than the current index '%d': %w", registration.ModifyIndex, currentModifyIndex, msg.BadRequest)
 			}
 
 			if err := d.DeleteByBaseline(ctx, registration.Id); err != nil {
@@ -84,10 +85,6 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 
 			if result.Error != nil {
 				return utils.LogError(log, ctx, "error insert composite registration modify index %+v: %w", registration, result.Error)
-			}
-
-			if result.RowsAffected == 0 {
-				return utils.LogError(log, ctx, "lastAppliedIndex did not increase")
 			}
 
 			return nil
