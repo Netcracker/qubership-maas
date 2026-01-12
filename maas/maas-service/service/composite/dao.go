@@ -50,7 +50,7 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 				return utils.LogError(log, ctx, "error get current modify index: %w", result.Error)
 			}
 
-			if registration.ModifyIndex < currentModifyIndex {
+			if registration.ModifyIndex != 0 && registration.ModifyIndex < currentModifyIndex {
 				return utils.LogError(log, ctx, "new modify index '%d' should be greater than current index '%d'", registration.ModifyIndex, currentModifyIndex)
 			}
 

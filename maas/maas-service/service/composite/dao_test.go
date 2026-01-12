@@ -82,9 +82,12 @@ func TestPGRegistrationDao_Upsert_WrongModifyIndex(t *testing.T) {
 
 		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 100}))
 		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 200}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 0}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 200}))
 		assert.ErrorContains(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 100}),
 			"new modify index '100' should be greater than current index '200'",
 		)
+
 	})
 }
 
