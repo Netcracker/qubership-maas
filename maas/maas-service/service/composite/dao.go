@@ -190,7 +190,7 @@ func createCurrentModifyIndex(ctx context.Context, cnn *gorm.DB, compositeId str
 			`, compositeId, modifyIndex)
 
 	if result.Error != nil {
-		return utils.LogError(log, ctx, "error insert composite registration modify index compositeId='%s', modifyIndex='%s': %w", compositeId, modifyIndex, result.Error)
+		return utils.LogError(log, ctx, "error insert composite registration modify index compositeId='%s', modifyIndex='%d': %w", compositeId, modifyIndex, result.Error)
 	}
 	return nil
 }
