@@ -80,14 +80,12 @@ func TestPGRegistrationDao_Upsert_WrongModifyIndex(t *testing.T) {
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		dao := NewPGRegistrationDao(baseDao)
 
-		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 100}))
-		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 200}))
-		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 0}))
-		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 200}))
-		assert.ErrorContains(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: 100}),
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(100))}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(200))}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(200))}))
+		assert.ErrorContains(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(100))}),
 			"new modify index '100' cannot be less than the current index '200'",
 		)
-
 	})
 }
 
@@ -113,4 +111,8 @@ func TestPGRegistrationDao_FindByNamespace(t *testing.T) {
 			assert.Nil(t, registration)
 		}
 	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
