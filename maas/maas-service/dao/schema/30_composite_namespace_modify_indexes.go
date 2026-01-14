@@ -12,7 +12,7 @@ func init() {
 	migrations.MustRegisterTx(func(db migrations.DB) error {
 
 		log.InfoC(ctx, "Creating table 'composite_namespace_modify_indexes'...")
-		_, err := db.Exec(`create table composite_namespace_modify_indexes(
+		_, err := db.Exec(`create table if not exists composite_namespace_modify_indexes(
 									 composite_namespace_id INTEGER PRIMARY KEY
 										   REFERENCES composite_namespaces_v2(id)
 										   ON DELETE CASCADE,
