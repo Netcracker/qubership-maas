@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership/core-base:1.2.1
+FROM ghcr.io/netcracker/qubership/core-base:2.0.0
 LABEL maintainer="qubership"
 
 ADD ./install /tmp/
