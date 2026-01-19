@@ -167,7 +167,7 @@ func getCurrentModifyIndex(ctx context.Context, cnn *gorm.DB, compositeId string
 	var currentModifyIndex uint64
 	result := cnn.Raw(`
 						SELECT c.modify_index
-						FROM composite_namespace_modify_indexes c
+						FROM composite_properties c
 						JOIN composite_namespaces_v2 n ON n.id = c.composite_namespace_id
 						WHERE n.base_namespace = ?
 			`, compositeId).Scan(&currentModifyIndex)
@@ -185,7 +185,7 @@ func createCurrentModifyIndex(ctx context.Context, cnn *gorm.DB, compositeId str
 					FROM composite_namespaces_v2
 					WHERE base_namespace = $1 AND namespace = $1
 				)
-				INSERT INTO composite_namespace_modify_indexes (composite_namespace_id, modify_index)
+				INSERT INTO composite_properties (composite_namespace_id, modify_index)
 				SELECT id, $2 FROM ns
 			`, compositeId, modifyIndex)
 
