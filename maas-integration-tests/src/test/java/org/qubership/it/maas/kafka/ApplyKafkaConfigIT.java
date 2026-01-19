@@ -71,11 +71,11 @@ class ApplyKafkaConfigIT extends AbstractMaasWithInitsIT {
                 "        name: \"maas-it-test.topic-2\"\n" +
                 "        numPartitions: 1\n" +
                 "        replicationFactor: inherit";
-        Request request1 = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, getMaasBasicAuth(), requestString, "POST");
+        Request request1 = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, "Basic", getMaasBasicAuth(), requestString, "POST");
         helper.doRequest(request1, Map.class, SC_OK);
 
         requestString = requestString.replace("numPartitions: 1", "numPartitions: 2");
-        Request request2 = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, getMaasBasicAuth(), requestString, "POST");
+        Request request2 = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, "Basic", getMaasBasicAuth(), requestString, "POST");
         helper.doRequest(request2, Map.class, SC_OK);
     }
 

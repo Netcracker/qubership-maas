@@ -186,11 +186,11 @@ public class MaasITHelper {
         return builder.build();
     }
 
-    public Request createRequestV2ByYaml(String url, String authorization, String content, String method) {
+    public Request createRequestV2ByYaml(String url, String authorizationScheme, String authorization, String content, String method) {
         log.info("Request body {}, url {}, method {}, auth {}", content, url, method, authorization);
         Request.Builder builder = new Request.Builder()
                 .url(maasAddress + url)
-                .addHeader("Authorization", "Basic " + authorization)
+                .addHeader("Authorization", authorizationScheme + " " + authorization)
                 .addHeader("Content-Type", "text/yaml")
                 .method(method, content != null ? RequestBody.create(content, YAML) : null);
 

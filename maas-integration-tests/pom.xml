@@ -42,12 +42,6 @@
         <!-- JUNIT 5 END -->
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>4.12.0</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
             <version>5.8.0</version>
@@ -164,9 +158,14 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>wf.garnier</groupId>
-            <artifactId>testcontainers-dex</artifactId>
-            <version>3.2.0</version>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>5.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>no.nav.security</groupId>
+            <artifactId>mock-oauth2-server</artifactId>
+            <version>3.0.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
