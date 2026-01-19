@@ -9,7 +9,6 @@ import org.testcontainers.containers.*;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
-import wf.garnier.testcontainers.dexidp.DexContainer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,21 +35,25 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
 
-    protected static final DexContainer OIDC_SERVER_CONTAINER = new DexContainer(DexContainer.DEFAULT_IMAGE_NAME.withTag(DexContainer.DEFAULT_TAG))
-            .withNetwork(TEST_NETWORK)
-            .withNetworkAliases("oidc-server")
-            .withExposedPorts(5556, 5557)
-            .withCopyFileToContainer(
-                    MountableFile.forClasspathResource("dex-config.yaml"),
-                    "/etc/dex/config.yaml")
-            .withCommand("dex", "serve", "/etc/dex/config.yaml");
-
+    private static final int OIDC_SERVER_PORT = 55199;
+    private static final String OIDC_SERVER_HOSTNAME = "oidc-server";
     private static final Path oidcTokenTempFile;
+    protected static final K8sAuthHelper k8sAuthHelper;
+
+    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:latest")
+            .withExposedPorts(OIDC_SERVER_PORT)
+            .withNetwork(TEST_NETWORK)
+            .withNetworkAliases(OIDC_SERVER_HOSTNAME)
+            .withEnv(Map.of(
+                    "SERVER_PORT", String.valueOf(OIDC_SERVER_PORT),
+                    "SERVER_HOSTNAME", OIDC_SERVER_HOSTNAME
+            ));
 
     static {
         try {
             oidcTokenTempFile = Files.createTempFile("", "");
-            Files.writeString(oidcTokenTempFile, Utils.getNewJwt("http://%s:%d/dex".formatted(OIDC_SERVER_CONTAINER.getNetworkAliases().getLast(), 5556)));
+            k8sAuthHelper = new K8sAuthHelper("http://%s:%s/default".formatted(OIDC_SERVER_HOSTNAME, OIDC_SERVER_PORT));
+            Files.writeString(oidcTokenTempFile, k8sAuthHelper.getServiceAccountToken());
             try {
                 Set<PosixFilePermission> permissions = Set.of(
                         PosixFilePermission.OWNER_READ,
@@ -84,7 +87,6 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
             .withNetwork(TEST_NETWORK)
             .withExposedPorts(8080)
             .withCopyFileToContainer(MountableFile.forHostPath(oidcTokenTempFile.toAbsolutePath()), "/var/run/secrets/kubernetes.io/serviceaccount/token")
-            .dependsOn(OIDC_SERVER_CONTAINER)
             .dependsOn(POSTGRES_CONTAINER);
 
     static {

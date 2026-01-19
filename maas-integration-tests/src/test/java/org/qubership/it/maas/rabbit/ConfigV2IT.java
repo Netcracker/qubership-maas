@@ -118,8 +118,8 @@ class ConfigV2IT extends RabbitTest {
         ;
 
         ConfigV2Resp reply;
-        reply = applyConfigV2(SC_OK, cfg);
 
+        reply = applyConfigV2(SC_OK, cfg);
         assertEquals("ok", reply.getStatus());
 
         //check Rabbit

@@ -789,8 +789,15 @@ public abstract class AbstractMaasIT {
 
 
     public ConfigV2Resp applyConfigV2(int expectHttpCode, String config) throws IOException {
-        Request request = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, getMaasBasicAuth(), config, "POST");
+        return applyConfigV2WithCreds(expectHttpCode, config, "Basic", getMaasBasicAuth());
+    }
 
+    public ConfigV2Resp applyConfigV2WithK8sToken(int expectHttpCode, String config, String token) throws IOException {
+        return applyConfigV2WithCreds(expectHttpCode, config, "Bearer", token);
+    }
+
+    private ConfigV2Resp applyConfigV2WithCreds(int expectHttpCode, String config, String scheme, String creds) throws IOException {
+        Request request = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, "Basic", creds, config, "POST");
         ConfigV2Resp resp;
         resp = helper.doRequest(request, ConfigV2Resp.class, expectHttpCode);
 
@@ -799,7 +806,6 @@ public abstract class AbstractMaasIT {
         } else {
             assertEquals(STATUS_ERROR, resp.getStatus());
         }
-
         return resp;
     }
 
