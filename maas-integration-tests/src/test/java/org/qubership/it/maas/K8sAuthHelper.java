@@ -10,10 +10,12 @@ import java.util.Base64;
 public class K8sAuthHelper {
     private final OkHttpClient httpClient;
     private final String issuer;
+    private final String onHostIssuer;
 
-    public K8sAuthHelper(String issuer) {
+    public K8sAuthHelper(String issuer, String onHostIssuer) {
         this.httpClient = new OkHttpClient();
         this.issuer = issuer;
+        this.onHostIssuer = onHostIssuer;
     }
 
     public String getServiceAccountToken() {
@@ -30,12 +32,13 @@ public class K8sAuthHelper {
     public String getMaasToken() throws IOException {
         RequestBody formBody = new FormBody.Builder()
                 .add("grant_type", "client_credentials")
+                .add("scope", "maas")
                 .add("client_id", "test-client")
                 .add("client_secret", "test-secret")
-                .add("scope", "openid")
+                .add("code", "code1")
                 .build();
         Request request = new Request.Builder()
-                .url(issuer+"/token")
+                .url(onHostIssuer+"/token")
                 .post(formBody)
                 .build();
         try (Response response = httpClient.newCall(request).execute()) {

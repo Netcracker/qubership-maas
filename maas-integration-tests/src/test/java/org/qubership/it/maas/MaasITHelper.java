@@ -116,11 +116,19 @@ public class MaasITHelper {
     }
 
     public Request createJsonRequestWithNamespace(String url, String authorization, Object body, String method, String namespace) throws JsonProcessingException {
+        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Basic", body, method, namespace);
+    }
+
+    public Request createJsonRequestWithNamespaceAndK8sToken(String url, String authorization, Object body, String method, String namespace) throws JsonProcessingException {
+        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Bearer", body, method, namespace);
+    }
+
+    private Request createJsonRequestWithNamespaceAndScheme(String url, String authorization, String authScheme, Object body, String method, String namespace) throws JsonProcessingException {
         String content = mapper.writeValueAsString(body);
         log.info("Request body {}, url {}, method {}, auth {}", content, url, method, authorization);
         return new Request.Builder()
                 .url(maasAddress + url)
-                .addHeader("Authorization", "Basic " + authorization)
+                .addHeader("Authorization", authScheme + " " + authorization)
                 .addHeader("X-Origin-Namespace", namespace)
                 .addHeader("X-Origin-Microservice", TEST_MICROSERVICE)
                 .addHeader("Content-Type", "application/json")
