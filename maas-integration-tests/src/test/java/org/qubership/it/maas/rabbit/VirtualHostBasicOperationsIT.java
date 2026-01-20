@@ -24,6 +24,13 @@ class VirtualHostBasicOperationsIT extends RabbitTest {
         assertThat(virtualHost.getCnn(), CoreMatchers.anyOf(CoreMatchers.containsString("amqp://"), CoreMatchers.containsString("amqps://")));
         assertNotNull(virtualHost.getUsername());
         assertThat(virtualHost.getPassword(), CoreMatchers.containsString("plain:"));
+
+        deleteVirtualHost(createSimpleClassifier("VirtualHostBasicOperationsIT", "it-test"));
+
+        virtualHost = createVirtualHostWithK8sToken(201);
+        assertThat(virtualHost.getCnn(), CoreMatchers.anyOf(CoreMatchers.containsString("amqp://"), CoreMatchers.containsString("amqps://")));
+        assertNotNull(virtualHost.getUsername());
+        assertThat(virtualHost.getPassword(), CoreMatchers.containsString("plain:"));
     }
 
     @Test

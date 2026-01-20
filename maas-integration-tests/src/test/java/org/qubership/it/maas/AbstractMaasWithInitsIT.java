@@ -46,13 +46,45 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
             .withNetworkAliases(OIDC_SERVER_HOSTNAME)
             .withEnv(Map.of(
                     "SERVER_PORT", String.valueOf(OIDC_SERVER_PORT),
-                    "SERVER_HOSTNAME", OIDC_SERVER_HOSTNAME
+                    "SERVER_HOSTNAME", OIDC_SERVER_HOSTNAME,
+                    "JSON_CONFIG", """
+                            {
+                                "tokenCallbacks": [
+                                    {
+                                        "issuerId": "issuer1",
+                                        "requestMappings": [
+                                            {
+                                                "requestParam": "code",
+                                                "match": "code1",
+                                                "claims": {
+                                                    "iss": "http://oidc-server:55199/issuer1",
+                                                    "sub": "test-client",
+                                                    "aud": [
+                                                        "maas"
+                                                    ],
+                                                    "kubernetes.io": {
+                                                        "namespace": "maas-it-test",
+                                                        "serviceaccount": {
+                                                            "name": "maas"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                            """
             ));
 
     static {
+        OIDC_SERVER_CONTAINER.start();
+
         try {
             oidcTokenTempFile = Files.createTempFile("", "");
-            k8sAuthHelper = new K8sAuthHelper("http://%s:%s/default".formatted(OIDC_SERVER_HOSTNAME, OIDC_SERVER_PORT));
+            String issuer = "http://%s:%s/issuer1".formatted(OIDC_SERVER_HOSTNAME, OIDC_SERVER_PORT);
+            String onHostIssuer = "http://%s:%s/issuer1".formatted("localhost", OIDC_SERVER_CONTAINER.getMappedPort(OIDC_SERVER_PORT));
+            k8sAuthHelper = new K8sAuthHelper(issuer, onHostIssuer);
             Files.writeString(oidcTokenTempFile, k8sAuthHelper.getServiceAccountToken());
             try {
                 Set<PosixFilePermission> permissions = Set.of(
@@ -97,8 +129,6 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
         RABBITMQ_CONTAINER_1.start();
         RABBITMQ_CONTAINER_2.start();
-
-        OIDC_SERVER_CONTAINER.start();
 
         MAAS_CONTAINER.start();
 
