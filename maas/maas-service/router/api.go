@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/controller"
 	bluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
@@ -62,9 +61,6 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 		ReadTimeout:    130 * time.Second,
 		ReadBufferSize: 16 * 1024,
 	})
-
-	fallbackCrApiVersion := configloader.GetKoanf().String("fallback.cr.apiversion")
-	log.InfoC(ctx, "Fallback CR API version: %s", fallbackCrApiVersion)
 
 	// propagate root context to
 	app.Use(propagateContext(ctx))
@@ -194,7 +190,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiBGV1.Delete("/operation/destroy-domain", roles(model.AnonymousRole, model.BgOperatorRole), controller.WithJson(controllers.Bg2Controller.DestroyDomain))
 
 	// custom resources api
-	apiCRV1.Post("/apply", roles(model.AgentRole), controller.FallbackCrApiVersion(fallbackCrApiVersion), controller.WithYaml(controllers.CustomResource.Create))
+	apiCRV1.Post("/apply", roles(model.AgentRole), controller.WithYaml(controllers.CustomResource.Create))
 	apiCRV1.Delete("/apply", roles(model.AgentRole), controller.WithYaml(controllers.CustomResource.Delete))
 	apiCRV1.Get("/operation/:trackingId/status", roles(model.AgentRole), controllers.CustomResource.Status)
 	apiCRV1.Post("/operation/:trackingId/terminate", roles(model.AgentRole), controllers.CustomResource.Terminate)
