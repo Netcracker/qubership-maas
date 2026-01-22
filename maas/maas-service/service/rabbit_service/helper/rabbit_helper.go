@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-errors/errors"
-	"github.com/go-resty/resty/v2"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"github.com/netcracker/qubership-maas/model"
-	"github.com/netcracker/qubership-maas/utils"
 	"io"
 	"net/http"
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/go-errors/errors"
+	"github.com/go-resty/resty/v2"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 //go:generate mockgen -source=rabbit_helper.go -destination=mock/helper.go
@@ -55,8 +56,8 @@ type RabbitHelper interface {
 	CreatePolicy(ctx context.Context, policy interface{}) (interface{}, string, error)
 	DeletePolicy(ctx context.Context, policy interface{}) (interface{}, error)
 
-	CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) ([]string, error)
-	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange) ([]string, error)
+	CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error)
+	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error)
 	DeleteShovelByName(ctx context.Context, shovelName string) error
 	GetVhostShovels(ctx context.Context) ([]model.Shovel, error)
 }
@@ -737,7 +738,7 @@ func (h RabbitHelperImpl) DeletePolicy(ctx context.Context, policy interface{}) 
 	return h.DeleteAdminEntity(ctx, policy, url)
 }
 
-func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) ([]string, error) {
+func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error) {
 	queueName, err := utils.ExtractName(queue)
 	if err != nil {
 		return nil, utils.LogError(log, ctx, "queue entity '%v' doesn't have name field", queue)
@@ -749,6 +750,15 @@ func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhos
 
 	var createdShovelNames []string
 	for _, vhost := range vhosts {
+		shovelName := queueName + "-" + vhost.Namespace + "-exported"
+
+		// Check if shovel already exists
+		if _, exists := existingShovelsSet[shovelName]; exists {
+			log.InfoC(ctx, "Shovel '%v' already exists, skipping creation for queue '%v' and classifier '%v'", shovelName, queueName, vhost.Classifier)
+			createdShovelNames = append(createdShovelNames, shovelName)
+			continue
+		}
+
 		log.InfoC(ctx, "Creating shovel for queue '%v' and classifier '%v'", queueName, vhost.Classifier)
 		shovel := model.Shovel{
 			Value: model.ShovelValue{
@@ -761,7 +771,6 @@ func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhos
 			},
 		}
 
-		shovelName := queueName + "-" + vhost.Namespace + "-exported"
 		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
 		_, _, err = h.CreateAdminEntity(ctx, shovel, url, http.MethodPut, nil, nil)
 		if err != nil {
@@ -773,7 +782,7 @@ func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhos
 	return createdShovelNames, nil
 }
 
-func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostsAndVersion []model.VhostAndVersion, exchange model.Exchange) ([]string, error) {
+func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostsAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error) {
 	exchangeName, err := utils.ExtractName(exchange)
 	if err != nil {
 		return nil, utils.LogError(log, ctx, "exchange entity '%v' doesn't have name field", exchange)
@@ -808,6 +817,15 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 			return nil, utils.LogError(log, ctx, "error during CreateBinding while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
 		}
 
+		shovelName := queueName + "-" + vhostAndVersion.Vhost.Namespace + "-exported"
+
+		// Check if shovel already exists
+		if _, exists := existingShovelsSet[shovelName]; exists {
+			log.InfoC(ctx, "Shovel '%v' already exists, skipping creation for exchange queue '%v' and classifier '%v'", shovelName, queueName, vhostAndVersion.Vhost.Classifier)
+			createdShovelNames = append(createdShovelNames, shovelName)
+			continue
+		}
+
 		log.InfoC(ctx, "Creating shovel for exchange queue '%v' and classifier '%v'", queueName, vhostAndVersion.Vhost.Classifier)
 		shovel := model.Shovel{
 			Value: model.ShovelValue{
@@ -820,7 +838,6 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 			},
 		}
 
-		shovelName := queueName + "-" + vhostAndVersion.Vhost.Namespace + "-exported"
 		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
 		_, _, err = h.CreateAdminEntity(ctx, shovel, url, http.MethodPut, nil, nil)
 		if err != nil {

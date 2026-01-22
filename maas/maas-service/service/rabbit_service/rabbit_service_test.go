@@ -2046,7 +2046,7 @@ func TestRabbitServiceImpl_ProcessExportedVhost_ShovelCleanup(t *testing.T) {
 
 		// Mock CreateShovelForExportedQueue - return created shovel names
 		rabbitHelper.EXPECT().
-			CreateShovelForExportedQueue(gomock.Any(), gomock.Any(), gomock.Any()).
+			CreateShovelForExportedQueue(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]string{"queue1-origin-exported", "queue1-peer-exported"}, nil).
 			Times(1)
 
@@ -2240,7 +2240,7 @@ func TestRabbitServiceImpl_ProcessExportedVhost_ShovelCleanup(t *testing.T) {
 
 		// Mock CreateQueuesAndShovelsForExportedExchange
 		rabbitHelper.EXPECT().
-			CreateQueuesAndShovelsForExportedExchange(gomock.Any(), gomock.Any(), gomock.Any()).
+			CreateQueuesAndShovelsForExportedExchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return([]string{"exchange1-origin-sq-origin-exported", "exchange1-peer-sq-peer-exported"}, nil).
 			Times(1)
 
