@@ -165,12 +165,12 @@ func (d *PGRegistrationDao) List(ctx context.Context) ([]CompositeRegistration, 
 
 func getCurrentModifyIndex(ctx context.Context, cnn *gorm.DB, compositeId string) (uint64, error) {
 	var currentModifyIndex uint64
-	result := cnn.Raw(`
-						SELECT c.modify_index
-						FROM composite_properties c
-						JOIN composite_namespaces_v2 n ON n.id = c.composite_namespace_id
-						WHERE n.base_namespace = ?
-			`, compositeId).Scan(&currentModifyIndex)
+	result := cnn.
+		Table("composite_properties c").
+		Select("c.modify_index").
+		Joins("JOIN composite_namespaces_v2 n ON n.id = c.composite_namespace_id").
+		Where("n.base_namespace = ?", compositeId).
+		Scan(&currentModifyIndex)
 	if result.Error != nil {
 		return 0, utils.LogError(log, ctx, "error get current modify index: %w", result.Error)
 	}
