@@ -2423,9 +2423,23 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 			return utils.LogError(log, ctx, "Error during getRabbitHelper exported while in ProcessExportedVhost: %w", err)
 		}
 
+		existingShovels, err := rabbitHelper.GetVhostShovels(ctx)
+		if err != nil {
+			return utils.LogError(log, ctx, "Error during GetVhostShovels while in ProcessExportedVhost: %w", err)
+		}
+
+		// build set of existing shovel names for quick lookup
+		existingShovelsSet := make(map[string]struct{})
+		if existingShovels != nil {
+			for _, shovel := range existingShovels {
+				existingShovelsSet[shovel.Name] = struct{}{}
+			}
+		}
+
+		var createdShovelNames []string
+
 		//process queues
 		//create queues and shovel
-		var createdShovelNames []string
 		for queueName, queue := range exportedQueuesEntities {
 			log.InfoC(ctx, "ProcessExportedVhost: creating queue in exported vhost: %v", queueName)
 			_, _, err := rabbitHelper.CreateQueue(ctx, queue)
@@ -2433,7 +2447,7 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 				return utils.LogError(log, ctx, "Error during CreateQueue exported while in ProcessExportedVhost: %w", err)
 			}
 
-			shovelNames, err := rabbitHelper.CreateShovelForExportedQueue(ctx, exportedQueuesVhosts[queueName], queue)
+			shovelNames, err := rabbitHelper.CreateShovelForExportedQueue(ctx, exportedQueuesVhosts[queueName], queue, existingShovelsSet)
 			if err != nil {
 				return utils.LogError(log, ctx, "Error during CreateShovelForExportedQueue while in ProcessExportedVhost: %w", err)
 			}
@@ -2471,7 +2485,7 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 				return utils.LogError(log, ctx, "Error during createVersionRouterWithItsAE exported while in ProcessExportedVhost: %w", err)
 			}
 
-			shovelNames, err := rabbitHelper.CreateQueuesAndShovelsForExportedExchange(ctx, exportedExchangeVhostsAndVersion[exchangeName], exchange)
+			shovelNames, err := rabbitHelper.CreateQueuesAndShovelsForExportedExchange(ctx, exportedExchangeVhostsAndVersion[exchangeName], exchange, existingShovelsSet)
 			if err != nil {
 				return utils.LogError(log, ctx, "Error during CreateQueuesAndShovelsForExportedExchange while in ProcessExportedVhost: %w", err)
 			}
@@ -2558,36 +2572,30 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 			}
 		}
 
-		// clean up shovels: get all shovels and remove those that weren't created in this run
+		// clean up shovels: remove those that weren't created in this run
 		log.InfoC(ctx, "ProcessExportedVhost: clean up shovels started")
-		shovels, err := rabbitHelper.GetVhostShovels(ctx)
-		if err != nil {
-			return utils.LogError(log, ctx, "Error during GetVhostShovels while in ProcessExportedVhost: %w", err)
+
+		// build set of created shovel names for quick lookup
+		createdShovelsSet := make(map[string]struct{})
+		for _, shovelName := range createdShovelNames {
+			createdShovelsSet[shovelName] = struct{}{}
 		}
 
-		if shovels != nil {
-			// build set of created shovel names for quick lookup
-			createdShovelsSet := make(map[string]bool)
-			for _, shovelName := range createdShovelNames {
-				createdShovelsSet[shovelName] = true
+		// delete shovels that don't match created shovels or don't have '-exported' suffix
+		for _, shovel := range existingShovels {
+			// skip existingShovels without '-exported' suffix
+			if !strings.HasSuffix(shovel.Name, "-exported") {
+				continue
 			}
 
-			// delete shovels that don't match created shovels or don't have '-exported' suffix
-			for _, shovel := range shovels {
-				// skip shovels without '-exported' suffix
-				if !strings.HasSuffix(shovel.Name, "-exported") {
-					continue
-				}
-
-				// delete shovel if it's not in the created set
-				if !createdShovelsSet[shovel.Name] {
-					err := rabbitHelper.DeleteShovelByName(ctx, shovel.Name)
-					if err != nil {
-						log.WarnC(ctx, "Error during DeleteShovelByName for shovel '%s' (might not exist): %v", shovel.Name, err)
-						// Continue even if deletion fails
-					} else {
-						log.InfoC(ctx, "Deleted orphaned shovel: %s", shovel.Name)
-					}
+			// delete shovel if it's not in the created set
+			if _, ok := createdShovelsSet[shovel.Name]; !ok {
+				err := rabbitHelper.DeleteShovelByName(ctx, shovel.Name)
+				if err != nil {
+					log.WarnC(ctx, "Error during DeleteShovelByName for shovel '%s' (might not exist): %v", shovel.Name, err)
+					// Continue even if deletion fails
+				} else {
+					log.InfoC(ctx, "Deleted orphaned shovel: %s", shovel.Name)
 				}
 			}
 		}
