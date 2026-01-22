@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-maas
 
-go 1.25.2
+go 1.25.5
 
 require (
 	github.com/IBM/sarama v1.46.1
