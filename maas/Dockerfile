@@ -23,3 +23,4 @@ WORKDIR /app
 USER 10001:10001
 
 CMD ["/app/maas"]
+
