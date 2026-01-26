@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-errors/errors"
-	"github.com/go-resty/resty/v2"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/utils"
+	"github.com/go-resty/resty/v2"
 	"io"
 	"net/http"
 	"reflect"
@@ -909,23 +909,17 @@ func (h RabbitHelperImpl) convertToType(obj interface{}, toType interface{}) (in
 func (h RabbitHelperImpl) IsInstanceAvailable() error {
 	res, err := h.httpClient.R().
 		SetBasicAuth(h.instance.User, h.instance.Password).
-		Get(h.instance.ApiUrl + "/healthchecks/node")
+		Get(h.instance.ApiUrl + "/nodes")
 
 	if err != nil {
 		return err
 	}
 
-	raw := res.Body()
-	data := make(map[string]interface{})
-	if parseErr := json.Unmarshal(raw, &data); parseErr != nil {
-		return fmt.Errorf("error parse health response: %v", parseErr)
+	if res.StatusCode() != 200 {
+		return fmt.Errorf("rabbitmq api not ready: %s", res.Status())
 	}
 
-	if status, ok := data["status"]; ok && status == "ok" {
-		return nil
-	}
-
-	return errors.Errorf("healthcheck response: %v", string(raw))
+	return nil
 }
 
 func IsInstanceAvailable(rabbitInstance *model.RabbitInstance) error {
