@@ -592,6 +592,8 @@ func (cs *DefaultConfiguratorService) applyInstanceDesignatorRabbit(ctx context.
 }
 
 func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Context, cfg interface{}, namespace string) (interface{}, error) {
+	log.InfoC(ctx, "ApplyRabbitConfiguration: starting")
+
 	config := cfg.(*model.RabbitConfigReqDto)
 
 	result := &model.RabbitResult{}
@@ -627,6 +629,8 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 		Password: vHostRegistration.Password,
 	}
 
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished vhost section, starting deletions section")
+
 	//deletion section
 	if config.Spec.RabbitDeletions != nil {
 		result.RabbitDeletions, err = cs.rabbitService.DeleteEntities(ctx, config.Spec.Classifier, *config.Spec.RabbitDeletions)
@@ -634,8 +638,9 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 			log.ErrorC(ctx, "Error during deleting config: %v", err)
 			return nil, err
 		}
-		log.InfoC(ctx, "RabbitResult deletions: %+v", result.RabbitDeletions)
 	}
+
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished deletions section, starting policies section")
 
 	if config.Spec.RabbitPolicies != nil {
 		result.Policies, err = cs.rabbitService.ApplyPolicies(ctx, config.Spec.Classifier, config.Spec.RabbitPolicies)
@@ -646,8 +651,9 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 		if result.Policies == nil {
 			result.Policies = make([]interface{}, 0)
 		}
-		log.InfoC(ctx, "RabbitResult created policies: %+v", result.Policies)
 	}
+
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished policies section, starting entities section")
 
 	//entities section
 	if config.Spec.Entities != nil {
@@ -658,11 +664,15 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 		}
 	}
 
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished entities section, starting exported vhost section")
+
 	//exported vhost section
 	err = cs.rabbitService.ProcessExportedVhost(ctx, namespace)
 	if err != nil {
 		return nil, utils.LogError(log, ctx, "Error during ProcessExportedVhost while in ApplyRabbitConfiguration: %v", err)
 	}
+
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished")
 
 	return result, nil
 }

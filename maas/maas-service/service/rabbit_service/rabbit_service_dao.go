@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
@@ -109,7 +110,7 @@ func (d *RabbitServiceDaoImpl) FindVhostWithSearchForm(ctx context.Context, sear
 		(*vhosts)[0].Classifier = search.Classifier.ToJsonString()
 	}
 
-	log.InfoC(ctx, "Virtual hosts by search form %+v were found.base. Count: %d", search, len(*vhosts))
+	log.InfoC(ctx, "Virtual hosts by search form %+v were found. Count: %d", search, len(*vhosts))
 	return *vhosts, nil
 }
 
@@ -233,7 +234,7 @@ func (d *RabbitServiceDaoImpl) UpdateLazyBinding(ctx context.Context, binding *m
 }
 
 func (d *RabbitServiceDaoImpl) UpsertNamedRabbitEntity(ctx context.Context, entity *model.RabbitEntity) error {
-	log.InfoC(ctx, "Upsert rabbit entity: %+v", entity)
+	log.InfoC(ctx, "Upsert rabbit entity in db: %+v", entity)
 
 	err := d.base.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
 		var ent model.RabbitEntity
@@ -385,7 +386,7 @@ func (d *RabbitServiceDaoImpl) GetMsConfigsInActiveButNotInCandidateByVhost(ctx 
 	msNames := new([]string)
 	if err := d.base.UsingDb(ctx, func(cnn *gorm.DB) error {
 		err := cnn.Raw(
-			`select ms_name from rabbit_ms_configs msName where msName.vhost_id = ? and msName.candidate_version = ? 
+			`select ms_name from rabbit_ms_configs msName where msName.vhost_id = ? and msName.candidate_version = ?
 					except
 					select ms_name from rabbit_ms_configs msName where msName.vhost_id = ? and msName.candidate_version = ?`,
 			vhostId, activeVersion, vhostId, candidateVersion).Scan(msNames).Error
