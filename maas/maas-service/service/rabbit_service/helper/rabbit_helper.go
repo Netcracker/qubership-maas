@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-errors/errors"
-	"github.com/go-resty/resty/v2"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"github.com/netcracker/qubership-maas/model"
-	"github.com/netcracker/qubership-maas/utils"
 	"io"
 	"net/http"
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/go-errors/errors"
+	"github.com/go-resty/resty/v2"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 //go:generate mockgen -source=rabbit_helper.go -destination=mock/helper.go
@@ -55,9 +56,9 @@ type RabbitHelper interface {
 	CreatePolicy(ctx context.Context, policy interface{}) (interface{}, string, error)
 	DeletePolicy(ctx context.Context, policy interface{}) (interface{}, error)
 
-	CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) error
-	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange) error
-	DeleteShovelsForExportedVhost(ctx context.Context) error
+	CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error)
+	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error)
+	DeleteShovelByName(ctx context.Context, shovelName string) error
 	GetVhostShovels(ctx context.Context) ([]model.Shovel, error)
 }
 
@@ -267,7 +268,7 @@ func (h RabbitHelperImpl) CreateAdminEntity(ctx context.Context, entity interfac
 
 func (h RabbitHelperImpl) createEntity(ctx context.Context, entity interface{}, url, method, user, password string,
 	getFunc EntityAction, deleteFunc EntityAction) (interface{}, string, error) {
-	log.InfoC(ctx, "Creating entity: %v", entity)
+	log.InfoC(ctx, "Creating entity (generic): %+v", entity)
 	if initResponse, err := h.httpHelper.DoRequest(ctx, method,
 		fmt.Sprintf("%s/%s", h.instance.ApiUrl, url),
 		user, password,
@@ -340,7 +341,7 @@ func (h RabbitHelperImpl) DeleteAdminEntity(ctx context.Context, entity interfac
 }
 
 func (h RabbitHelperImpl) deleteEntity(ctx context.Context, entity interface{}, url, user, password string) (interface{}, error) {
-	log.InfoC(ctx, "Deleting entity: %v", entity)
+	log.InfoC(ctx, "Deleting entity by url: %v", url)
 	if response, err := h.httpHelper.DoRequest(ctx, resty.MethodDelete,
 		fmt.Sprintf("%s/%s", h.instance.ApiUrl, url),
 		user, password,
@@ -371,8 +372,9 @@ func (h RabbitHelperImpl) GetExchange(ctx context.Context, exchange interface{})
 }
 
 func (h RabbitHelperImpl) CreateExchange(ctx context.Context, exchange interface{}) (interface{}, string, error) {
-	log.InfoC(ctx, "Creating exchange: %v", exchange)
 	exchangeName, err := utils.ExtractName(exchange)
+	log.InfoC(ctx, "Creating exchange with name: %v", exchangeName)
+
 	if err != nil {
 		log.ErrorC(ctx, "ExchangeType entity '%v' doesn't have name field", exchange)
 		return nil, "", err
@@ -404,8 +406,9 @@ func (h RabbitHelperImpl) GetQueue(ctx context.Context, queue interface{}) (inte
 }
 
 func (h RabbitHelperImpl) CreateQueue(ctx context.Context, queue interface{}) (interface{}, string, error) {
-	log.InfoC(ctx, "Creating queue: %v", queue)
 	queueName, err := utils.ExtractName(queue)
+	log.InfoC(ctx, "Creating queue with name: %v", queueName)
+
 	if err != nil {
 		log.ErrorC(ctx, "queue entity '%v' doesn't have name field", queue)
 		return nil, "", err
@@ -735,17 +738,27 @@ func (h RabbitHelperImpl) DeletePolicy(ctx context.Context, policy interface{}) 
 	return h.DeleteAdminEntity(ctx, policy, url)
 }
 
-func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) error {
+func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error) {
 	queueName, err := utils.ExtractName(queue)
 	if err != nil {
-		return utils.LogError(log, ctx, "queue entity '%v' doesn't have name field", queue)
+		return nil, utils.LogError(log, ctx, "queue entity '%v' doesn't have name field", queue)
 	}
 
 	address := h.instance.AmqpUrl
 	address = strings.TrimLeft(address, "amqp://")
 	address = strings.TrimLeft(address, "amqps://")
 
+	var createdShovelNames []string
 	for _, vhost := range vhosts {
+		shovelName := queueName + "-" + vhost.Namespace + "-exported"
+
+		// Check if shovel already exists
+		if _, exists := existingShovelsSet[shovelName]; exists {
+			log.InfoC(ctx, "Shovel '%v' already exists, skipping creation for queue '%v' and classifier '%v'", shovelName, queueName, vhost.Classifier)
+			createdShovelNames = append(createdShovelNames, shovelName)
+			continue
+		}
+
 		log.InfoC(ctx, "Creating shovel for queue '%v' and classifier '%v'", queueName, vhost.Classifier)
 		shovel := model.Shovel{
 			Value: model.ShovelValue{
@@ -758,33 +771,35 @@ func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhos
 			},
 		}
 
-		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, queueName+"-"+vhost.Namespace+"-exported")
+		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
 		_, _, err = h.CreateAdminEntity(ctx, shovel, url, http.MethodPut, nil, nil)
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateAdminEntity: %w", err)
+			return nil, utils.LogError(log, ctx, "error during CreateAdminEntity: %w", err)
 		}
+		createdShovelNames = append(createdShovelNames, shovelName)
 	}
 
-	return nil
+	return createdShovelNames, nil
 }
 
-func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostsAndVersion []model.VhostAndVersion, exchange model.Exchange) error {
+func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostsAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error) {
 	exchangeName, err := utils.ExtractName(exchange)
 	if err != nil {
-		return utils.LogError(log, ctx, "exchange entity '%v' doesn't have name field", exchange)
+		return nil, utils.LogError(log, ctx, "exchange entity '%v' doesn't have name field", exchange)
 	}
 
 	address := h.instance.AmqpUrl
 	address = strings.TrimLeft(address, "amqp://")
 	address = strings.TrimLeft(address, "amqps://")
 
+	var createdShovelNames []string
 	for _, vhostAndVersion := range vhostsAndVersion {
 
 		queueName := exchangeName + "-" + vhostAndVersion.Vhost.Namespace + shovelQueue
 
 		_, _, err = h.CreateQueue(ctx, model.Queue{"name": queueName, "durable": true})
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateQueue while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
+			return nil, utils.LogError(log, ctx, "error during CreateQueue while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
 		}
 
 		//bind vr to new versioned exchange
@@ -799,7 +814,16 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 		}
 		_, _, err = h.CreateBinding(ctx, veBinding)
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateBinding while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
+			return nil, utils.LogError(log, ctx, "error during CreateBinding while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
+		}
+
+		shovelName := queueName + "-" + vhostAndVersion.Vhost.Namespace + "-exported"
+
+		// Check if shovel already exists
+		if _, exists := existingShovelsSet[shovelName]; exists {
+			log.InfoC(ctx, "Shovel '%v' already exists, skipping creation for exchange queue '%v' and classifier '%v'", shovelName, queueName, vhostAndVersion.Vhost.Classifier)
+			createdShovelNames = append(createdShovelNames, shovelName)
+			continue
 		}
 
 		log.InfoC(ctx, "Creating shovel for exchange queue '%v' and classifier '%v'", queueName, vhostAndVersion.Vhost.Classifier)
@@ -814,34 +838,22 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 			},
 		}
 
-		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, queueName+"-"+vhostAndVersion.Vhost.Namespace+"-exported")
+		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
 		_, _, err = h.CreateAdminEntity(ctx, shovel, url, http.MethodPut, nil, nil)
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateAdminEntity while in CreateQueuesAndShovelsForExportedExchange: %w", err)
+			return nil, utils.LogError(log, ctx, "error during CreateAdminEntity while in CreateQueuesAndShovelsForExportedExchange: %w", err)
 		}
+		createdShovelNames = append(createdShovelNames, shovelName)
 	}
 
-	return nil
+	return createdShovelNames, nil
 }
 
-func (h RabbitHelperImpl) DeleteShovelsForExportedVhost(ctx context.Context) error {
-	url := fmt.Sprintf("parameters/shovel/%s", h.vhost.Vhost)
-	shovels, err := h.GetAdminEntity(ctx, url, []model.Shovel{})
+func (h RabbitHelperImpl) DeleteShovelByName(ctx context.Context, shovelName string) error {
+	url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
+	_, err := h.DeleteAdminEntity(ctx, nil, url)
 	if err != nil {
-		return utils.LogError(log, ctx, "error during GetAdminEntity while in DeleteShovelsForExportedVhost: %w", err)
-	}
-
-	if shovels == nil {
-		return nil
-	}
-	shovelsConverted := shovels.(*[]model.Shovel)
-
-	for _, shovel := range *shovelsConverted {
-		url = fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovel.Name)
-		_, err = h.DeleteAdminEntity(ctx, nil, url)
-		if err != nil {
-			return utils.LogError(log, ctx, "error during DeleteAdminEntity while in DeleteShovelsForExportedVhost in vhost '%s' for shovel named '%s': %w", h.vhost.Vhost, shovel.Name, err)
-		}
+		return utils.LogError(log, ctx, "error during DeleteAdminEntity while deleting shovel in vhost '%s' for shovel named '%s': %w", h.vhost.Vhost, shovelName, err)
 	}
 
 	return nil
