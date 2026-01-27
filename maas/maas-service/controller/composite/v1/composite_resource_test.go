@@ -2,17 +2,18 @@ package v1
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/composite"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 func TestRegistrationController_Create(t *testing.T) {
@@ -60,7 +61,7 @@ func TestRegistrationController_Create(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(responseBody), "namespaces[1] length must be less than or equal to '63'")
 
-	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{"a", []string{"a", "b", "c"}})
+	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{Id: "a", Namespaces: []string{"a", "b", "c"}})
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(`
 			{
 			  "id": "a",

@@ -2,9 +2,10 @@ package composite
 
 import (
 	"context"
+	"testing"
+
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestPGRegistrationDao_API(t *testing.T) {
@@ -32,8 +33,8 @@ func TestPGRegistrationDao_API(t *testing.T) {
 		list, err := dao.List(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, []CompositeRegistration{
-			{"a", []string{"a", "b"}},
-			{"f", []string{"d", "e", "f"}},
+			{Id: "a", Namespaces: []string{"a", "b"}},
+			{Id: "f", Namespaces: []string{"d", "e", "f"}},
 		}, list)
 
 		// update registration with new member "c"
@@ -59,7 +60,7 @@ func TestPGRegistrationDao_API(t *testing.T) {
 		{
 			registration, err := dao.GetByBaseline(ctx, "f")
 			assert.NoError(t, err)
-			assert.Equal(t, &CompositeRegistration{"f", []string{"d", "e", "f"}}, registration)
+			assert.Equal(t, &CompositeRegistration{Id: "f", Namespaces: []string{"d", "e", "f"}}, registration)
 		}
 	})
 }
@@ -71,6 +72,20 @@ func TestPGRegistrationDao_Upsert_Conflicts(t *testing.T) {
 
 		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}}))
 		assert.Error(t, dao.Upsert(ctx, &CompositeRegistration{Id: "b", Namespaces: []string{"b", "c"}}))
+	})
+}
+
+func TestPGRegistrationDao_Upsert_WrongModifyIndex(t *testing.T) {
+	ctx := context.Background()
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		dao := NewPGRegistrationDao(baseDao)
+
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(100))}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(200))}))
+		assert.NoError(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(200))}))
+		assert.ErrorContains(t, dao.Upsert(ctx, &CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}, ModifyIndex: ptr(uint64(100))}),
+			"new modify index '100' cannot be less than the current index '200'",
+		)
 	})
 }
 
@@ -96,4 +111,8 @@ func TestPGRegistrationDao_FindByNamespace(t *testing.T) {
 			assert.Nil(t, registration)
 		}
 	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
+	"sync/atomic"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
@@ -38,21 +42,14 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
-	"os"
-	"sync/atomic"
-	"time"
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
 
 var (
 	log               logging.Logger
-	ctx, globalCancel = context.WithCancel(
-		context.WithValue(
-			context.Background(), "requestId", "",
-		),
-	)
-	exitCode = atomic.Int32{}
+	ctx, globalCancel = context.WithCancel(context.WithValue(context.Background(), "requestId", ""))
+	exitCode          = atomic.Int32{}
 )
 
 func init() {
