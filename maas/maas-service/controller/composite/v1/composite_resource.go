@@ -3,12 +3,13 @@ package v1
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/composite"
 	"golang.org/x/exp/slices"
-	"net/http"
 )
 
 type RegistrationController struct {
