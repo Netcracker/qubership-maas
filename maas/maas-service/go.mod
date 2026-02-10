@@ -3,9 +3,9 @@ module github.com/netcracker/qubership-maas
 go 1.25.5
 
 require (
-	github.com/IBM/sarama v1.46.1
+	github.com/IBM/sarama v1.46.3
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/docker v28.5.1+incompatible
+	github.com/docker/docker v28.5.2+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/glebarez/go-sqlite v1.22.0
 	github.com/glebarez/sqlite v1.11.0
@@ -38,7 +38,7 @@ require (
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.31.0
+	gorm.io/gorm v1.31.1
 )
 
 require (
@@ -93,7 +93,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/knadh/koanf/v2 v2.1.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
