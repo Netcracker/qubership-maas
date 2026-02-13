@@ -145,31 +145,33 @@ func (mr *MockRabbitHelperMockRecorder) CreateQueue(ctx, queue interface{}) *gom
 }
 
 // CreateQueuesAndShovelsForExportedExchange mocks base method.
-func (m *MockRabbitHelper) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange) error {
+func (m *MockRabbitHelper) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateQueuesAndShovelsForExportedExchange", ctx, vhostAndVersion, exchange)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "CreateQueuesAndShovelsForExportedExchange", ctx, vhostAndVersion, exchange, existingShovelsSet)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateQueuesAndShovelsForExportedExchange indicates an expected call of CreateQueuesAndShovelsForExportedExchange.
-func (mr *MockRabbitHelperMockRecorder) CreateQueuesAndShovelsForExportedExchange(ctx, vhostAndVersion, exchange interface{}) *gomock.Call {
+func (mr *MockRabbitHelperMockRecorder) CreateQueuesAndShovelsForExportedExchange(ctx, vhostAndVersion, exchange, existingShovelsSet interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateQueuesAndShovelsForExportedExchange", reflect.TypeOf((*MockRabbitHelper)(nil).CreateQueuesAndShovelsForExportedExchange), ctx, vhostAndVersion, exchange)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateQueuesAndShovelsForExportedExchange", reflect.TypeOf((*MockRabbitHelper)(nil).CreateQueuesAndShovelsForExportedExchange), ctx, vhostAndVersion, exchange, existingShovelsSet)
 }
 
 // CreateShovelForExportedQueue mocks base method.
-func (m *MockRabbitHelper) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) error {
+func (m *MockRabbitHelper) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateShovelForExportedQueue", ctx, vhosts, queue)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "CreateShovelForExportedQueue", ctx, vhosts, queue, existingShovelsSet)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateShovelForExportedQueue indicates an expected call of CreateShovelForExportedQueue.
-func (mr *MockRabbitHelperMockRecorder) CreateShovelForExportedQueue(ctx, vhosts, queue interface{}) *gomock.Call {
+func (mr *MockRabbitHelperMockRecorder) CreateShovelForExportedQueue(ctx, vhosts, queue, existingShovelsSet interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateShovelForExportedQueue", reflect.TypeOf((*MockRabbitHelper)(nil).CreateShovelForExportedQueue), ctx, vhosts, queue)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateShovelForExportedQueue", reflect.TypeOf((*MockRabbitHelper)(nil).CreateShovelForExportedQueue), ctx, vhosts, queue, existingShovelsSet)
 }
 
 // CreateVHost mocks base method.
@@ -276,18 +278,18 @@ func (mr *MockRabbitHelperMockRecorder) DeleteQueue(ctx, queue interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteQueue", reflect.TypeOf((*MockRabbitHelper)(nil).DeleteQueue), ctx, queue)
 }
 
-// DeleteShovelsForExportedVhost mocks base method.
-func (m *MockRabbitHelper) DeleteShovelsForExportedVhost(ctx context.Context) error {
+// DeleteShovelByName mocks base method.
+func (m *MockRabbitHelper) DeleteShovelByName(ctx context.Context, shovelName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteShovelsForExportedVhost", ctx)
+	ret := m.ctrl.Call(m, "DeleteShovelByName", ctx, shovelName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteShovelsForExportedVhost indicates an expected call of DeleteShovelsForExportedVhost.
-func (mr *MockRabbitHelperMockRecorder) DeleteShovelsForExportedVhost(ctx interface{}) *gomock.Call {
+// DeleteShovelByName indicates an expected call of DeleteShovelByName.
+func (mr *MockRabbitHelperMockRecorder) DeleteShovelByName(ctx, shovelName interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteShovelsForExportedVhost", reflect.TypeOf((*MockRabbitHelper)(nil).DeleteShovelsForExportedVhost), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteShovelByName", reflect.TypeOf((*MockRabbitHelper)(nil).DeleteShovelByName), ctx, shovelName)
 }
 
 // DeleteVHost mocks base method.
