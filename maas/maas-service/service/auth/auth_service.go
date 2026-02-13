@@ -60,7 +60,6 @@ type AuthServiceImpl struct {
 	oidcVerifier       tokenverifier.Verifier
 }
 
-
 func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService, oidcVerifier tokenverifier.Verifier) AuthService {
 	return &AuthServiceImpl{
 		dao:                dao,
@@ -211,6 +210,7 @@ func (s *AuthServiceImpl) checkAccountPermissions(ctx context.Context, account *
 		if namespace == "" {
 			return nil, utils.LogError(log, ctx, "you're trying to authenticate with account `%s' that doesn't have 'manager' role (existing roles: %+v), therefore namespace should be mandatory specified: %w", username, roles, msg.BadRequest)
 		}
+
 		if !account.HasAccessToNamespace(namespace) {
 			namespaces, err := s.bgDomainService.FindByNamespace(ctx, account.Namespace)
 			if err != nil {
