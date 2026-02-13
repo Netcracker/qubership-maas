@@ -4,8 +4,14 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
+	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
@@ -13,8 +19,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/composite"
 	"github.com/netcracker/qubership-maas/utils"
 	"golang.org/x/crypto/pbkdf2"
-	"reflect"
-	"strings"
 )
 
 var log logging.Logger
@@ -34,7 +38,8 @@ type AuthService interface {
 	DeleteUserAccount(ctx context.Context, username string) error
 	IsFirstAccountManager(ctx context.Context) (bool, error)
 	CreateNewManager(ctx context.Context, accountRequest *model.ManagerAccountDto) (*model.ManagerAccountDto, error)
-	IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
+	IsAccessGrantedWithBasic(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
+	IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error)
 	GetAllAccounts(ctx context.Context) (*[]model.Account, error)
 	UpdateUserPassword(ctx context.Context, username string, password utils.SecretString) error
 	GetAccountByUsername(ctx context.Context, username string) (*model.Account, error)
@@ -48,11 +53,19 @@ type CompositeRegistrar interface {
 	GetByNamespace(ctx context.Context, namespace string) (*composite.CompositeRegistration, error)
 }
 
-func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService) AuthService {
+type AuthServiceImpl struct {
+	dao                AuthDao
+	bgDomainService    domain.BGDomainService
+	compositeRegistrar CompositeRegistrar
+	oidcVerifier       tokenverifier.Verifier
+}
+
+func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomainService domain.BGDomainService, oidcVerifier tokenverifier.Verifier) AuthService {
 	return &AuthServiceImpl{
 		dao:                dao,
 		compositeRegistrar: compositeRegistrar,
 		bgDomainService:    bgDomainService,
+		oidcVerifier: oidcVerifier,
 	}
 }
 
@@ -159,7 +172,7 @@ func (s *AuthServiceImpl) createAccount(ctx context.Context, account *model.Acco
 	return account, nil
 }
 
-func (s *AuthServiceImpl) IsAccessGranted(ctx context.Context, username string, password utils.SecretString, namespace string, roles []model.RoleName) (*model.Account, error) {
+func (s *AuthServiceImpl) IsAccessGrantedWithBasic(ctx context.Context, username string, password utils.SecretString, namespace string, roles []model.RoleName) (*model.Account, error) {
 	log.InfoC(ctx, "Checking access for account with username '%v', roles '%v'", username, roles)
 	account, err := s.dao.GetAccountByUsername(ctx, username)
 	if err != nil {
@@ -173,6 +186,26 @@ func (s *AuthServiceImpl) IsAccessGranted(ctx context.Context, username string, 
 		return nil, utils.LogError(log, ctx, "password verification failed for client with username `%s': %w", username, msg.AuthError)
 	}
 
+	return s.checkAccountPermissions(ctx, account, username, namespace, roles)
+}
+
+func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
+	claims, err := s.oidcVerifier.Verify(ctx, rawToken)
+	if err != nil {
+		return nil, errors.Join(msg.AuthError, fmt.Errorf("oidc: failed to verify token: %w", err))
+	}
+	username := claims.Kubernetes.ServiceAccount.Name
+	log.InfoC(ctx, "Checking access for account with service account '%v', roles '%v'", username, roles)
+	account := model.Account{
+		Username: username,
+		// for now only add agent role to requests made with k8s tokens
+		Roles:     []model.RoleName{model.AgentRole},
+		Namespace: claims.Kubernetes.Namespace,
+	}
+	return s.checkAccountPermissions(ctx, &account, username, namespace, roles)
+}
+
+func (s *AuthServiceImpl) checkAccountPermissions(ctx context.Context, account *model.Account, username string, namespace string, roles []model.RoleName) (*model.Account, error) {
 	if !account.HasRoles(model.ManagerRole, model.BgOperatorRole) {
 		if namespace == "" {
 			return nil, utils.LogError(log, ctx, "you're trying to authenticate with account `%s' that doesn't have 'manager' role (existing roles: %+v), therefore namespace should be mandatory specified: %w", username, roles, msg.BadRequest)

@@ -205,6 +205,13 @@ public abstract class AbstractMaasIT {
         return createKafkaTopic(expectStatus, KafkaTopicRequest.builder().classifier(classifier).build(), TEST_NAMESPACE);
     }
 
+    protected KafkaTopicResponse createKafkaTopicWithK8sToken(int expectStatus, Map<String, Object> classifier) throws IOException {
+        var topicRequest = KafkaTopicRequest.builder().classifier(classifier).build();
+        log.info("Create kafka topic with classifier {}", topicRequest.getClassifier());
+        Request request = helper.createJsonRequestWithNamespaceAndK8sToken(KAFKA_TOPIC_PATH, k8sAuthHelper.getMaasToken(), topicRequest, POST, TEST_NAMESPACE);
+        return helper.doRequest(request, KafkaTopicResponse.class, expectStatus);
+    }
+
     protected KafkaTopicResponse createKafkaTopic(int expectStatus, Map<String, Object> classifier, String namespace) throws IOException {
         return createKafkaTopic(expectStatus, KafkaTopicRequest.builder().classifier(classifier).build(), namespace);
     }
@@ -281,6 +288,14 @@ public abstract class AbstractMaasIT {
     protected VirtualHostResponse createVirtualHost(int expectStatus, VirtualHostRequest vhRequest, String namespace) throws IOException {
         log.info("Create virtual host with classifier {}", vhRequest.getClassifier());
         Request request = helper.createJsonRequestWithNamespace(RABBIT_VIRTUAL_HOST_PATH, getMaasBasicAuth(), vhRequest, MaasITHelper.POST, namespace);
+        return helper.doRequest(request, VirtualHostResponse.class, expectStatus);
+    }
+
+    protected VirtualHostResponse createVirtualHostWithK8sToken(int expectStatus) throws IOException {
+        Map<String, Object> classifier = createSimpleClassifier("VirtualHostBasicOperationsIT", "it-test");
+        var vhRequest = VirtualHostRequest.builder().classifier(classifier).build();
+        log.info("Create virtual host with classifier {}", vhRequest.getClassifier());
+        Request request = helper.createJsonRequestWithNamespaceAndK8sToken(RABBIT_VIRTUAL_HOST_PATH, k8sAuthHelper.getMaasToken(), vhRequest, MaasITHelper.POST, TEST_NAMESPACE);
         return helper.doRequest(request, VirtualHostResponse.class, expectStatus);
     }
 
@@ -789,8 +804,7 @@ public abstract class AbstractMaasIT {
 
 
     public ConfigV2Resp applyConfigV2(int expectHttpCode, String config) throws IOException {
-        Request request = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, getMaasBasicAuth(), config, "POST");
-
+        Request request = helper.createRequestV2ByYaml(APPLY_CONFIG_V2_PATH, "Basic", getMaasBasicAuth(), config, "POST");
         ConfigV2Resp resp;
         resp = helper.doRequest(request, ConfigV2Resp.class, expectHttpCode);
 
@@ -799,7 +813,6 @@ public abstract class AbstractMaasIT {
         } else {
             assertEquals(STATUS_ERROR, resp.getStatus());
         }
-
         return resp;
     }
 

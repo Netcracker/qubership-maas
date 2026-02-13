@@ -8,11 +8,16 @@ import org.junit.jupiter.api.TestInfo;
 import org.testcontainers.containers.*;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 
 import static org.qubership.it.maas.MaasITHelper.TEST_NAMESPACE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +35,75 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
 
+    private static final int OIDC_SERVER_PORT = 55199;
+    private static final String OIDC_SERVER_HOSTNAME = "oidc-server";
+    private static final Path oidcTokenTempFile;
+    protected static final K8sAuthHelper k8sAuthHelper;
+
+    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:latest")
+            .withExposedPorts(OIDC_SERVER_PORT)
+            .withNetwork(TEST_NETWORK)
+            .withNetworkAliases(OIDC_SERVER_HOSTNAME)
+            .withEnv(Map.of(
+                    "SERVER_PORT", String.valueOf(OIDC_SERVER_PORT),
+                    "SERVER_HOSTNAME", OIDC_SERVER_HOSTNAME,
+                    "JSON_CONFIG", """
+                            {
+                                "tokenCallbacks": [
+                                    {
+                                        "issuerId": "issuer1",
+                                        "requestMappings": [
+                                            {
+                                                "requestParam": "code",
+                                                "match": "code1",
+                                                "claims": {
+                                                    "iss": "http://oidc-server:55199/issuer1",
+                                                    "sub": "test-client",
+                                                    "aud": [
+                                                        "maas"
+                                                    ],
+                                                    "kubernetes.io": {
+                                                        "namespace": "maas-it-test",
+                                                        "serviceaccount": {
+                                                            "name": "maas"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                            """
+            ));
+
+    static {
+        OIDC_SERVER_CONTAINER.start();
+
+        try {
+            oidcTokenTempFile = Files.createTempFile("", "");
+            String issuer = "http://%s:%s/issuer1".formatted(OIDC_SERVER_HOSTNAME, OIDC_SERVER_PORT);
+            String onHostIssuer = "http://%s:%s/issuer1".formatted("localhost", OIDC_SERVER_CONTAINER.getMappedPort(OIDC_SERVER_PORT));
+            k8sAuthHelper = new K8sAuthHelper(issuer, onHostIssuer);
+            Files.writeString(oidcTokenTempFile, k8sAuthHelper.getServiceAccountToken());
+            try {
+                Set<PosixFilePermission> permissions = Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.GROUP_READ,
+                        PosixFilePermission.OTHERS_READ
+                );
+                Files.setPosixFilePermissions(oidcTokenTempFile, permissions);
+            } catch (UnsupportedOperationException e) {
+                oidcTokenTempFile.toFile().setReadable(true, true);
+                oidcTokenTempFile.toFile().setWritable(true, true);
+                oidcTokenTempFile.toFile().setReadable(true, false);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     protected static final GenericContainer<?> MAAS_CONTAINER = new GenericContainer<>(
             new ImageFromDockerfile()
                     .withFileFromPath(".", Paths.get("../maas"))
@@ -44,6 +118,7 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
             )
             .withNetwork(TEST_NETWORK)
             .withExposedPorts(8080)
+            .withCopyFileToContainer(MountableFile.forHostPath(oidcTokenTempFile.toAbsolutePath()), "/var/run/secrets/kubernetes.io/serviceaccount/token")
             .dependsOn(POSTGRES_CONTAINER);
 
     static {
