@@ -2,6 +2,9 @@ package router
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/controller"
@@ -16,8 +19,6 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/prometheus/client_golang/prometheus"
-	"net/http"
-	"time"
 )
 
 var log logging.Logger
@@ -88,7 +89,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiCompositeV1 := app.Group("/api/composite/v1/")
 
 	roles := func(roles ...model.RoleName) fiber.Handler {
-		return controller.SecurityMiddleware(roles, authService.IsAccessGranted)
+		return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken)
 	}
 
 	createV1Api(app, controllers, roles)
