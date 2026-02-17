@@ -23,6 +23,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type headerContextKey string
+
 const (
 	HeaderXNamespace    = "X-Origin-Namespace"
 	HeaderXMicroservice = "X-Origin-Microservice"
@@ -114,8 +116,6 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 		return ctx.Next()
 	}
 }
-
-type headerContextKey string
 
 func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
 	ctx := fiberCtx.UserContext()
