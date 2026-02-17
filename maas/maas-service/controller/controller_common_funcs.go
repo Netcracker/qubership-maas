@@ -23,8 +23,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type header string
-
 const (
 	HeaderXNamespace    = "X-Origin-Namespace"
 	HeaderXMicroservice = "X-Origin-Microservice"
@@ -117,6 +115,8 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 	}
 }
 
+type headerContextKey string
+
 func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
 	ctx := fiberCtx.UserContext()
 	requestId := string(fiberCtx.Request().Header.Peek(HeaderXRequestId))
@@ -124,7 +124,7 @@ func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
 		requestId = uuid.New().String()
 		log.InfoC(ctx, "Header 'X-Request-Id' is missing, generated requestId: %v", requestId)
 	}
-	ctx = context.WithValue(ctx, header(HeaderXRequestId), requestId)
+	ctx = context.WithValue(ctx, headerContextKey(HeaderXRequestId), requestId)
 	fiberCtx.SetUserContext(ctx)
 
 	// add request-id to response
