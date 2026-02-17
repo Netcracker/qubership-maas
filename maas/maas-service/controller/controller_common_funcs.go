@@ -23,6 +23,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type header string
+
 const (
 	HeaderXNamespace    = "X-Origin-Namespace"
 	HeaderXMicroservice = "X-Origin-Microservice"
@@ -122,7 +124,7 @@ func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
 		requestId = uuid.New().String()
 		log.InfoC(ctx, "Header 'X-Request-Id' is missing, generated requestId: %v", requestId)
 	}
-	ctx = context.WithValue(ctx, HeaderXRequestId, requestId)
+	ctx = context.WithValue(ctx, header(HeaderXRequestId), requestId)
 	fiberCtx.SetUserContext(ctx)
 
 	// add request-id to response

@@ -93,7 +93,7 @@ func (s *AuthServiceImpl) CreateUserAccount(ctx context.Context, accountRequest 
 			return false, nil
 		}
 
-		account, err = s.createAccount(ctx, account)
+		_, err = s.createAccount(ctx, account)
 		if err != nil {
 			return false, err
 		}
@@ -112,7 +112,7 @@ func (s *AuthServiceImpl) IsFirstAccountManager(ctx context.Context) (bool, erro
 		return false, err
 	}
 
-	if accounts == nil || len(accounts) == 0 {
+	if len(accounts) == 0 {
 		log.InfoC(ctx, "Manager account not found")
 		return true, nil
 	} else {
