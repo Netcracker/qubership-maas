@@ -36,7 +36,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.12.2</version>
+            <version>5.14.3</version>
             <scope>test</scope>
         </dependency>
         <!-- JUNIT 5 END -->
@@ -50,7 +50,7 @@
         <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
-            <version>5.8.0</version>
+            <version>5.9.0</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -68,19 +68,19 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>42.7.7</version>
+            <version>42.7.9</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.rabbitmq</groupId>
             <artifactId>amqp-client</artifactId>
-            <version>5.25.0</version>
+            <version>5.27.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.38</version>
+            <version>1.18.42</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -92,13 +92,13 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.13.1</version>
+            <version>2.13.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-            <version>2.4</version>
+            <version>2.5</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -142,25 +142,25 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.19.2</version>
+            <version>2.20</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.19.2</version>
+            <version>2.20.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <version>2.19.2</version>
+            <version>2.20.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.18.0</version>
+            <version>3.19.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -170,7 +170,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.4</version>
+                <version>3.5.5</version>
                 <configuration>
                     <includes>
                         <include>**/*IT.java</include>
