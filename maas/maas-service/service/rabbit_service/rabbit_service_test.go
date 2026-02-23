@@ -1849,6 +1849,14 @@ func TestRabbitServiceImpl_ProcessExportedVhost_ShovelCleanup(t *testing.T) {
 			Return(bgState, nil).
 			Times(1)
 
+		// ProcessExportedVhost runs exported-vhost work under WithLock; mock executes callback
+		mockRabbitDao.EXPECT().
+			WithLock(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, lock string, f func(ctx context.Context) error) error {
+				return f(ctx)
+			}).
+			Times(1)
+
 		// Setup: Need at least one vhost to trigger the cleanup logic
 		originVhost := &model.VHostRegistration{
 			Id:        1,
@@ -1969,6 +1977,15 @@ func TestRabbitServiceImpl_ProcessExportedVhost_ShovelCleanup(t *testing.T) {
 			GetCurrentBgStateByNamespace(gomock.Any(), namespace).
 			Return(bgState, nil).
 			Times(1)
+
+		// ProcessExportedVhost runs exported-vhost work under WithLock; mock executes callback
+		mockRabbitDao.EXPECT().
+			WithLock(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, lock string, f func(ctx context.Context) error) error {
+				return f(ctx)
+			}).
+			Times(1)
+
 		// Setup exported queue scenario
 		exportedVhost := &model.VHostRegistration{
 			Id:        1,
@@ -2109,6 +2126,15 @@ func TestRabbitServiceImpl_ProcessExportedVhost_ShovelCleanup(t *testing.T) {
 			GetCurrentBgStateByNamespace(gomock.Any(), namespace).
 			Return(bgState, nil).
 			Times(1)
+
+		// ProcessExportedVhost runs exported-vhost work under WithLock; mock executes callback
+		mockRabbitDao.EXPECT().
+			WithLock(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, lock string, f func(ctx context.Context) error) error {
+				return f(ctx)
+			}).
+			Times(1)
+
 		// Similar setup but for exchanges
 		exportedVhost := &model.VHostRegistration{
 			Id:        1,
