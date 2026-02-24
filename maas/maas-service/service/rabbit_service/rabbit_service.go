@@ -2396,210 +2396,215 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 			}
 		}
 
-		log.InfoC(ctx, "ProcessExportedVhost: working on exported vhost")
+		lockErr := s.rabbitDao.WithLock(ctx, exportedClassifier.ToJsonString(), func(ctx context.Context) error {
+			log.InfoC(ctx, "ProcessExportedVhost: working on exported vhost")
 
-		//no GetOrCreateVhost, because no need to create if no exportedQueues
-		exportedVhost, err := s.rabbitDao.FindVhostByClassifier(ctx, exportedClassifier)
-		if err != nil {
-			return utils.LogError(log, ctx, "Error during FindVhostByClassifier exported while in ProcessExportedVhost: %w", err)
-		}
-
-		//exported vhost exists but now no queues are exported, so if exportedQueuesEntities exist then need to delete existing queues later
-		if exportedVhost == nil && len(exportedQueuesEntities) == 0 && len(exportedExchangesEntities) == 0 {
-			log.InfoC(ctx, "No exported queues and exchanges for namespaces '%v' and no exported vhost exists, skipping creation")
-			continue
-		}
-
-		if exportedVhost == nil {
-			log.InfoC(ctx, "ProcessExportedVhost: exported vhost is needed (exported entities exist) but not created, starting creation")
-			_, exportedVhost, err = s.getOrCreateVhostInternal(ctx, vhostInstance, &exportedClassifier, nil)
-			if err != nil {
-				return utils.LogError(log, ctx, "Error during GetOrCreateVhost exported while in ProcessExportedVhost: %w", err)
-			}
-		}
-
-		rabbitHelper, err := s.getRabbitHelper(ctx, s, nil, nil, &exportedClassifier)
-		if err != nil {
-			return utils.LogError(log, ctx, "Error during getRabbitHelper exported while in ProcessExportedVhost: %w", err)
-		}
-
-		existingShovels, err := rabbitHelper.GetVhostShovels(ctx)
-		if err != nil {
-			return utils.LogError(log, ctx, "Error during GetVhostShovels while in ProcessExportedVhost: %w", err)
-		}
-
-		// build set of existing shovel names for quick lookup
-		existingShovelsSet := make(map[string]struct{})
-		if existingShovels != nil {
-			for _, shovel := range existingShovels {
-				existingShovelsSet[shovel.Name] = struct{}{}
-			}
-		}
-
-		var createdShovelNames []string
-
-		//process queues
-		//create queues and shovel
-		for queueName, queue := range exportedQueuesEntities {
-			log.InfoC(ctx, "ProcessExportedVhost: creating queue in exported vhost: %v", queueName)
-			_, _, err := rabbitHelper.CreateQueue(ctx, queue)
-			if err != nil {
-				return utils.LogError(log, ctx, "Error during CreateQueue exported while in ProcessExportedVhost: %w", err)
+			//no GetOrCreateVhost, because no need to create if no exportedQueues
+			exportedVhost, findErr := s.rabbitDao.FindVhostByClassifier(ctx, exportedClassifier)
+			if findErr != nil {
+				return findErr
 			}
 
-			shovelNames, err := rabbitHelper.CreateShovelForExportedQueue(ctx, exportedQueuesVhosts[queueName], queue, existingShovelsSet)
-			if err != nil {
-				return utils.LogError(log, ctx, "Error during CreateShovelForExportedQueue while in ProcessExportedVhost: %w", err)
+			//exported vhost exists but now no queues are exported, so if exportedQueuesEntities exist then need to delete existing queues later
+			if exportedVhost == nil && len(exportedQueuesEntities) == 0 && len(exportedExchangesEntities) == 0 {
+				log.InfoC(ctx, "No exported queues and exchanges for namespaces '%v' and no exported vhost exists, skipping creation")
+				return nil
 			}
-			createdShovelNames = append(createdShovelNames, shovelNames...)
-		}
 
-		//delete queues that are in exported vhost but not in exportedQueuesEntities - they were unmarked as exported
-		queuesInVhost, err := rabbitHelper.GetVhostQueues(ctx)
-		if err != nil {
-			return utils.LogError(log, ctx, "Error during GetVhostQueues while in ProcessExportedVhost: %w", err)
-		}
-
-		log.InfoC(ctx, "ProcessExportedVhost: checking queues for deletion")
-		for _, queueInVhost := range queuesInVhost {
-			queueName := queueInVhost["name"].(string)
-			//skipping special queues for exported exchanges
-			if strings.HasSuffix(queueName, shovelQueue) {
-				continue
-			}
-			_, exists := exportedQueuesEntities[queueName]
-			if !exists {
-				_, err := rabbitHelper.DeleteQueue(ctx, queueInVhost)
+			if exportedVhost == nil {
+				log.InfoC(ctx, "ProcessExportedVhost: exported vhost is needed (exported entities exist) but not created, starting creation")
+				_, exportedVhost, err = s.getOrCreateVhostInternal(ctx, vhostInstance, &exportedClassifier, nil)
 				if err != nil {
-					return utils.LogError(log, ctx, "Error during DeleteQueue exported while in ProcessExportedVhost: %w", err)
+					return utils.LogError(log, ctx, "Error during GetOrCreateVhost exported while in ProcessExportedVhost: %w", err)
 				}
 			}
-		}
 
-		//process exchanges
-		//create exchange and shovel
-		for exchangeName, exchange := range exportedExchangesEntities {
-			log.InfoC(ctx, "ProcessExportedVhost: creating exchange in exported vhost: %v", exchangeName)
-			err = s.createVersionRouterWithItsAE(ctx, rabbitHelper, exchangeName)
+			rabbitHelper, err := s.getRabbitHelper(ctx, s, nil, nil, &exportedClassifier)
 			if err != nil {
-				return utils.LogError(log, ctx, "Error during createVersionRouterWithItsAE exported while in ProcessExportedVhost: %w", err)
+				return utils.LogError(log, ctx, "Error during getRabbitHelper exported while in ProcessExportedVhost: %w", err)
 			}
 
-			shovelNames, err := rabbitHelper.CreateQueuesAndShovelsForExportedExchange(ctx, exportedExchangeVhostsAndVersion[exchangeName], exchange, existingShovelsSet)
+			existingShovels, err := rabbitHelper.GetVhostShovels(ctx)
 			if err != nil {
-				return utils.LogError(log, ctx, "Error during CreateQueuesAndShovelsForExportedExchange while in ProcessExportedVhost: %w", err)
+				return utils.LogError(log, ctx, "Error during GetVhostShovels while in ProcessExportedVhost: %w", err)
 			}
-			createdShovelNames = append(createdShovelNames, shovelNames...)
 
-			//bind ae
-			aeName := getAltExchNameByVersionRouter(exchangeName)
-
-			aeBinding := map[string]interface{}{
-				"source":      aeName,
-				"destination": getBg2ShovelQueueNameByNameAndNamespace(exchangeName, activeNamespace),
-			}
-			err = createEntity(ctx, aeBinding, rabbitHelper.CreateBinding, nil, nil)
-			if err != nil {
-				var helperErr helper.RabbitHelperError
-				if errors.As(err, &helperErr) {
-					switch helperErr.Err {
-					case helper.ErrNotFound:
-						log.InfoC(ctx, "no active version for exchangeName: %v", exchangeName)
-					default:
-						return utils.LogError(log, ctx, "RabbitHttpError: Error during creating ae binding while in ProcessExportedVhost: %w", err)
-					}
-				} else {
-					return utils.LogError(log, ctx, "Error during creating ae binding while in ProcessExportedVhost: %w", err)
+			// build set of existing shovel names for quick lookup
+			existingShovelsSet := make(map[string]struct{})
+			if existingShovels != nil {
+				for _, shovel := range existingShovels {
+					existingShovelsSet[shovel.Name] = struct{}{}
 				}
 			}
-		}
 
-		//delete exchanges that are in exported vhost but not in exportedQueuesEntities
-		log.InfoC(ctx, "ProcessExportedVhost: checking exchanges for deletion")
-		exchangesInVhost, err := rabbitHelper.GetVhostExchanges(ctx)
-		if err != nil {
-			return utils.LogError(log, ctx, "Error during GetVhostExchanges while in ProcessExportedVhost: %w", err)
-		}
+			var createdShovelNames []string
 
-		for _, exchangeInVhost := range exchangesInVhost {
-			exchName := exchangeInVhost["name"].(string)
-
-			const systemExchangesPrefix = "amq."
-			if exchName == "" || strings.HasPrefix(exchName, systemExchangesPrefix) || strings.HasSuffix(exchName, "-ae") {
-				log.DebugC(ctx, "Skipping exchanges with empty name and starting with 'amq.'")
-				continue
-			}
-
-			var queuesToDelete []model.Queue
-			vhostAndVersion, exists := exportedExchangeVhostsAndVersion[exchName]
-			//exchange is not exported
-			if !exists {
-				_, err := rabbitHelper.DeleteExchange(ctx, exchangeInVhost)
+			//process queues
+			//create queues and shovel
+			for queueName, queue := range exportedQueuesEntities {
+				log.InfoC(ctx, "ProcessExportedVhost: creating queue in exported vhost: %v", queueName)
+				_, _, err := rabbitHelper.CreateQueue(ctx, queue)
 				if err != nil {
-					return utils.LogError(log, ctx, "Error during DeleteExchange exported while in ProcessExportedVhost: %w", err)
+					return utils.LogError(log, ctx, "Error during CreateQueue exported while in ProcessExportedVhost: %w", err)
 				}
 
-				aeName := getAltExchNameByVersionRouter(exchName)
-				_, err = rabbitHelper.DeleteExchange(ctx, map[string]interface{}{"name": aeName})
+				shovelNames, err := rabbitHelper.CreateShovelForExportedQueue(ctx, exportedQueuesVhosts[queueName], queue, existingShovelsSet)
 				if err != nil {
-					return utils.LogError(log, ctx, "Error during DeleteExchange ae while in ProcessExportedVhost: %w", err)
+					return utils.LogError(log, ctx, "Error during CreateShovelForExportedQueue while in ProcessExportedVhost: %w", err)
 				}
+				createdShovelNames = append(createdShovelNames, shovelNames...)
+			}
 
-				//delete queues for that exchange, 1 or 2 depending on how many namespaces had it exported
-				for _, queueInVhost := range queuesInVhost {
-					queueName := queueInVhost["name"].(string)
-					if strings.HasPrefix(queueName, exchName) && strings.HasSuffix(queueName, shovelQueue) {
-						queuesToDelete = append(queuesToDelete, queueInVhost)
+			//delete queues that are in exported vhost but not in exportedQueuesEntities - they were unmarked as exported (under lock, so single GetVhostQueues after creates is sufficient)
+			queuesInVhost, err := rabbitHelper.GetVhostQueues(ctx)
+			if err != nil {
+				return utils.LogError(log, ctx, "Error during GetVhostQueues while in ProcessExportedVhost: %w", err)
+			}
+			log.InfoC(ctx, "ProcessExportedVhost: checking queues for deletion")
+			for _, queueInVhost := range queuesInVhost {
+				queueName := queueInVhost["name"].(string)
+				//skipping special queues for exported exchanges
+				if strings.HasSuffix(queueName, shovelQueue) {
+					continue
+				}
+				_, exists := exportedQueuesEntities[queueName]
+				if !exists {
+					_, err := rabbitHelper.DeleteQueue(ctx, queueInVhost)
+					if err != nil {
+						return utils.LogError(log, ctx, "Error during DeleteQueue exported while in ProcessExportedVhost: %w", err)
 					}
 				}
-			} else {
-				//exchange is exported but some versions were removed, need to delete queues for those versions
-				if len(vhostAndVersion) == 1 { //only one namespace has exported vhost, need to delete second queue if exists
+			}
+
+			//process exchanges
+			//create exchange and shovel
+			for exchangeName, exchange := range exportedExchangesEntities {
+				log.InfoC(ctx, "ProcessExportedVhost: creating exchange in exported vhost: %v", exchangeName)
+				err = s.createVersionRouterWithItsAE(ctx, rabbitHelper, exchangeName)
+				if err != nil {
+					return utils.LogError(log, ctx, "Error during createVersionRouterWithItsAE exported while in ProcessExportedVhost: %w", err)
+				}
+
+				shovelNames, err := rabbitHelper.CreateQueuesAndShovelsForExportedExchange(ctx, exportedExchangeVhostsAndVersion[exchangeName], exchange, existingShovelsSet)
+				if err != nil {
+					return utils.LogError(log, ctx, "Error during CreateQueuesAndShovelsForExportedExchange while in ProcessExportedVhost: %w", err)
+				}
+				createdShovelNames = append(createdShovelNames, shovelNames...)
+
+				//bind ae
+				aeName := getAltExchNameByVersionRouter(exchangeName)
+
+				aeBinding := map[string]interface{}{
+					"source":      aeName,
+					"destination": getBg2ShovelQueueNameByNameAndNamespace(exchangeName, activeNamespace),
+				}
+				err = createEntity(ctx, aeBinding, rabbitHelper.CreateBinding, nil, nil)
+				if err != nil {
+					var helperErr helper.RabbitHelperError
+					if errors.As(err, &helperErr) {
+						switch helperErr.Err {
+						case helper.ErrNotFound:
+							log.InfoC(ctx, "no active version for exchangeName: %v", exchangeName)
+						default:
+							return utils.LogError(log, ctx, "RabbitHttpError: Error during creating ae binding while in ProcessExportedVhost: %w", err)
+						}
+					} else {
+						return utils.LogError(log, ctx, "Error during creating ae binding while in ProcessExportedVhost: %w", err)
+					}
+				}
+			}
+
+			//delete exchanges that are in exported vhost but not in exportedQueuesEntities
+			log.InfoC(ctx, "ProcessExportedVhost: checking exchanges for deletion")
+			exchangesInVhost, err := rabbitHelper.GetVhostExchanges(ctx)
+			if err != nil {
+				return utils.LogError(log, ctx, "Error during GetVhostExchanges while in ProcessExportedVhost: %w", err)
+			}
+
+			for _, exchangeInVhost := range exchangesInVhost {
+				exchName := exchangeInVhost["name"].(string)
+
+				const systemExchangesPrefix = "amq."
+				if exchName == "" || strings.HasPrefix(exchName, systemExchangesPrefix) || strings.HasSuffix(exchName, "-ae") {
+					log.DebugC(ctx, "Skipping exchanges with empty name and starting with 'amq.'")
+					continue
+				}
+
+				var queuesToDelete []model.Queue
+				vhostAndVersion, exists := exportedExchangeVhostsAndVersion[exchName]
+				//exchange is not exported
+				if !exists {
+					_, err := rabbitHelper.DeleteExchange(ctx, exchangeInVhost)
+					if err != nil {
+						return utils.LogError(log, ctx, "Error during DeleteExchange exported while in ProcessExportedVhost: %w", err)
+					}
+
+					aeName := getAltExchNameByVersionRouter(exchName)
+					_, err = rabbitHelper.DeleteExchange(ctx, map[string]interface{}{"name": aeName})
+					if err != nil {
+						return utils.LogError(log, ctx, "Error during DeleteExchange ae while in ProcessExportedVhost: %w", err)
+					}
+
+					//delete queues for that exchange, 1 or 2 depending on how many namespaces had it exported
 					for _, queueInVhost := range queuesInVhost {
 						queueName := queueInVhost["name"].(string)
-						if strings.HasPrefix(queueName, exchName) && strings.HasSuffix(queueName, shovelQueue) && !strings.Contains(queueName, "-"+vhostAndVersion[0].Vhost.Namespace+"-") {
+						if strings.HasPrefix(queueName, exchName) && strings.HasSuffix(queueName, shovelQueue) {
 							queuesToDelete = append(queuesToDelete, queueInVhost)
 						}
 					}
-				}
-			}
-
-			for _, queue := range queuesToDelete {
-				_, err := rabbitHelper.DeleteQueue(ctx, queue)
-				if err != nil {
-					return utils.LogError(log, ctx, "Error during DeleteQueue of exchange while in ProcessExportedVhost: %w", err)
-				}
-			}
-		}
-
-		// clean up shovels: remove those that weren't created in this run
-		log.InfoC(ctx, "ProcessExportedVhost: clean up shovels started")
-
-		// build set of created shovel names for quick lookup
-		createdShovelsSet := make(map[string]struct{})
-		for _, shovelName := range createdShovelNames {
-			createdShovelsSet[shovelName] = struct{}{}
-		}
-
-		// delete shovels that don't match created shovels or don't have '-exported' suffix
-		for _, shovel := range existingShovels {
-			// skip existingShovels without '-exported' suffix
-			if !strings.HasSuffix(shovel.Name, "-exported") {
-				continue
-			}
-
-			// delete shovel if it's not in the created set
-			if _, ok := createdShovelsSet[shovel.Name]; !ok {
-				err := rabbitHelper.DeleteShovelByName(ctx, shovel.Name)
-				if err != nil {
-					log.WarnC(ctx, "Error during DeleteShovelByName for shovel '%s' (might not exist): %v", shovel.Name, err)
-					// Continue even if deletion fails
 				} else {
-					log.InfoC(ctx, "Deleted orphaned shovel: %s", shovel.Name)
+					//exchange is exported but some versions were removed, need to delete queues for those versions
+					if len(vhostAndVersion) == 1 { //only one namespace has exported vhost, need to delete second queue if exists
+						for _, queueInVhost := range queuesInVhost {
+							queueName := queueInVhost["name"].(string)
+							if strings.HasPrefix(queueName, exchName) && strings.HasSuffix(queueName, shovelQueue) && !strings.Contains(queueName, "-"+vhostAndVersion[0].Vhost.Namespace+"-") {
+								queuesToDelete = append(queuesToDelete, queueInVhost)
+							}
+						}
+					}
+				}
+
+				for _, queue := range queuesToDelete {
+					_, err := rabbitHelper.DeleteQueue(ctx, queue)
+					if err != nil {
+						return utils.LogError(log, ctx, "Error during DeleteQueue of exchange while in ProcessExportedVhost: %w", err)
+					}
 				}
 			}
-		}
 
+			// clean up shovels: remove those that weren't created in this run
+			log.InfoC(ctx, "ProcessExportedVhost: clean up shovels started")
+
+			// build set of created shovel names for quick lookup
+			createdShovelsSet := make(map[string]struct{})
+			for _, shovelName := range createdShovelNames {
+				createdShovelsSet[shovelName] = struct{}{}
+			}
+
+			// delete shovels that don't match created shovels or don't have '-exported' suffix
+			for _, shovel := range existingShovels {
+				// skip existingShovels without '-exported' suffix
+				if !strings.HasSuffix(shovel.Name, "-exported") {
+					continue
+				}
+
+				// delete shovel if it's not in the created set
+				if _, ok := createdShovelsSet[shovel.Name]; !ok {
+					err := rabbitHelper.DeleteShovelByName(ctx, shovel.Name)
+					if err != nil {
+						log.WarnC(ctx, "Error during DeleteShovelByName for shovel '%s' (might not exist): %v", shovel.Name, err)
+						// Continue even if deletion fails
+					} else {
+						log.InfoC(ctx, "Deleted orphaned shovel: %s", shovel.Name)
+					}
+				}
+			}
+
+			return nil
+		})
+		if lockErr != nil {
+			return utils.LogError(log, ctx, "Error during ProcessExportedVhost (exported vhost): %w", lockErr)
+		}
 	}
 	log.InfoC(ctx, "ProcessExportedVhost: finished")
 
