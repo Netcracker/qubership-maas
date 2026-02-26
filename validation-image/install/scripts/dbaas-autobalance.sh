@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-if [[ ${FWD_DBAAS_URL} ]]; then
+if [[ -n "${FWD_DBAAS_URL}" ]]; then
   export dbaas_url=${FWD_DBAAS_URL}
-elif [[ ${DBAAS_AGGREGATOR_ADDRESS} ]]; then
+elif [[ -n "${DBAAS_AGGREGATOR_ADDRESS}" ]]; then
   echo "Deprecated parameter DBAAS_AGGREGATOR_ADDRESS is not empty and will be used instead of FWD_DBAAS_URL and API_DBAAS_ADDRESS"
   echo "Please, consider using API_DBAAS_ADDRESS instead"
   export dbaas_url="${DBAAS_AGGREGATOR_ADDRESS}"

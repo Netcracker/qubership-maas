@@ -11,6 +11,7 @@ else
   export dbaas_url="${API_DBAAS_ADDRESS:=http://dbaas-aggregator.dbaas:8080}"
 fi
 
+echo "dbaas_url=${dbaas_url}"
 
 if [[ -n ${DB_POSTGRESQL_ADDRESS} ]] && [[ -n ${DB_POSTGRESQL_DATABASE} ]] && [[ -n ${DB_POSTGRESQL_USERNAME} ]] && [[ -n ${DB_POSTGRESQL_PASSWORD} ]]; then
   echo "You specified PostgreSQL parameters, it is assumed you have created database manually."
