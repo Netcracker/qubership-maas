@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -16,11 +21,9 @@ import (
 	v "github.com/netcracker/qubership-maas/validator"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
-	"net/http"
-	"regexp"
-	"strconv"
-	"strings"
 )
+
+type headerContextKey string
 
 const (
 	HeaderXNamespace    = "X-Origin-Namespace"
@@ -58,28 +61,57 @@ func init() {
 
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
-func SecurityMiddleware(roles []model.RoleName, authorize func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)) fiber.Handler {
+type authorizeWithBasicFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
+type authorizeWithTokenFunc func(context.Context, string, string, []model.RoleName) (*model.Account, error)
+
+func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
-		username, password, err := utils.GetBasicAuth(ctx)
-		if err != nil {
+		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
+		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
+
+		var (
+			account *model.Account
+			// in kubernetes m2m auth composite isolation is always enabled
+			compositeIsolationDisabled = false
+		)
+
+		authScheme, creds, ok := utils.ParseAuthHeader(authHeader)
+		if !ok {
 			if slices.Contains(roles, model.AnonymousRole) {
 				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
 				return ctx.Next()
 			}
-			return utils.LogError(log, userCtx, "security middleware error: %w", err)
+			return utils.LogError(log, userCtx, "request authorization failure: invalid auth header: %w", msg.AuthError)
 		}
 
-		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
+		switch strings.ToLower(authScheme) {
+		case "basic":
+			username, password, err := utils.GetBasicAuth(ctx)
+			if err != nil {
+				return utils.LogError(log, userCtx, "security middleware error: %w", err)
+			}
 
-		acc, err := authorize(ctx.UserContext(), username, password, namespace, roles)
-		if err != nil {
-			return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			account, err = authorizeWithBasic(userCtx, username, password, namespace, roles)
+			if err != nil {
+				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			}
+			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
+		case "bearer":
+			serviceAccount, err := authorizeWithToken(userCtx, creds, namespace, roles)
+			if err != nil {
+				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			}
+			account = serviceAccount
+		default:
+			if slices.Contains(roles, model.AnonymousRole) {
+				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
+				return ctx.Next()
+			}
+			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
 		}
 
-		compositeIsolationDisabled := strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
-
-		secCtx := model.NewSecurityContext(acc, compositeIsolationDisabled)
+		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
 		ctx.SetUserContext(model.WithSecurityContext(userCtx, secCtx))
 		return ctx.Next()
 	}
@@ -92,7 +124,7 @@ func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
 		requestId = uuid.New().String()
 		log.InfoC(ctx, "Header 'X-Request-Id' is missing, generated requestId: %v", requestId)
 	}
-	ctx = context.WithValue(ctx, HeaderXRequestId, requestId)
+	ctx = context.WithValue(ctx, headerContextKey(HeaderXRequestId), requestId)
 	fiberCtx.SetUserContext(ctx)
 
 	// add request-id to response

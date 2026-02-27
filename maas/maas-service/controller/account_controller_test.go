@@ -63,7 +63,7 @@ func TestAccountController_UpdatePassword(t *testing.T) {
 		ctx, cancelContext := context.WithCancel(context.Background())
 		defer cancelContext()
 
-		authService := auth.NewAuthService(auth.NewAuthDao(baseDao), nil, nil)
+		authService := auth.NewAuthService(auth.NewAuthDao(baseDao), nil, nil, nil)
 		accountController := NewAccountController(authService)
 
 		_, err := authService.CreateNewManager(ctx, &model.ManagerAccountDto{
@@ -72,7 +72,7 @@ func TestAccountController_UpdatePassword(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		app.Put("/auth/account/manager/:name/password", SecurityMiddleware([]model.RoleName{model.ManagerRole}, authService.IsAccessGranted), accountController.UpdatePassword)
+		app.Put("/auth/account/manager/:name/password", SecurityMiddleware([]model.RoleName{model.ManagerRole}, authService.IsAccessGrantedWithBasic, nil), accountController.UpdatePassword)
 		testUpdatePasswordPath := "/auth/account/manager/" + managerName + "/password"
 
 		req := httptest.NewRequest("PUT", testUpdatePasswordPath, nil)
@@ -125,7 +125,7 @@ func TestAccountController_DeleteClientAccount(t *testing.T) {
 		ctx, cancelContext := context.WithCancel(context.Background())
 		defer cancelContext()
 
-		authService := auth.NewAuthService(auth.NewAuthDao(baseDao), nil, nil)
+		authService := auth.NewAuthService(auth.NewAuthDao(baseDao), nil, nil, nil)
 		accountController := NewAccountController(authService)
 
 		_, err := authService.CreateNewManager(ctx, &model.ManagerAccountDto{
@@ -149,7 +149,7 @@ func TestAccountController_DeleteClientAccount(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, testClienetUsername, account.Username)
 
-		app.Delete("/test", SecurityMiddleware([]model.RoleName{model.ManagerRole}, authService.IsAccessGranted), accountController.DeleteClientAccount)
+		app.Delete("/test", SecurityMiddleware([]model.RoleName{model.ManagerRole}, authService.IsAccessGrantedWithBasic, nil), accountController.DeleteClientAccount)
 
 		userAccountJson, err := json.Marshal(clientAccount)
 		assert.NoError(t, err)
