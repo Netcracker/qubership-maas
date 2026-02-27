@@ -2,9 +2,11 @@ package composite
 
 import (
 	"context"
+
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 	"gorm.io/gorm"
 )
@@ -37,6 +39,16 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 	log.InfoC(ctx, "Upsert composite registration: %+v", registration)
 	return d.base.WithLock(ctx, registration.Id, func(ctx context.Context) error {
 		return d.base.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
+			if registration.ModifyIndex != nil {
+				currentModifyIndex, err := getCurrentModifyIndex(ctx, cnn, registration.Id)
+				if err != nil {
+					return err
+				}
+				if *registration.ModifyIndex < currentModifyIndex {
+					return utils.LogError(log, ctx, "new modify index '%d' cannot be less than the current index '%d': %w", *registration.ModifyIndex, currentModifyIndex, msg.BadRequest)
+				}
+			}
+
 			if err := d.DeleteByBaseline(ctx, registration.Id); err != nil {
 				return utils.LogError(log, ctx, "error update composite namespace: %w", err)
 			}
@@ -49,11 +61,20 @@ func (d *PGRegistrationDao) Upsert(ctx context.Context, registration *CompositeR
 			if err := cnn.Create(insertions).Error; err != nil {
 				if pgErr, ok := err.(*pgconn.PgError); ok {
 					return utils.LogError(log, ctx, "error insert composite registration %+v, %s: %w", registration, pgErr.Detail, pgErr)
-				} else {
-					// generic message
-					return utils.LogError(log, ctx, "error insert composite registration %+v: %w", registration, err)
+				}
+
+				// generic message
+				return utils.LogError(log, ctx, "error insert composite registration %+v: %w", registration, err)
+			}
+
+			if registration.ModifyIndex != nil {
+				err := createCurrentModifyIndex(ctx, cnn, registration.Id, registration.ModifyIndex)
+
+				if err != nil {
+					return err
 				}
 			}
+
 			return nil
 		})
 	})
@@ -140,4 +161,36 @@ func (d *PGRegistrationDao) List(ctx context.Context) ([]CompositeRegistration, 
 	}
 
 	return registrations, nil
+}
+
+func getCurrentModifyIndex(ctx context.Context, cnn *gorm.DB, compositeId string) (uint64, error) {
+	var currentModifyIndex uint64
+	result := cnn.
+		Table("composite_properties c").
+		Select("c.modify_index").
+		Joins("JOIN composite_namespaces_v2 n ON n.id = c.composite_namespace_id").
+		Where("n.base_namespace = ?", compositeId).
+		Scan(&currentModifyIndex)
+	if result.Error != nil {
+		return 0, utils.LogError(log, ctx, "error get current modify index: %w", result.Error)
+	}
+
+	return currentModifyIndex, nil
+}
+
+func createCurrentModifyIndex(ctx context.Context, cnn *gorm.DB, compositeId string, modifyIndex *uint64) error {
+	result := cnn.Exec(`
+				WITH ns AS (
+					SELECT id
+					FROM composite_namespaces_v2
+					WHERE base_namespace = $1 AND namespace = $1
+				)
+				INSERT INTO composite_properties (composite_namespace_id, modify_index)
+				SELECT id, $2 FROM ns
+			`, compositeId, modifyIndex)
+
+	if result.Error != nil {
+		return utils.LogError(log, ctx, "error insert composite registration modify index compositeId='%s', modifyIndex='%d': %w", compositeId, modifyIndex, result.Error)
+	}
+	return nil
 }
