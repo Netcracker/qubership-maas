@@ -4,7 +4,7 @@ LABEL maintainer="qubership"
 ADD ./install /tmp/
 
 USER root
-RUN apk upgrade --no-cache && chmod +x /tmp/install.sh && /tmp/install.sh
+RUN chmod +x /tmp/install.sh && /tmp/install.sh
 USER 1000
 
 ENTRYPOINT ["/validation.sh"]
