@@ -1,4 +1,4 @@
-FROM golang:1.25 AS build
+FROM golang:1.25.5 AS build
 
 WORKDIR /app
 
@@ -12,6 +12,9 @@ RUN chmod 555 maas-service && \
     chmod 444 application.yaml docs/swagger.json docs/swagger.yaml
 
 FROM ghcr.io/netcracker/qubership-core-base:2.2.0 AS run
+
+USER root
+RUN apk upgrade --no-cache
 
 COPY --chown=10001:0 --from=build app/maas-service /app/maas
 COPY --chown=10001:0 --from=build app/application.yaml /app/
