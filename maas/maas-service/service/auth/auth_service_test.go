@@ -241,7 +241,7 @@ func TestReplication(t *testing.T) {
 	})
 }
 
-func TestAuthServiceImpl_IsAccessGranted(t *testing.T) {
+func TestAuthServiceImpl_IsAccessGrantedWithBasic(t *testing.T) {
 	user := "test-user"
 	password := utils.SecretString("my-super-secured-password")
 	firstNamespace := "first"
@@ -335,6 +335,10 @@ func TestAuthServiceImpl_IsAccessGrantedWithToken(t *testing.T) {
 		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToFirstNamespace)
+
+		isAccessGrantedToManagerRole, err := authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.ManagerRole})
+		assert.ErrorIs(t, err, msg.AuthError)
+		assert.Nil(t, isAccessGrantedToManagerRole)
 
 		isAccessGrantedToSecondNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
 		assert.ErrorIs(t, err, msg.AuthError)

@@ -40,7 +40,7 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
     private static final Path oidcTokenTempFile;
     protected static final K8sAuthHelper k8sAuthHelper;
 
-    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:latest")
+    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:3.0.1")
             .withExposedPorts(OIDC_SERVER_PORT)
             .withNetwork(TEST_NETWORK)
             .withNetworkAliases(OIDC_SERVER_HOSTNAME)

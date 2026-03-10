@@ -98,16 +98,12 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			}
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		case "bearer":
-			serviceAccount, err := authorizeWithToken(userCtx, creds, namespace, roles)
+			var err error
+			account, err = authorizeWithToken(userCtx, creds, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
-			account = serviceAccount
 		default:
-			if slices.Contains(roles, model.AnonymousRole) {
-				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
-				return ctx.Next()
-			}
 			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
 		}
 

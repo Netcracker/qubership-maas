@@ -12,6 +12,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -93,7 +94,7 @@ func ParseAuthHeader(authHeader string) (scheme string, creds string, ok bool) {
 		return
 	}
 	scheme, creds = groups[1], groups[2]
-	return scheme, creds, true
+	return scheme, creds, slices.Contains([]string{"basic", "bearer"}, strings.ToLower(scheme))
 }
 
 func CompactUuid() string {
