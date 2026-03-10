@@ -116,6 +116,7 @@ spec:
               memory: "{{ .Values.MEMORY_LIMIT }}"
           securityContext:
                   {{ if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
+            runAsUser: 10001
             runAsGroup: 10001
                   {{ end }}
             readOnlyRootFilesystem: {{ and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
