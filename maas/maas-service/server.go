@@ -43,10 +43,7 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
-	"os"
 	"path/filepath"
-	"sync/atomic"
-	"time"
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
