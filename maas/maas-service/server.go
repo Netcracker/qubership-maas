@@ -231,7 +231,7 @@ func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Dur
 		CipherKey:     cipherKey,
 	}
 
-	log.Info("Initialize dao with db: %+v", dbConfig)
+	log.Info("Initialize dao with db: addr=%s, database=%s, poolSize=%d, tlsEnabled=%v", dbConfig.Addr, dbConfig.Database, dbConfig.PoolSize, dbConfig.TlsEnabled)
 	daoInstance := dao.New(&dbConfig)
 
 	if err := daoInstance.StartMonitor(ctx, healthCheckInterval); err != nil {
@@ -271,23 +271,23 @@ func resolveDbSecrets(ctx context.Context, configSection interface {
 		var err error
 		addr, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("pg_address"))
 		if err != nil {
-			log.PanicC(ctx, "db secret: %v", err)
+			log.PanicC(ctx, "pg_address: %v", err)
 		}
 		user, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("username"))
 		if err != nil {
-			log.PanicC(ctx, "db secret: %v", err)
+			log.PanicC(ctx, "username: %v", err)
 		}
 		password, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("password"))
 		if err != nil {
-			log.PanicC(ctx, "db secret: %v", err)
+			log.PanicC(ctx, "password: %v", err)
 		}
 		database, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("dbname"))
 		if err != nil {
-			log.PanicC(ctx, "db secret: %v", err)
+			log.PanicC(ctx, "dbname: %v", err)
 		}
 		tlsEnabled, err = utils.ReadSecretBoolFromFileRequired(utils.PathDbSecret("tls"))
 		if err != nil {
-			log.PanicC(ctx, "db secret: %v", err)
+			log.PanicC(ctx, "tls: %v", err)
 		}
 	} else {
 		log.InfoC(ctx, "DB credentials: from config/env")
@@ -302,7 +302,7 @@ func resolveDbSecrets(ctx context.Context, configSection interface {
 		var err error
 		cipherKey, err = utils.ReadSecretFromFileRequired(utils.PathCipherSecret("key"))
 		if err != nil {
-			log.PanicC(ctx, "cipher secret: %v", err)
+			log.PanicC(ctx, "cipher key: %v", err)
 		}
 	} else {
 		log.InfoC(ctx, "Cipher key: from config/env")
