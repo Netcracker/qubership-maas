@@ -24,13 +24,12 @@ check_postgres() {
   POSTGRES_PORT=${DB_POSTGRESQL_ADDRESS##*:}
 
   POSTGRES_PORT="${POSTGRES_PORT:-"5432"}"
-  (echo > /dev/tcp/${POSTGRES_HOST}/${POSTGRES_PORT}) 2>/dev/null
-  if [ "$?" -ne 0 ]; then
+  if ! (echo > /dev/tcp/"${POSTGRES_HOST}"/"${POSTGRES_PORT}") 2>/dev/null; then
     echo "ERROR! CHECK FAILED!"
     echo "Wrong parameter:"
     echo "POSTGRES_HOST=${POSTGRES_HOST}"
     echo "POSTGRES_PORT=${POSTGRES_PORT}"
-    exit ${ERROR_EXIT_CODE}
+    exit "${ERROR_EXIT_CODE}"
   fi
   echo 'Param DB_POSTGRESQL_ADDRESS is correct'
 
@@ -38,7 +37,7 @@ check_postgres() {
   if [ "${IS_DB_EXISTS}" = "FAIL" ]; then
     echo "ERROR! CHECK FAILED!"
     echo "DB_POSTGRESQL_DATABASE=${DB_POSTGRESQL_DATABASE} does not exists."
-    exit ${ERROR_EXIT_CODE}
+    exit "${ERROR_EXIT_CODE}"
   fi
   echo 'Params DB_POSTGRESQL_USERNAME, DB_POSTGRESQL_PASSWORD are correct'
 
