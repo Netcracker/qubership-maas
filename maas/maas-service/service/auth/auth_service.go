@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/token"
 	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
@@ -65,7 +66,7 @@ func NewAuthService(dao AuthDao, compositeRegistrar CompositeRegistrar, bgDomain
 		dao:                dao,
 		compositeRegistrar: compositeRegistrar,
 		bgDomainService:    bgDomainService,
-		oidcVerifier: oidcVerifier,
+		oidcVerifier:       oidcVerifier,
 	}
 }
 
@@ -190,17 +191,24 @@ func (s *AuthServiceImpl) IsAccessGrantedWithBasic(ctx context.Context, username
 }
 
 func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
-	claims, err := s.oidcVerifier.Verify(ctx, rawToken)
+	tok, err := s.oidcVerifier.Verify(ctx, rawToken)
 	if err != nil {
 		return nil, errors.Join(msg.AuthError, fmt.Errorf("oidc: failed to verify token: %w", err))
 	}
-	username := claims.Kubernetes.ServiceAccount.Name
+	username, err := token.GetServiceAccountName(tok)
+	if err != nil {
+		return nil, errors.Join(msg.AuthError, fmt.Errorf("oidc: failed to get service account name: %w", err))
+	}
+	accountNamespace, err := token.GetNamespace(tok)
+	if err != nil {
+		return nil, errors.Join(msg.AuthError, fmt.Errorf("oidc: failed to get namespace: %w", err))
+	}
 	log.InfoC(ctx, "Checking access for account with service account '%v', roles '%v'", username, roles)
 	account := model.Account{
 		Username: username,
 		// for now only add agent role to requests made with k8s tokens
 		Roles:     []model.RoleName{model.AgentRole},
-		Namespace: claims.Kubernetes.Namespace,
+		Namespace: accountNamespace,
 	}
 	return s.checkAccountPermissions(ctx, &account, username, namespace, roles)
 }

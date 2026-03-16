@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/netcracker/qubership-maas/dao"
 	dbc "github.com/netcracker/qubership-maas/dao/db"
 	"github.com/netcracker/qubership-maas/dr"
@@ -297,15 +297,15 @@ type mockVerifier struct {
 	namespace string
 }
 
-func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*tokenverifier.Claims, error) {
+func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*jwt.Token, error) {
 	if mv.token != rawToken {
 		return nil, errors.Join(errors.New("invalid token"), msg.AuthError)
 	}
-	return &tokenverifier.Claims{
-		Kubernetes: tokenverifier.K8sClaims{
-			Namespace: mv.namespace,
-			ServiceAccount: tokenverifier.ServiceAccountClaim{
-				Name: mv.username,
+	return &jwt.Token{
+		Claims: jwt.MapClaims{
+			"kubernetes.io": map[string]interface{}{
+				"namespace":      mv.namespace,
+				"serviceaccount": map[string]interface{}{"name": mv.username},
 			},
 		},
 	}, nil
