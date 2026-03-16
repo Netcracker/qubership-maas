@@ -1,5 +1,9 @@
 name: '[MaaS validation image] Go build'
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     paths:
