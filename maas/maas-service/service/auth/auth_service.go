@@ -216,7 +216,7 @@ func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken
 func (s *AuthServiceImpl) checkAccountPermissions(ctx context.Context, account *model.Account, username string, namespace string, roles []model.RoleName) (*model.Account, error) {
 	if !account.HasRoles(model.ManagerRole, model.BgOperatorRole) {
 		if namespace == "" {
-			return nil, utils.LogError(log, ctx, "you're trying to authenticate with account `%s' that doesn't have 'manager' role (existing roles: %+v), therefore namespace should be mandatory specified: %w", username, roles, msg.BadRequest)
+			return nil, utils.LogError(log, ctx, "you're trying to authenticate with account `%s' that doesn't have 'manager' role (existing roles: %+v), therefore namespace should be mandatory specified: %w", username, account.Roles, msg.BadRequest)
 		}
 
 		if !account.HasAccessToNamespace(namespace) {
