@@ -170,18 +170,18 @@ func (mr *MockAuthServiceMockRecorder) IsAccessGrantedWithBasic(ctx, username, p
 }
 
 // IsAccessGrantedWithToken mocks base method.
-func (m *MockAuthService) IsAccessGrantedWithToken(ctx context.Context, rawToken, namespace string, roles []model.RoleName) (*model.Account, error) {
+func (m *MockAuthService) IsAccessGrantedWithToken(ctx context.Context, rawToken string, roles []model.RoleName) (*model.Account, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsAccessGrantedWithToken", ctx, rawToken, namespace, roles)
+	ret := m.ctrl.Call(m, "IsAccessGrantedWithToken", ctx, rawToken, roles)
 	ret0, _ := ret[0].(*model.Account)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsAccessGrantedWithToken indicates an expected call of IsAccessGrantedWithToken.
-func (mr *MockAuthServiceMockRecorder) IsAccessGrantedWithToken(ctx, rawToken, namespace, roles interface{}) *gomock.Call {
+func (mr *MockAuthServiceMockRecorder) IsAccessGrantedWithToken(ctx, rawToken, roles interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAccessGrantedWithToken", reflect.TypeOf((*MockAuthService)(nil).IsAccessGrantedWithToken), ctx, rawToken, namespace, roles)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAccessGrantedWithToken", reflect.TypeOf((*MockAuthService)(nil).IsAccessGrantedWithToken), ctx, rawToken, roles)
 }
 
 // IsFirstAccountManager mocks base method.

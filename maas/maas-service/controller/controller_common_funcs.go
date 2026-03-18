@@ -62,12 +62,11 @@ func init() {
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
 type authorizeWithBasicFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
-type authorizeWithTokenFunc func(context.Context, string, string, []model.RoleName) (*model.Account, error)
+type authorizeWithTokenFunc func(context.Context, string, []model.RoleName) (*model.Account, error)
 
 func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
-		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
 
 		var (
@@ -92,6 +91,7 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 				return utils.LogError(log, userCtx, "security middleware error: %w", err)
 			}
 
+			namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 			account, err = authorizeWithBasic(userCtx, username, password, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
@@ -99,10 +99,12 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		case "bearer":
 			var err error
-			account, err = authorizeWithToken(userCtx, creds, namespace, roles)
+			account, err = authorizeWithToken(userCtx, creds, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
+			ctx.Request().Header.Add(HeaderXMicroservice, account.Username)
+			ctx.Request().Header.Add(HeaderXNamespace, account.Namespace)
 		default:
 			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
 		}

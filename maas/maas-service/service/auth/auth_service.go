@@ -40,7 +40,7 @@ type AuthService interface {
 	IsFirstAccountManager(ctx context.Context) (bool, error)
 	CreateNewManager(ctx context.Context, accountRequest *model.ManagerAccountDto) (*model.ManagerAccountDto, error)
 	IsAccessGrantedWithBasic(ctx context.Context, username string, password utils.SecretString, namespace string, role []model.RoleName) (*model.Account, error)
-	IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error)
+	IsAccessGrantedWithToken(ctx context.Context, rawToken string, roles []model.RoleName) (*model.Account, error)
 	GetAllAccounts(ctx context.Context) (*[]model.Account, error)
 	UpdateUserPassword(ctx context.Context, username string, password utils.SecretString) error
 	GetAccountByUsername(ctx context.Context, username string) (*model.Account, error)
@@ -190,7 +190,7 @@ func (s *AuthServiceImpl) IsAccessGrantedWithBasic(ctx context.Context, username
 	return s.checkAccountPermissions(ctx, account, username, namespace, roles)
 }
 
-func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, namespace string, roles []model.RoleName) (*model.Account, error) {
+func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken string, roles []model.RoleName) (*model.Account, error) {
 	tok, err := s.oidcVerifier.Verify(ctx, rawToken)
 	if err != nil {
 		return nil, errors.Join(msg.AuthError, fmt.Errorf("oidc: failed to verify token: %w", err))
@@ -210,7 +210,7 @@ func (s *AuthServiceImpl) IsAccessGrantedWithToken(ctx context.Context, rawToken
 		Roles:     []model.RoleName{model.AgentRole},
 		Namespace: accountNamespace,
 	}
-	return s.checkAccountPermissions(ctx, &account, username, namespace, roles)
+	return s.checkAccountPermissions(ctx, &account, username, accountNamespace, roles)
 }
 
 func (s *AuthServiceImpl) checkAccountPermissions(ctx context.Context, account *model.Account, username string, namespace string, roles []model.RoleName) (*model.Account, error) {

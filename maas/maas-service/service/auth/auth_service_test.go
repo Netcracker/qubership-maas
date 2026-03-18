@@ -313,8 +313,6 @@ func (mv mockVerifier) Verify(ctc context.Context, rawToken string) (*jwt.Token,
 
 func TestAuthServiceImpl_IsAccessGrantedWithToken(t *testing.T) {
 	firstNamespace := "first"
-	secondNamespace := "second"
-	controllerNamespace := "controller"
 
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		ctx, cancelContext := context.WithCancel(context.Background())
@@ -332,34 +330,13 @@ func TestAuthServiceImpl_IsAccessGrantedWithToken(t *testing.T) {
 		bgDomainService := domain.NewBGDomainService(domain.NewBGDomainDao(baseDao))
 		authService := NewAuthService(dao, nil, bgDomainService, verifier)
 
-		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.AgentRole})
+		isAccessGrantedToFirstNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, []model.RoleName{model.AgentRole})
 		assert.NoError(t, err)
 		assert.NotNil(t, isAccessGrantedToFirstNamespace)
 
-		isAccessGrantedToManagerRole, err := authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.ManagerRole})
+		isAccessGrantedToManagerRole, err := authService.IsAccessGrantedWithToken(ctx, token, []model.RoleName{model.ManagerRole})
 		assert.ErrorIs(t, err, msg.AuthError)
 		assert.Nil(t, isAccessGrantedToManagerRole)
-
-		isAccessGrantedToSecondNamespace, err := authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
-		assert.ErrorIs(t, err, msg.AuthError)
-		assert.Nil(t, isAccessGrantedToSecondNamespace)
-
-		err = bgDomainService.Bind(ctx, firstNamespace, secondNamespace, controllerNamespace)
-		assert.NoError(t, err)
-
-		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithToken(ctx, token, firstNamespace, []model.RoleName{model.AgentRole})
-		assert.NoError(t, err)
-		assert.NotNil(t, isAccessGrantedToFirstNamespace)
-
-		isAccessGrantedToSecondNamespace, err = authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
-		assert.NoError(t, err)
-		assert.NotNil(t, isAccessGrantedToSecondNamespace)
-
-		_, err = bgDomainService.Unbind(ctx, secondNamespace)
-		assert.NoError(t, err)
-		isAccessGrantedToFirstNamespace, err = authService.IsAccessGrantedWithToken(ctx, token, secondNamespace, []model.RoleName{model.AgentRole})
-		assert.ErrorIs(t, err, msg.AuthError)
-		assert.Nil(t, isAccessGrantedToFirstNamespace)
 	})
 }
 
