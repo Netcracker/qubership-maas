@@ -1207,12 +1207,13 @@ func TestKafkaTopicDeletion_leaveRealTopicIntact(t *testing.T) {
 				return nil
 			},
 		)
-		instanceManager.Register(ctx, &model.KafkaInstance{
+		_, err := instanceManager.Register(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"localhost:9092"}},
 			Default:      true,
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 		bgDomainService.EXPECT().
 			FindByNamespace(gomock.Any(), gomock.Any()).Return(nil, nil).
 			Times(1)
@@ -2447,7 +2448,7 @@ func TestConnectionContention(t *testing.T) {
 		instance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
 		sd := NewKafkaServiceDao(baseDao, func(context.Context, string) (*domain.BGNamespaces, error) {
-			return &domain.BGNamespaces{"primary", "secondary", ""}, nil
+			return &domain.BGNamespaces{Origin: "primary", Peer: "secondary", ControllerNamespace: ""}, nil
 		})
 
 		reg := model.TopicRegistration{

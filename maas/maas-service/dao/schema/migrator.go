@@ -63,5 +63,7 @@ func Migrate(dbConfig *db.Config) {
 		return
 	}
 
-	dbPg.Close()
+	if err := dbPg.Close(); err != nil {
+		log.Error("Error closing db connection after migration: %v", err)
+	}
 }

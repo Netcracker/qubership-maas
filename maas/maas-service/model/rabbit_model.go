@@ -19,7 +19,7 @@ type RabbitInstance struct {
 	Default  bool   `gorm:"column:is_default" pg:"is_default" json:"default" example:"true"`
 }
 
-func (r RabbitInstance) Format(state fmt.State, verb int32) {
+func (r RabbitInstance) Format(state fmt.State, verb rune) {
 	utils.FormatterUtil(r, state, verb)
 }
 
@@ -106,7 +106,7 @@ func (VHostRegistration) TableName() string {
 	return "rabbit_vhosts"
 }
 
-func (v VHostRegistration) Format(state fmt.State, verb int32) {
+func (v VHostRegistration) Format(state fmt.State, verb rune) {
 	utils.FormatterUtil(v, state, verb)
 }
 

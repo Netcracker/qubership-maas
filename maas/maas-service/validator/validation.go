@@ -86,7 +86,7 @@ func FormatErrors(ve validator.ValidationErrors) []string {
 		case RequiredTag:
 			element = fmt.Sprintf("%s is required", fieldPath)
 		case ClassifierTag:
-			element = fmt.Sprintf("classifier must contain 'name' and 'namespace' fields")
+			element = "classifier must contain 'name' and 'namespace' fields"
 		case AmqpOrAmqps:
 			element = fmt.Sprintf("%s must have amqp:// or amqps:// schema", fieldPath)
 		case HttpOrHttps:

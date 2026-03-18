@@ -85,7 +85,7 @@ func TestDeliveryGuarantee(t *testing.T) {
 		utils.CancelableSleep(ctx, 1*time.Second)
 
 		for i := 1; i <= messagesCount; i++ {
-			broadcaster.Broadcast(ctx, "newermind", strconv.Itoa(i))
+			assert.NoError(t, broadcaster.Broadcast(ctx, "newermind", strconv.Itoa(i)))
 		}
 		sem.Await("finished", 1*time.Minute)
 	})

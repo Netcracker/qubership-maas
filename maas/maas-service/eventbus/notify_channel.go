@@ -33,7 +33,9 @@ func (nc *NotifyListener) Start(ctx context.Context) error {
 	return nc.synchronized(func() error {
 		nc.ch = make(chan string)
 		go func() {
-			nc.retryConnection(ctx, nc.listenMessages)
+			if err := nc.retryConnection(ctx, nc.listenMessages); err != nil && !isContextCancelled(err) {
+				nc.log.ErrorC(ctx, "notify channel retry connection exited with error: %v", err)
+			}
 		}()
 
 		return nil
@@ -72,6 +74,9 @@ func (nc *NotifyListener) listenMessages(ctx context.Context, cnn *pgx.Conn) err
 	for {
 		nc.log.InfoC(ctx, "Execute listen for channel: %s", nc.name)
 		_, err := cnn.Exec(ctx, fmt.Sprintf("listen %s", nc.name))
+		if err != nil {
+			return err
+		}
 
 		nc.log.DebugC(ctx, "Wait for data update event")
 		notification, err := cnn.WaitForNotification(ctx)

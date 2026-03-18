@@ -155,10 +155,7 @@ func (d *BaseDaoImpl) IsUniqIntegrityViolation(err error) bool {
 }
 
 func (d *BaseDaoImpl) IsForeignKeyIntegrityViolation(err error) bool {
-	if strings.Contains(err.Error(), "23503") {
-		return true
-	}
-	return false
+	return strings.Contains(err.Error(), "23503")
 }
 
 func (d *BaseDaoImpl) DSN() string {

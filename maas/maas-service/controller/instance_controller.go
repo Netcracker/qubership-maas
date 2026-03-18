@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gofiber/fiber/v2"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/auth"
@@ -19,12 +18,6 @@ type InstanceController struct {
 	kafka       instance.KafkaInstanceService
 	rabbit      instance.RabbitInstanceService
 	authService auth.AuthService
-}
-
-var iLog logging.Logger
-
-func init() {
-	iLog = logging.GetLogger("instance_controller")
 }
 
 func NewInstanceController(kafkaInstanceService instance.KafkaInstanceService, rabbitInstanceService instance.RabbitInstanceService, a auth.AuthService) *InstanceController {

@@ -31,7 +31,7 @@ func TestInsertNewRegistration(t *testing.T) {
 		instance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
 		sd := NewKafkaServiceDao(baseDao, func(context.Context, string) (*domain.BGNamespaces, error) {
-			return &domain.BGNamespaces{"controller", "primary", "secondary"}, nil
+			return &domain.BGNamespaces{Origin: "controller", Peer: "primary", ControllerNamespace: "secondary"}, nil
 		})
 
 		reg := model.TopicRegistration{
@@ -299,7 +299,7 @@ func TestKafkaBg2Composite(t *testing.T) {
 			InstanceRef: instance,
 		}
 
-		_, topic, err = kafkaService.GetOrCreateTopic(ctx, &regContr, model.Fail)
+		_, _, err = kafkaService.GetOrCreateTopic(ctx, &regContr, model.Fail)
 		assert.Error(t, err)
 	})
 }
@@ -732,7 +732,7 @@ func TestKafkaDaoImpl_FindTopicTemplateById(t *testing.T) {
 		assert.Equal(t, "first", templateById.Name)
 		assert.Equal(t, "test-namespace", templateById.Namespace)
 
-		templateById, err = sd.FindTopicTemplateById(ctx, int64(42))
+		_, err = sd.FindTopicTemplateById(ctx, int64(42))
 		assert.Error(t, err)
 	})
 }

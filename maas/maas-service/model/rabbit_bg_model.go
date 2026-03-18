@@ -34,8 +34,7 @@ type CpDeploymentVersion struct {
 }
 
 func (CpMessageDto CpMessageDto) ConvertToBgStatus() (*BgStatus, error) {
-	var cpMessage *BgStatus
-	cpMessage = new(BgStatus)
+	cpMessage := new(BgStatus)
 	for _, state := range CpMessageDto {
 		if state.Stage == "ACTIVE" {
 			cpMessage.Active = state.Version

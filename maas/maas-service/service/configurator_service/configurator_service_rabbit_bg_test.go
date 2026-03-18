@@ -80,7 +80,7 @@ func (suite *RabbitBgTestSuite) SetupTest() {
 	suite.NoError(err)
 
 	rabbitInstanceService := instance.NewRabbitInstanceService(instance.NewRabbitInstancesDao(suite.dao))
-	rabbitInstanceService.Register(context.Background(), &model.RabbitInstance{
+	_, err = rabbitInstanceService.Register(context.Background(), &model.RabbitInstance{
 		Id:       "default",
 		ApiUrl:   "http://localhost:4567/api",
 		AmqpUrl:  "amqp://localhost:4567",
@@ -88,6 +88,9 @@ func (suite *RabbitBgTestSuite) SetupTest() {
 		Password: "admin",
 		Default:  true,
 	})
+	if err != nil {
+		suite.T().Logf("WARNING: rabbit instance registration in test setup failed, continuing: %v", err)
+	}
 
 	testInitializer(suite.T())
 
@@ -4070,26 +4073,6 @@ func applyConfig(suite *RabbitBgTestSuite, cfg string, version string) (*model.V
 	return vhost, actualMsConfigs
 }
 
-func applyConfigWithNamespace(suite *RabbitBgTestSuite, cfg string, version string, namespace string) (*model.VHostRegistration, []model.MsConfig) {
-
-	requestContext := &model.RequestContext{}
-	requestContext.Namespace = namespace
-
-	newCtx := model.WithRequestContext(ctx, requestContext)
-
-	_, err := suite.configService.ApplyConfigV2(newCtx, cfg)
-	suite.assert.NoError(err)
-
-	vhost, err := suite.rabbitDao.FindVhostByClassifier(suite.ctx, model.Classifier{Name: "vers-test", Namespace: "test-namespace"})
-	suite.assert.NoError(err)
-
-	actualMsConfigs, err := suite.rabbitDao.GetMsConfigsByBgDomainAndCandidateVersion(suite.ctx, suite.namespace, version)
-	suite.assert.NoError(err)
-	suite.assert.NotNil(actualMsConfigs)
-
-	return vhost, actualMsConfigs
-}
-
 // validation tests
 func (suite *RabbitBgTestSuite) TestValidationEmptyExchangeName() {
 
@@ -4745,10 +4728,7 @@ func equalEntSlices(expected, real []*model.RabbitVersionedEntity) bool {
 			}
 		}
 	}
-	if count != len(expected) {
-		return false
-	}
-	return true
+	return count == len(expected)
 }
 
 func equalEnt(expected, real *model.RabbitVersionedEntity) bool {

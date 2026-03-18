@@ -23,7 +23,7 @@ type Config struct {
 	CipherKey     string `fmt:"obfuscate"`
 }
 
-func (cfg Config) Format(state fmt.State, verb int32) {
+func (cfg Config) Format(state fmt.State, verb rune) {
 	utils.FormatterUtil(cfg, state, verb)
 }
 

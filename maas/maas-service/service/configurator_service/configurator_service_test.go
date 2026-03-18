@@ -1136,11 +1136,13 @@ spec:
 		requestContext := &model.RequestContext{Namespace: "first-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		if _, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
-		})
+		}); err != nil {
+			t.Logf("WARNING: instance registration in test setup failed, continuing: %v", err)
+		}
 
 		_, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -1202,11 +1204,13 @@ func TestKafkaTenantTopic_ChangeMinNumPartition(t *testing.T) {
 		requestContext := &model.RequestContext{Namespace: "test-namespace"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		if _, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
-		})
+		}); err != nil {
+			t.Logf("WARNING: instance registration in test setup failed, continuing: %v", err)
+		}
 
 		kafkaInstance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -1337,11 +1341,13 @@ spec:
 		requestContext := &model.RequestContext{Namespace: "first-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		if _, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
-		})
+		}); err != nil {
+			t.Logf("WARNING: instance registration in test setup failed, continuing: %v", err)
+		}
 		kafkaHelper := mock_kafka_helper.NewMockHelper(mockCtrl)
 		kafkaInstance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -1514,7 +1520,7 @@ spec:
 		requestContext = &model.RequestContext{Namespace: "second-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 
-		results, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
+		_, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
 		assertion.ErrorContains(err, "no topic template was found by name")
 
 		err = kafkaService.Warmup(ctx, &domain.BGState{
@@ -1532,7 +1538,7 @@ spec:
 		})
 		assert.NoError(t, err)
 
-		results, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
+		_, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
 		assertion.NoError(err)
 	})
 }

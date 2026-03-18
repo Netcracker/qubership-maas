@@ -11,7 +11,7 @@ import (
 
 func TestProdMode_RemoveVHosts(t *testing.T) {
 	pm := NewProdMode(nil, true)
-	assert.ErrorIs(t, pm.RemoveVHosts(nil, nil, ""), msg.BadRequest)
+	assert.ErrorIs(t, pm.RemoveVHosts(context.TODO(), nil, ""), msg.BadRequest)
 }
 
 func TestProdMode_RemoveVHost_Allow(t *testing.T) {

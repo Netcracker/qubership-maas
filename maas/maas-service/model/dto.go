@@ -178,7 +178,7 @@ func getNumPartitionsFromRequest(value interface{}) (*int32, error) {
 			numPartitionsStr = fmt.Sprintf("%v", value)
 		}
 	}
-	var numPartitions *int32 = nil
+	var numPartitions *int32
 	// todo: think how to do it generic. Now "" is after parsing json, "0" after it is taken from db from TopicDefinition after migration to gorm
 	if numPartitionsStr == "" || numPartitionsStr == "0" {
 		numPartitions = new(int32)
@@ -205,7 +205,7 @@ func getMinNumPartitionsFromRequest(value interface{}) (*int32, error) {
 			numPartitionsStr = fmt.Sprintf("%v", value)
 		}
 	}
-	var numPartitions *int32 = nil
+	var numPartitions *int32
 	// todo: think how to do it generic. Now "" is after parsing json, "0" after it is taken from db from TopicDefinition after migration to gorm
 	if numPartitionsStr == "" || numPartitionsStr == "0" {
 		numPartitions = new(int32)
@@ -237,7 +237,7 @@ func getReplicationFactorFromRequest(value interface{}) (*int16, error) {
 		}
 	}
 
-	var replicationFactor *int16 = nil
+	var replicationFactor *int16
 	// todo: think how to do it generic. Now "" is after parsing json, "0" after it is taken from db from TopicDefinition after migration to gorm
 	if replicationFactorStr == "" || replicationFactorStr == "0" {
 		replicationFactor = new(int16)

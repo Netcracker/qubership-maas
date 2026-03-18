@@ -10,7 +10,7 @@ import (
 
 func TestProdMode_DeleteTopic(t *testing.T) {
 	pm := NewProdMode(nil, true)
-	assert.ErrorIs(t, pm.DeleteTopic(nil, nil, false), msg.BadRequest)
+	assert.ErrorIs(t, pm.DeleteTopic(context.TODO(), nil, false), msg.BadRequest)
 }
 
 func TestProdMode_DeleteTopic_Allow(t *testing.T) {
@@ -26,7 +26,7 @@ func TestProdMode_DeleteTopic_Allow(t *testing.T) {
 
 func TestProdMode_DeleteTopics(t *testing.T) {
 	pm := NewProdMode(nil, true)
-	_, err := pm.DeleteTopics(nil, nil)
+	_, err := pm.DeleteTopics(context.TODO(), nil)
 	assert.ErrorIs(t, err, msg.BadRequest)
 }
 
@@ -44,7 +44,7 @@ func TestProdMode_DeleteTopics_Allow(t *testing.T) {
 
 func TestProdMode_DeleteTopicDefinition(t *testing.T) {
 	pm := NewProdMode(nil, true)
-	_, err := pm.DeleteTopicDefinition(nil, nil)
+	_, err := pm.DeleteTopicDefinition(context.TODO(), nil)
 	assert.ErrorIs(t, err, msg.BadRequest)
 }
 
@@ -62,7 +62,7 @@ func TestProdMode_DeleteTopicDefinition_Allow(t *testing.T) {
 
 func TestProdMode_DeleteTopicTemplate(t *testing.T) {
 	pm := NewProdMode(nil, true)
-	_, err := pm.DeleteTopicTemplate(nil, "", "")
+	_, err := pm.DeleteTopicTemplate(context.TODO(), "", "")
 	assert.ErrorIs(t, err, msg.BadRequest)
 }
 

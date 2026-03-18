@@ -117,8 +117,7 @@ func (c *VHostController) SearchVhosts(fiberCtx *fiber.Ctx) error {
 		return utils.LogError(log, ctx, "error during converting to search form while in SearchVhosts: %s", err.Error())
 	}
 
-	vhosts := make([]model.VHostRegistration, 0)
-
+	var vhosts []model.VHostRegistration
 	vhosts, err = c.service.FindVhostWithSearchForm(ctx, searchForm)
 	if err != nil {
 		return utils.LogError(log, ctx, "Error occurred while searching for vhosts in database: '%w'", err)

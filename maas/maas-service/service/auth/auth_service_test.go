@@ -166,8 +166,8 @@ func TestReplication(t *testing.T) {
 		})
 		defer base.Close()
 
-		base.StartMonitor(ctx, 1*time.Second)
-		base.StartCache(ctx, 10*time.Minute)
+		assert.NoError(t, base.StartMonitor(ctx, 1*time.Second))
+		assert.NoError(t, base.StartCache(ctx, 10*time.Minute))
 
 		authDao := NewAuthDao(base)
 		accountLis := &model.Account{Username: "lis", Roles: []model.RoleName{"manager"}, Salt: "salksdj", Password: "tiger", Namespace: "_GLOBAL"}
@@ -183,7 +183,7 @@ func TestReplication(t *testing.T) {
 		fmt.Println("==================================================================")
 		fmt.Println(" Interrupt connection to db ")
 		fmt.Println("==================================================================")
-		proxy.Close()
+		assert.NoError(t, proxy.Close())
 
 		// wait till base dao does not recognize availability error
 		for i := 0; i < 20; i++ {
@@ -237,7 +237,7 @@ func TestReplication(t *testing.T) {
 			assert.Equal(t, accountEfimov, found)
 		}
 
-		proxy.Close()
+		assert.NoError(t, proxy.Close())
 	})
 }
 

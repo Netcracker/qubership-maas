@@ -230,7 +230,7 @@ type Credentials struct {
 	Password string `fmt:"obfuscate"`
 }
 
-func (v Credentials) Format(state fmt.State, verb int32) {
+func (v Credentials) Format(state fmt.State, verb rune) {
 	FormatterUtil(v, state, verb)
 }
 
@@ -267,7 +267,7 @@ func Test_cancelableSleep(t *testing.T) {
 	start := time.Now()
 	CancelableSleep(context.Background(), 1*time.Second)
 
-	if time.Now().Sub(start) < 1*time.Second {
+	if time.Since(start) < 1*time.Second {
 		assert.Fail("sleep must be cancelled")
 	}
 }
@@ -283,7 +283,7 @@ func Test_cancelableSleepCancel(t *testing.T) {
 	}()
 	CancelableSleep(ctx, 1*time.Second)
 
-	if time.Now().Sub(start) >= 1*time.Second {
+	if time.Since(start) >= 1*time.Second {
 		assert.Fail("sleep must be cancelled")
 	}
 }

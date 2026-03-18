@@ -10,9 +10,9 @@ type SecurityContext struct {
 	compositeIsolationDisabled bool
 }
 
-const (
-	securityContextKey = "SecurityContext"
-)
+type securityContextKeyType struct{}
+
+var securityContextKey = securityContextKeyType{}
 
 func NewSecurityContext(account *Account, compositeIsolationDisabled bool) *SecurityContext {
 	return &SecurityContext{account: account, compositeIsolationDisabled: compositeIsolationDisabled}

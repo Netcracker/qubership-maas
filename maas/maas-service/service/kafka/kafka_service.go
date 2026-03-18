@@ -286,7 +286,9 @@ func (srv *KafkaServiceImpl) GetOrCreateTopicWithAuth(ctx context.Context, topic
 						return err
 					}
 					reg = createdTopic
-					srv.eventbus.Broadcast(ctx, eventBus_TopicCreateKind, createdTopic.Classifier.ToJsonString())
+					if err := srv.eventbus.Broadcast(ctx, eventBus_TopicCreateKind, createdTopic.Classifier.ToJsonString()); err != nil {
+						log.ErrorC(ctx, "failed to broadcast topic create event: %v", err)
+					}
 					return nil
 				case model.Fail:
 					return utils.LogError(log, ctx, "Kafka topic with name '%s' was found in kafka instance '%s', parameter 'on-entity-exists' is set to 'fail'. "+
@@ -320,7 +322,9 @@ func (srv *KafkaServiceImpl) GetOrCreateTopicWithAuth(ctx context.Context, topic
 			})
 
 			if err == nil {
-				srv.eventbus.Broadcast(ctx, eventBus_TopicCreateKind, topic.Classifier.ToJsonString())
+				if broadcastErr := srv.eventbus.Broadcast(ctx, eventBus_TopicCreateKind, topic.Classifier.ToJsonString()); broadcastErr != nil {
+					log.ErrorC(ctx, "failed to broadcast topic create event: %v", broadcastErr)
+				}
 			}
 			return err
 		})
@@ -485,7 +489,7 @@ func (srv *KafkaServiceImpl) getTopicByClassifier(ctx context.Context, classifie
 	if err != nil {
 		return nil, utils.LogError(log, ctx, "failed to load topic by classifier %s from db: %w", classifier, err)
 	}
-	if topics == nil || len(topics) == 0 {
+	if len(topics) == 0 {
 		return nil, nil
 	}
 
@@ -573,7 +577,7 @@ func (srv *KafkaServiceImpl) DeleteTopics(ctx context.Context, searchReq *model.
 
 func (srv *KafkaServiceImpl) DeleteTopic(ctx context.Context, topic *model.TopicRegistration, leaveRealTopicIntact bool) error {
 	return srv.dao.DeleteTopicRegistration(ctx, topic, func(reg *model.TopicRegistration) error {
-		if leaveRealTopicIntact == false {
+		if !leaveRealTopicIntact {
 			return srv.helper.DeleteTopic(ctx, topic)
 		}
 		return nil

@@ -55,7 +55,7 @@ type BasicAuth struct {
 	Password []byte `json:"password" fmt:"obfuscate"`
 }
 
-func (b BasicAuth) Format(state fmt.State, verb int32) {
+func (b BasicAuth) Format(state fmt.State, verb rune) {
 	utils.FormatterUtil(b, state, verb)
 }
 
@@ -64,7 +64,7 @@ type SslCert struct {
 	ClientCert string `json:"clientCert"`
 }
 
-func (s SslCert) Format(state fmt.State, verb int32) {
+func (s SslCert) Format(state fmt.State, verb rune) {
 	utils.FormatterUtil(s, state, verb)
 }
 
@@ -107,7 +107,7 @@ type KafkaInstance struct {
 	Credentials  map[KafkaRole][]KafkaCredentials `gorm:"column:credentials_enc;serializer:aesb64" pg:"credentials_enc"   json:"credentials,omitempty" fmt:"obfuscate" validate:"kafkaCredentialsRoles"`
 }
 
-func (i KafkaInstance) Format(state fmt.State, verb int32) {
+func (i KafkaInstance) Format(state fmt.State, verb rune) {
 	utils.FormatterUtil(i, state, verb)
 }
 
@@ -352,7 +352,7 @@ func (settings *TopicSettings) String() string {
 }
 
 func (settings *TopicSettings) Equals(anotherSettings *TopicSettings) bool {
-	if settings.ReadOnlySettingsAreEqual(anotherSettings) == false {
+	if !settings.ReadOnlySettingsAreEqual(anotherSettings) {
 		return false
 	}
 	return settings.ConfigsAreEqual(anotherSettings)

@@ -68,9 +68,11 @@ func TestRabbitVhostHelperImpl_CreateQueue(t *testing.T) {
 		"name": "test-queue",
 	}
 
-	var queueBytes, _ = json.Marshal(queue)
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
 	buf := gbytes.NewBuffer()
-	buf.Write(queueBytes)
+	_, err = buf.Write(queueBytes)
+	assert.NoError(err)
 
 	httpHelper.EXPECT().
 		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -110,9 +112,11 @@ func TestRabbitVhostHelperImpl_CreateQueueInequivArg(t *testing.T) {
 		"name": "test-queue",
 	}
 
-	var queueBytes, _ = json.Marshal(queue)
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
 	buf := gbytes.NewBuffer()
-	buf.Write(queueBytes)
+	_, err = buf.Write(queueBytes)
+	assert.NoError(err)
 
 	httpHelper.EXPECT().
 		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -170,9 +174,11 @@ func TestRabbitVhostHelperImpl_CreateQueueBadRequest(t *testing.T) {
 		"name": "test-queue",
 	}
 
-	var queueBytes, _ = json.Marshal(queue)
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
 	buf := gbytes.NewBuffer()
-	buf.Write(queueBytes)
+	_, err = buf.Write(queueBytes)
+	assert.NoError(err)
 
 	httpHelper.EXPECT().
 		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -184,7 +190,7 @@ func TestRabbitVhostHelperImpl_CreateQueueBadRequest(t *testing.T) {
 		}).
 		Times(1)
 
-	_, _, err := rabbitHelper.CreateQueue(context.Background(), queue)
+	_, _, err = rabbitHelper.CreateQueue(context.Background(), queue)
 	assert.Error(err)
 }
 

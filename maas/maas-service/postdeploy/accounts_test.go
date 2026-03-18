@@ -14,7 +14,7 @@ import (
 
 func TestAccounts_NoOp(t *testing.T) {
 	ctx := context.Background()
-	createManagerAccount(ctx, nil)
+	assert.NoError(t, createManagerAccount(ctx, nil))
 }
 
 func TestAccounts_ManagerCreateAndUpdate(t *testing.T) {
@@ -112,7 +112,9 @@ func withAccountFile(t *testing.T, name string, content string, callback func())
 		assert.NoError(t, err)
 	}
 	path := filepath.Join(accountsDir, name)
-	_ = os.Remove(path)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		assert.NoError(t, err)
+	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
 	assert.NoError(t, err)
 	_, err = io.WriteString(file, content)

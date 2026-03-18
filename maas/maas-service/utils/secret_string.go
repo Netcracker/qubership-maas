@@ -6,8 +6,10 @@ import "fmt"
 // String will be obfuscated on print and marshalling attempts
 type SecretString string
 
-func (acc SecretString) Format(state fmt.State, _ int32) {
-	fmt.Fprintf(state, "***")
+func (acc SecretString) Format(state fmt.State, _ rune) {
+	if _, err := fmt.Fprint(state, "***"); err != nil {
+		return
+	}
 }
 func (acc SecretString) MarshalJSON() ([]byte, error) {
 	return []byte("\"***\""), nil

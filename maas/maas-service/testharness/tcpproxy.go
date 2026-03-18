@@ -39,7 +39,10 @@ func (tcpp *TCPProxy) pipe(ctx context.Context, from net.Conn, to net.Conn, wg *
 		}
 
 		if n > 0 {
-			to.Write(b[:n])
+			if _, err := to.Write(b[:n]); err != nil {
+				fmt.Printf("write error: %s\n", err)
+				return
+			}
 		}
 	}
 }
@@ -52,8 +55,12 @@ func (tcpp *TCPProxy) handleConnection(ctx context.Context, local net.Conn, remo
 
 	wg.Wait()
 	fmt.Printf("data transfer pipes closed\n")
-	remote.Close()
-	local.Close()
+	if err := remote.Close(); err != nil {
+		fmt.Printf("error closing remote connection: %s\n", err)
+	}
+	if err := local.Close(); err != nil {
+		fmt.Printf("error closing local connection: %s\n", err)
+	}
 }
 
 func NewTCPProxy(serverBind string, target string) *TCPProxy {
@@ -74,7 +81,9 @@ func (tcpp *TCPProxy) Start(ctx context.Context) error {
 	}
 	go func() {
 		<-ctx.Done()
-		ln.Close()
+		if err := ln.Close(); err != nil {
+			fmt.Printf("error closing listener: %s\n", err)
+		}
 	}()
 
 	go func() {
@@ -82,8 +91,12 @@ func (tcpp *TCPProxy) Start(ctx context.Context) error {
 		var tunnels []tunnel
 		defer func() {
 			for _, tunnel := range tunnels {
-				tunnel.from.Close()
-				tunnel.to.Close()
+				if err := tunnel.from.Close(); err != nil {
+					fmt.Printf("error closing source tunnel connection: %s\n", err)
+				}
+				if err := tunnel.to.Close(); err != nil {
+					fmt.Printf("error closing destination tunnel connection: %s\n", err)
+				}
 			}
 			fmt.Printf("stop accepting connections\n")
 		}()

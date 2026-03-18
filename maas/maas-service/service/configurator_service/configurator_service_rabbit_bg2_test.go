@@ -279,6 +279,7 @@ spec:
 		}
 
 		vhost, err := rabbitServiceBg2.FindVhostByClassifier(originCtx, &classifierOrigin)
+		assertion.NoError(err)
 		assertion.NotNil(vhost)
 		assertion.Equal("maas.origin.test", vhost.Vhost)
 
@@ -669,7 +670,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			assertion.Equal(1, len(shovels))
 			assertion.Contains(shovels[0].Name, "q1")
 
-			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported2)
+			_, err = rabbitWithHelper.GetConfig(originCtx, classifierExported2)
 			assertion.Error(err) //no vhost2-exported
 
 			//phase 4
@@ -693,7 +694,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			assertion.Equal(1, len(shovels))
 			assertion.Contains(shovels[0].Name, "q2")
 
-			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported2)
+			_, err = rabbitWithHelper.GetConfig(originCtx, classifierExported2)
 			assertion.Error(err) //no vhost2-exported
 
 			//phase 5 - warmup
@@ -730,7 +731,7 @@ func TestRegistrationService_ExportedVhostQueues(t *testing.T) {
 			assertion.Contains(shovels[0].Name, "q2")
 			assertion.Contains(shovels[1].Name, "q2")
 
-			entities, err = rabbitWithHelper.GetConfig(originCtx, classifierExported2)
+			_, err = rabbitWithHelper.GetConfig(originCtx, classifierExported2)
 			assertion.Error(err) //no vhost2-exported
 
 			//phase 6 - get rid of one queue (second still there)

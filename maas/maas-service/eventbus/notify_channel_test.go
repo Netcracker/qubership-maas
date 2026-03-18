@@ -85,7 +85,10 @@ func TestDatabaseFailure(t *testing.T) {
 		assert.NoError(t, listener.Start(ctx))
 		go func() {
 			for !isContextCancelled(ctx.Err()) {
-				notifyDao.Notify(ctx, "eventbus", "data")
+				if err := notifyDao.Notify(ctx, "eventbus", "data"); err != nil {
+					// expected when proxy is closed during test
+					return
+				}
 				utils.CancelableSleep(ctx, 2*time.Second)
 			}
 		}()
@@ -100,7 +103,7 @@ func TestDatabaseFailure(t *testing.T) {
 		// =======================================
 		// restore db connection
 		// =======================================
-		proxy.Start(ctx)
+		assert.NoError(t, proxy.Start(ctx))
 		messages = awaitMessages(ctx, listener.Events(), 10*time.Second)
 		assert.True(t, len(messages) > 0)
 	})

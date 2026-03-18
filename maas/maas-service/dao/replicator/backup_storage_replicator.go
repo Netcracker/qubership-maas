@@ -137,7 +137,7 @@ func (bsr *BackupStorageReplicator) Start(ctx context.Context, fullResyncInterva
 func (bsr *BackupStorageReplicator) attachTriggers(ctx context.Context, metadata map[string][]columnMetadata) error {
 	log.DebugC(ctx, "Create table update event triggers...")
 
-	for tableName, _ := range metadata {
+	for tableName := range metadata {
 		log.DebugC(ctx, "Add table event trigger for: `%s'", tableName)
 		deleteTriggerSql := fmt.Sprintf(`drop trigger if exists %[1]s_sync on %[1]s`, tableName)
 		if err := bsr.master.Exec(deleteTriggerSql).Error; err != nil {
@@ -166,14 +166,20 @@ func (bsr *BackupStorageReplicator) getSchemaMetadata(ctx context.Context) (map[
 	if err != nil {
 		return nil, fmt.Errorf("error request table list: %w", err)
 	}
-	defer metadataRows.Close()
+	defer func() {
+		if err := metadataRows.Close(); err != nil {
+			bsr.logger.ErrorC(ctx, "error closing metadata rows: %v", err)
+		}
+	}()
 
 	metadata := make(map[string][]columnMetadata)
 	for metadataRows.Next() {
 		var tableName string
 		var columnName string
 		var columnType string
-		metadataRows.Scan(&tableName, &columnName, &columnType)
+		if err := metadataRows.Scan(&tableName, &columnName, &columnType); err != nil {
+			return nil, fmt.Errorf("error scan metadata row: %w", err)
+		}
 
 		if columns, ok := metadata[tableName]; ok {
 			metadata[tableName] = append(columns, columnMetadata{columnName, columnType})
@@ -213,7 +219,9 @@ func (bsr *BackupStorageReplicator) cacheFullUpdate(ctx context.Context) error {
 	}
 	defer func() {
 		bsr.logger.InfoC(ctx, "Release locks on master tables")
-		tx.Rollback()
+		if rollbackErr := tx.Rollback().Error; rollbackErr != nil && rollbackErr != sql.ErrTxDone {
+			bsr.logger.ErrorC(ctx, "error rolling back master tx: %v", rollbackErr)
+		}
 	}()
 	masterDb, err := tx.DB()
 	if err != nil {
@@ -229,7 +237,11 @@ func (bsr *BackupStorageReplicator) cacheFullUpdate(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error start tx on slave db: %w", err)
 	}
-	defer slaveTx.Rollback()
+	defer func() {
+		if err := slaveTx.Rollback(); err != nil && err != sql.ErrTxDone {
+			bsr.logger.ErrorC(ctx, "error rolling back slave tx: %v", err)
+		}
+	}()
 
 	for tableName, columns := range bsr.metadata {
 		bsr.logger.InfoC(ctx, "Cache data for: %v", tableName)
@@ -237,7 +249,9 @@ func (bsr *BackupStorageReplicator) cacheFullUpdate(ctx context.Context) error {
 		rows, err := masterDb.QueryContext(ctx, formatSelectSql(tableName, columns))
 		if err != nil {
 			if rows != nil {
-				rows.Close()
+				if closeErr := rows.Close(); closeErr != nil {
+					bsr.logger.ErrorC(ctx, "error closing rows on query failure for table `%s': %v", tableName, closeErr)
+				}
 			}
 
 			return err
@@ -253,19 +267,38 @@ func (bsr *BackupStorageReplicator) cacheFullUpdate(ctx context.Context) error {
 			valuePtrs[i] = &values[i]
 		}
 		for rows.Next() {
-			rows.Scan(valuePtrs...)
+			if err := rows.Scan(valuePtrs...); err != nil {
+				if closeErr := rows.Close(); closeErr != nil {
+					bsr.logger.ErrorC(ctx, "error closing rows after scan failure for table `%s': %v", tableName, closeErr)
+				}
+				return fmt.Errorf("error scan row: %w", err)
+			}
 
 			insertSql := formatInsertSql(tableName, columns)
 			if inserted, err := slaveDb.ExecContext(ctx, insertSql, values...); err != nil {
-				rows.Close()
+				if closeErr := rows.Close(); closeErr != nil {
+					bsr.logger.ErrorC(ctx, "error closing rows after insert failure for table `%s': %v", tableName, closeErr)
+				}
 				return fmt.Errorf("error execute sql: %s, error: %w", insertSql, err)
-			} else if count, _ := inserted.RowsAffected(); count != 1 {
+			} else if count, countErr := inserted.RowsAffected(); countErr != nil {
+				if closeErr := rows.Close(); closeErr != nil {
+					bsr.logger.ErrorC(ctx, "error closing rows after rows-affected failure for table `%s': %v", tableName, closeErr)
+				}
+				return fmt.Errorf("error checking rows affected for table `%s': %w", tableName, countErr)
+			} else if count != 1 {
+				if closeErr := rows.Close(); closeErr != nil {
+					bsr.logger.ErrorC(ctx, "error closing rows after empty insert for table `%s': %v", tableName, closeErr)
+				}
 				return fmt.Errorf("no rows inserted")
 			}
 		}
-		rows.Close()
+		if err := rows.Close(); err != nil {
+			return fmt.Errorf("error closing result rows for table `%s': %w", tableName, err)
+		}
 	}
-	slaveTx.Commit()
+	if err := slaveTx.Commit(); err != nil {
+		return fmt.Errorf("error commit slave tx: %w", err)
+	}
 	log.InfoC(ctx, "full cache resync successfully finished")
 
 	return nil
@@ -461,10 +494,11 @@ func (bsr *BackupStorageReplicator) lockMasterTables(ctx context.Context) (*gorm
 	}
 	lockSql = "lock table " + lockSql + " in exclusive mode"
 	tx := bsr.master.Begin(&sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: true})
-	// FIXME
-	//if err := tx.Exec(lockSql).Error; err != nil {
-	//	return nil, fmt.Errorf("error acquire exclusive locks on tables: %w", err)
-	//}
+	// FIXME: enable table locking to prevent concurrent modifications during sync
+	// if err := tx.Exec(lockSql).Error; err != nil {
+	// 	return nil, fmt.Errorf("error acquire exclusive locks on tables: %w", err)
+	// }
+	_ = lockSql // used when FIXME above is enabled
 
 	return tx, nil
 }
