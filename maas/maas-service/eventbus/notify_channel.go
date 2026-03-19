@@ -62,7 +62,9 @@ func (nc *NotifyListener) retryConnection(ctx context.Context, handler func(cont
 			return err
 		case err != nil:
 			nc.log.ErrorC(ctx, "error waiting data change notification: %s", err.Error())
-			cnn.Close(ctx)
+			if closeErr := cnn.Close(ctx); closeErr != nil {
+				nc.log.ErrorC(ctx, "error closing notification connection: %s", closeErr.Error())
+			}
 		default:
 			nc.log.InfoC(ctx, "normal exit")
 			return nil

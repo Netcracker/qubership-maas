@@ -271,13 +271,14 @@ func (RabbitEntity) TableName() string {
 func NewRabbitEntity(clientEntity interface{}, createdEntity *map[string]interface{}, entType RabbitEntityType, vhost VHostRegistration, classifier Classifier) (*RabbitEntity, error) {
 	var name, source, destination string
 	var err error
-	if entType == ExchangeType || entType == QueueType {
+	switch entType {
+	case ExchangeType, QueueType:
 		name, err = utils.ExtractName(clientEntity)
-		if err != nil {
-			return nil, err
-		}
-	} else if entType == BindingType {
+	case BindingType:
 		source, destination, err = utils.ExtractSourceAndDestination(clientEntity)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	entMap := clientEntity.(map[string]interface{})

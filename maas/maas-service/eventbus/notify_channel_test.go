@@ -96,7 +96,7 @@ func TestDatabaseFailure(t *testing.T) {
 		// =======================================
 		// emulate db connection failure
 		// =======================================
-		proxy.Close()
+		assert.NoError(t, proxy.Close())
 		messages := awaitMessages(ctx, listener.Events(), 30*time.Second)
 		assert.Equal(t, 0, len(messages))
 

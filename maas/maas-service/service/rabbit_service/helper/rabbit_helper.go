@@ -350,11 +350,12 @@ func (h RabbitHelperImpl) deleteEntity(ctx context.Context, entity interface{}, 
 		fmt.Sprintf("Error deleting url '%v' for entity : %v", url, entity)); err != nil {
 		return nil, err
 	} else {
-		if response.RawResponse.StatusCode == http.StatusNoContent {
+		switch response.RawResponse.StatusCode {
+		case http.StatusNoContent:
 			return entity, nil
-		} else if response.RawResponse.StatusCode == http.StatusNotFound {
+		case http.StatusNotFound:
 			return nil, nil
-		} else {
+		default:
 			return nil, errors.Errorf("Unexpected error during entity deletion, return status code: %v", response.RawResponse.StatusCode)
 		}
 	}

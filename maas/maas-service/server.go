@@ -50,9 +50,10 @@ import (
 
 var (
 	log               logging.Logger
+	requestIDKey      = struct{ name string }{name: "requestId"}
 	ctx, globalCancel = context.WithCancel(
 		context.WithValue(
-			context.Background(), "requestId", "",
+			context.Background(), requestIDKey, "",
 		),
 	)
 	exitCode = atomic.Int32{}
@@ -205,7 +206,10 @@ func startPProf() {
 		app := fiber.New(fiber.Config{DisableStartupMessage: true})
 		app.Use(pprof.New())
 		log.Debugf("run pprof on 127.0.0.1:6060")
-		app.Listen("127.0.0.1:6060")
+		err := app.Listen("127.0.0.1:6060")
+		if err != nil {
+			log.Debugf("pprof server error: %v", err)
+		}
 	}()
 }
 

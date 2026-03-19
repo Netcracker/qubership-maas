@@ -2,10 +2,8 @@ package kafka
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-
 	"github.com/lib/pq"
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
@@ -657,27 +655,6 @@ func (d *KafkaDaoImpl) topicTemplateAttachNamespace(ctx context.Context, origin,
 	if err != nil {
 		log.ErrorC(ctx, "Error TopicTemplateAttachNamespace: %v", err.Error())
 		return err
-	}
-
-	return nil
-}
-
-func (d *KafkaDaoImpl) topicTemplateDetachNamespace(ctx context.Context, namespace string) error {
-	log.InfoC(ctx, "TopicTemplateDetachNamespace from namespace: %s", namespace)
-
-	err := d.base.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
-		result := cnn.Exec("UPDATE kafka_topic_templates SET "+
-			"namespace = (array_remove(domain_namespaces, @ns))[1], "+
-			"domain_namespaces = array_remove(domain_namespaces, @ns) WHERE array_length(domain_namespaces, 1) >= 2", sql.Named("ns", namespace),
-		)
-		if result.RowsAffected == 0 {
-			return utils.LogError(log, ctx, "there is no kafka topic templates attached to '%s' namespace: %w", namespace, msg.BadRequest)
-		}
-		return result.Error
-	})
-
-	if err != nil {
-		return utils.LogError(log, ctx, "error TopicTemplateDetachNamespace: %w", err)
 	}
 
 	return nil

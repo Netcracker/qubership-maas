@@ -119,7 +119,9 @@ func withAccountFile(t *testing.T, name string, content string, callback func())
 	assert.NoError(t, err)
 	_, err = io.WriteString(file, content)
 	assert.NoError(t, err)
-	defer os.Remove(path)
+	defer func() {
+		assert.NoError(t, os.Remove(path))
+	}()
 
 	callback()
 

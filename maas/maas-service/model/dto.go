@@ -239,12 +239,13 @@ func getReplicationFactorFromRequest(value interface{}) (*int16, error) {
 
 	var replicationFactor *int16
 	// todo: think how to do it generic. Now "" is after parsing json, "0" after it is taken from db from TopicDefinition after migration to gorm
-	if replicationFactorStr == "" || replicationFactorStr == "0" {
+	switch replicationFactorStr {
+	case "", "0":
 		replicationFactor = new(int16)
 		*replicationFactor = int16(0)
-	} else if replicationFactorStr == "inherit" {
+	case "inherit":
 		replicationFactor = nil
-	} else {
+	default:
 		// number value
 		if n, err := strconv.Atoi(replicationFactorStr); err == nil {
 			replicationFactor = new(int16)

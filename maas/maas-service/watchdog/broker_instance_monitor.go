@@ -115,7 +115,7 @@ func registerMetricCollector(ctx context.Context, brokerId string, brokerType mo
 	})
 
 	if err := prometheus.Register(gauge); err != nil {
-		err = utils.LogError(log, ctx, "error register health gauge for %v broker with id: %v: %w", brokerType, brokerId, err)
+		log.ErrorC(ctx, "error register health gauge for %v broker with id: %v: %v", brokerType, brokerId, err)
 	}
 	return gauge
 }

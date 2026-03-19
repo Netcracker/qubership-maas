@@ -385,7 +385,11 @@ func (bsr *BackupStorageReplicator) runEventListener(ctx context.Context, dsn st
 	if err != nil {
 		return err
 	}
-	defer cnn.Close(ctx)
+	defer func() {
+		if err := cnn.Close(ctx); err != nil {
+			bsr.logger.ErrorC(ctx, "error closing listener connection: %v", err)
+		}
+	}()
 
 	bsr.logger.InfoC(ctx, "Call listen sync")
 	_, err = cnn.Exec(ctx, "listen sync")

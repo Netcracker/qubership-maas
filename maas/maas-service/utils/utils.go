@@ -31,6 +31,10 @@ var authHeaderRegex = regexp.MustCompile(`^(?i)(Basic|Bearer)\s+(\S+)$`)
 
 const RequestIdPropertyName = "requestId"
 
+type requestIDContextKeyType string
+
+const requestIDContextKey requestIDContextKeyType = RequestIdPropertyName
+
 type WaitGroupWithTimeout struct {
 	sync.WaitGroup
 }
@@ -53,7 +57,7 @@ func (wg *WaitGroupWithTimeout) Wait(timeout time.Duration) bool {
 }
 
 func CreateContextFromString(rId string) context.Context {
-	return context.WithValue(context.Background(), RequestIdPropertyName, rId)
+	return context.WithValue(context.Background(), requestIDContextKey, rId)
 }
 func GetBasicAuth(fiberCtx *fiber.Ctx) (string, SecretString, error) {
 	var basicAuthPrefix = []byte("Basic ")

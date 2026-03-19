@@ -137,7 +137,7 @@ func LogRequest(fiberCtx *fiber.Ctx) error {
 	ctx := fiberCtx.UserContext()
 	body := string(fiberCtx.Body())
 	if body != "" {
-		body = maskPasswordInBody(fmt.Sprintf("\n\tBody: %s", strings.Replace(body, "\n", "\n\t\t", -1)))
+		body = maskPasswordInBody(fmt.Sprintf("\n\tBody: %s", strings.ReplaceAll(body, "\n", "\n\t\t")))
 	}
 
 	auth := ""

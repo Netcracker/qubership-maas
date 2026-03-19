@@ -16,7 +16,9 @@ type TransactionContext struct {
 	nesting int
 }
 
-const TransactionContextKey = "tx"
+type transactionContextKeyType string
+
+const TransactionContextKey transactionContextKeyType = "tx"
 
 var txCounter int64
 var txLog = logging.GetLogger("tx")

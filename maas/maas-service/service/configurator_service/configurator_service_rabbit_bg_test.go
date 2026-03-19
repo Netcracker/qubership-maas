@@ -4575,6 +4575,7 @@ func (suite *RabbitBgTestSuite) TestCpInstallPromoteRollback() {
 	assertion.NoError(err)
 
 	bgStatus, err := suite.bgService.GetBgStatusByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
+	assertion.NoError(err)
 	assertion.Equal("v1", bgStatus.Active)
 	assertion.Equal("v2", bgStatus.Candidates[0])
 
@@ -4601,6 +4602,7 @@ func (suite *RabbitBgTestSuite) TestCpInstallPromoteRollback() {
 	assertion.NoError(err)
 
 	bgStatus, err = suite.bgService.GetBgStatusByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
+	assertion.NoError(err)
 	assertion.Equal("v2", bgStatus.Active)
 	assertion.Equal("v1", bgStatus.Legacy)
 	assertion.Nil(bgStatus.Candidates)
@@ -4628,6 +4630,7 @@ func (suite *RabbitBgTestSuite) TestCpInstallPromoteRollback() {
 	assertion.NoError(err)
 
 	bgStatus, err = suite.bgService.GetBgStatusByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
+	assertion.NoError(err)
 	assertion.Equal("v1", bgStatus.Active)
 	assertion.Equal("v2", bgStatus.Candidates[0])
 }
@@ -4657,6 +4660,7 @@ func (suite *RabbitBgTestSuite) TestCpInstallDeleteCandidate() {
 	assertion.NoError(err)
 
 	bgStatus, err := suite.bgService.GetBgStatusByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
+	assertion.NoError(err)
 	assertion.Equal("v1", bgStatus.Active)
 	assertion.Equal("v3", bgStatus.Candidates[0])
 
@@ -4676,6 +4680,7 @@ func (suite *RabbitBgTestSuite) TestCpInstallDeleteCandidate() {
 	assertion.NoError(err)
 
 	bgStatus, err = suite.bgService.GetBgStatusByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
+	assertion.NoError(err)
 	assertion.Equal("v1", bgStatus.Active)
 	assertion.Nil(bgStatus.Candidates)
 }

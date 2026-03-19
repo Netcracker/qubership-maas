@@ -32,9 +32,6 @@ import (
 	"testing"
 	"time"
 )
-import (
-	_assert "github.com/stretchr/testify/assert"
-)
 
 var (
 	assertion                 *assert.Assertions
@@ -89,7 +86,7 @@ func testInitializer(t *testing.T) {
 }
 
 func TestIncorrectInput(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -103,7 +100,7 @@ Abc: cde
 
 func TestIncorrectKind(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -121,7 +118,7 @@ kind: foo
 
 func TestKafkaUnknownField(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -152,7 +149,7 @@ spec:
 
 func TestConfigV2KafkaApply(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -232,7 +229,7 @@ spec:
 
 func TestKafkaApply(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -267,7 +264,7 @@ spec:
 
 func TestConfigApplyError(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -303,7 +300,7 @@ func TestConfigDesignatorWithoutDefaultInstance(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -401,7 +398,7 @@ func TestSharedConfigDesignatorAndKafkaTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -475,7 +472,7 @@ func TestSharedConfigParsingErr(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -528,7 +525,7 @@ func TestSharedConfigUnknownFieldErr(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -566,7 +563,7 @@ func TestSharedConfigErr(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -633,7 +630,7 @@ func TestSharedConfigDesignatorAndKafkaTopicError(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -716,7 +713,7 @@ func TestSharedConfigRabbitV2Error(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -772,7 +769,7 @@ func TestSharedConfigKafkaAndRabbitDesignator(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -875,7 +872,7 @@ func TestBaseNamespaceAndKafkaTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -931,7 +928,7 @@ spec:
 }
 
 func Test_applyKafkaTopicDefinition_ToTopicDefinition_failed(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	name1 := "name-1"
 	namespace1 := "namespace-1"
@@ -958,7 +955,7 @@ func Test_applyKafkaTopicDefinition_ToTopicDefinition_failed(t *testing.T) {
 }
 
 func Test_registry_orderedKinds(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	r := newRegistry()
 	firstKind := model.Kind{ApiVersion: KafkaConfigV2ApiVersion, Kind: TopicTemplateDeleteKind}
 	secondKind := model.Kind{ApiVersion: KafkaConfigV2ApiVersion, Kind: TenantTopicDeleteKind}
@@ -978,7 +975,7 @@ func TestApplyKafkaDeleteTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -1018,7 +1015,7 @@ func TestApplyKafkaDeleteTenantTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -1068,7 +1065,7 @@ func TestApplyKafkaDeleteTopicTemplate(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2

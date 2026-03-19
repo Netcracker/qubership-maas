@@ -2192,11 +2192,12 @@ func TestKafkaTopicDefinitionsWarmup_TenantActivation(t *testing.T) {
 		requestContext := &model.RequestContext{Namespace: "first-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		_, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 
 		kafkaInstance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -2439,11 +2440,12 @@ func TestConnectionContention(t *testing.T) {
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		domainDao := domain.NewBGDomainDao(baseDao)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		_, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 
 		instance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
