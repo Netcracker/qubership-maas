@@ -15,7 +15,7 @@ on:
 
 jobs:
   docker-build:
-    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@f3c183b372d92abbd4e9af4496e4c0d8d45b2282 # v1.3.1
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@48158cb845bca0d124fdcb12ce51eb578312daf9 # v1.3.1
     with:
       dry-run: false
       config-filename: "validation-image---docker-dev-config.json"

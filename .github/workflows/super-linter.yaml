@@ -92,6 +92,9 @@ jobs:
       uses: super-linter/super-linter/slim@ffde3b2b33b745cb612d787f669ef9442b1339a6 # v8.1.0
       env:
         VALIDATE_ALL_CODEBASE: ${{ inputs.full_scan || false }}
+        # Super-linter image currently ships golangci-lint built with older Go.
+        # Keep Go linting in the dedicated golangci-lint job below.
+        VALIDATE_GO: false
         # To report GitHub Actions status checks
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         DEFAULT_BRANCH: ${{ github.event.pull_request.base.ref || github.event.push.ref }}
@@ -107,5 +110,5 @@ jobs:
           go-version: "1.26.1"
       - uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
         with:
-          version: v2.9.0
+          version: latest
           working-directory: maas/maas-service
