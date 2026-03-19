@@ -95,6 +95,7 @@ jobs:
         # Super-linter image currently ships golangci-lint built with older Go.
         # Keep Go linting in the dedicated golangci-lint job below.
         VALIDATE_GO: false
+        VALIDATE_GO_MODULES: false
         # To report GitHub Actions status checks
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         DEFAULT_BRANCH: ${{ github.event.pull_request.base.ref || github.event.push.ref }}
