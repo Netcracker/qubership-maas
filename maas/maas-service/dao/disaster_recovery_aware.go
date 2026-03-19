@@ -6,7 +6,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+//nolint:staticcheck // ST1012: legacy exported names used across the project
 var DatabaseIsReadonlyError = errors.New("database is in read-only mode")
+
+//nolint:staticcheck // ST1012: legacy exported names used across the project
 var DatabaseIsNotActiveError = errors.New("database is not in 'active' mode")
 
 func (d BaseDaoImpl) translateDRModeError(err error) error {

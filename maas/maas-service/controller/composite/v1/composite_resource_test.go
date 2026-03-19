@@ -60,7 +60,7 @@ func TestRegistrationController_Create(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(responseBody), "namespaces[1] length must be less than or equal to '63'")
 
-	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{"a", []string{"a", "b", "c"}})
+	registrationService.EXPECT().Upsert(gomock.Any(), &composite.CompositeRegistration{Id: "a", Namespaces: []string{"a", "b", "c"}})
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(`
 			{
 			  "id": "a",

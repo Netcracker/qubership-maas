@@ -227,11 +227,10 @@ func healthShortcut(health func() watchdog.AggregatedStatus) func(*fiber.Ctx) er
 func indexPage(_ context.Context) func(fiberCtx *fiber.Ctx) error {
 	return func(fiberCtx *fiber.Ctx) error {
 		if fiberCtx.OriginalURL() == "/" {
-			_, _ = fiberCtx.WriteString("Nothing to see here")
-			return nil
-		} else {
-			return fiberCtx.Next()
+			_, err := fiberCtx.WriteString("Nothing to see here")
+			return err
 		}
+		return fiberCtx.Next()
 	}
 }
 

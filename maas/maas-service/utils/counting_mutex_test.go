@@ -19,20 +19,22 @@ func TestNewCountingMutex(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		wg.Add(1)
 
-		go cm.Exec(ctx, func() error {
-			defer func() {
-				contr.Add(-1)
-				wg.Done()
-			}()
+		go func() {
+			assert.NoError(t, cm.Exec(ctx, func() error {
+				defer func() {
+					contr.Add(-1)
+					wg.Done()
+				}()
 
-			contr.Add(1)
+				contr.Add(1)
 
-			CancelableSleep(ctx, 10*time.Millisecond)
-			assert.True(t, contr.Load() <= 2)
-			CancelableSleep(ctx, 10*time.Millisecond)
+				CancelableSleep(ctx, 10*time.Millisecond)
+				assert.True(t, contr.Load() <= 2)
+				CancelableSleep(ctx, 10*time.Millisecond)
 
-			return nil
-		})
+				return nil
+			}))
+		}()
 	}
 
 	wg.Wait()

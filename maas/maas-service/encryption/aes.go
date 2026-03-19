@@ -40,7 +40,7 @@ func (s *Aes) Decrypt(encryptedValue string, dst any) error {
 		return errors.New("malformed ciphertext")
 	}
 
-	dec, err := gcm.Open(nil,
+	dec, openErr := gcm.Open(nil,
 		ciphertext[:gcm.NonceSize()],
 		ciphertext[gcm.NonceSize():],
 		nil,
@@ -48,6 +48,9 @@ func (s *Aes) Decrypt(encryptedValue string, dst any) error {
 
 	if dec == nil {
 		log.Panic("malformed database cipher key")
+	}
+	if openErr != nil {
+		return openErr
 	}
 
 	return json.Unmarshal(dec, dst)

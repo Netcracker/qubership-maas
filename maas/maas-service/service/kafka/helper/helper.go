@@ -28,7 +28,6 @@ var isTopicExistsMethodMetric = newMetricCounter("isTopicExists")
 var settingsMethodMetric = newMetricCounter("topicSettings")
 var listTopicsMethodMetric = newMetricCounter("listTopics")
 var bulkTopicSettingsMetric = newMetricCounter("bulkTopicSetting")
-var healthMetric = newMetricCounter("health")
 
 func CreateKafkaHelper(ctx context.Context) Helper {
 	sarama.Logger = NewSaramaLogger(ctx, logging.GetLogger("sarama"))
@@ -82,7 +81,11 @@ func (helper HelperImpl) CheckHealth(ctx context.Context, kafkaInstance *model.K
 		log.WarnC(ctx, "Failed to create kafka admin client for %+v: %v", kafkaInstance, err)
 		return err
 	}
-	defer admin.Close()
+	defer func() {
+		if err := admin.Close(); err != nil {
+			log.WarnC(ctx, "Failed to close kafka admin client for %+v: %v", kafkaInstance, err)
+		}
+	}()
 
 	_, err = admin.DescribeTopics([]string{dummyNonExistenceTopic})
 	if err != nil {
@@ -102,7 +105,11 @@ func (helper *HelperImpl) CreateTopic(ctx context.Context, topic *model.TopicReg
 		if err != nil {
 			return nil, err
 		}
-		defer admin.Close()
+		defer func() {
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Topic, topic.Instance, err)
+			}
+		}()
 
 		topicDetail := buildTopicDetail(topic)
 		log.InfoC(ctx, "Trying to create topic: `%v', details: %+v", topic.Topic, topicDetail)
@@ -116,7 +123,9 @@ func (helper *HelperImpl) CreateTopic(ctx context.Context, topic *model.TopicReg
 		result := topic.ToResponseDto()
 		if err := helper.enrichNewTopicSettings(ctx, admin, result); err != nil {
 			log.ErrorC(ctx, "Deleting newly created topic %s due to error: %v", topic.Topic, err)
-			_ = helper.DeleteTopic(ctx, topic)
+			if delErr := helper.DeleteTopic(ctx, topic); delErr != nil {
+				log.ErrorC(ctx, "Failed to delete topic %s after enrich error: %v", topic.Topic, delErr)
+			}
 			return nil, err
 		}
 
@@ -135,7 +144,11 @@ func (helper *HelperImpl) DeleteTopic(ctx context.Context, topic *model.TopicReg
 		if err != nil {
 			return err
 		}
-		defer admin.Close()
+		defer func() {
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Topic, topic.Instance, err)
+			}
+		}()
 		log.InfoC(ctx, "Try delete topic: `%v'", topic.Topic)
 
 		if err := admin.DeleteTopic(topic.Topic); err != nil {
@@ -180,7 +193,11 @@ func (helper *HelperImpl) UpdateTopicSettings(ctx context.Context, topic *model.
 		if err != nil {
 			return err
 		}
-		defer admin.Close()
+		defer func() {
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Name, topic.Instance, err)
+			}
+		}()
 
 		requestedSettings := topic.RequestedSettings
 		log.DebugC(ctx, "requestedSettings %+v", requestedSettings)
@@ -274,7 +291,11 @@ func (helper *HelperImpl) createPartitionsForTopic(ctx context.Context, topic *m
 	if err != nil {
 		return false, err
 	}
-	defer admin.Close()
+	defer func() {
+		if err := admin.Close(); err != nil {
+			log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Name, topic.Instance, err)
+		}
+	}()
 
 	if err := admin.CreatePartitions(topic.Name, numPartitions, partitionAssignment, false); err != nil {
 		log.ErrorC(ctx, "Failed to increase the number of partitions of the topics %s: %v", topic.Name, err)
@@ -304,7 +325,11 @@ func (helper *HelperImpl) alterPartitionReassignmentsForTopic(ctx context.Contex
 	if err != nil {
 		return false, err
 	}
-	defer admin.Close()
+	defer func() {
+		if err := admin.Close(); err != nil {
+			log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Name, topic.Instance, err)
+		}
+	}()
 
 	log.DebugC(ctx, "topic registration: %+v", topic)
 	log.DebugC(ctx, "topic name: %+v", topic.Name)
@@ -324,7 +349,11 @@ func (helper *HelperImpl) alterPartitionReassignmentsByReplicationFactor(ctx con
 	if err != nil {
 		return err
 	}
-	defer admin.Close()
+	defer func() {
+		if err := admin.Close(); err != nil {
+			log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Name, topic.Instance, err)
+		}
+	}()
 
 	brokers, _, err := admin.DescribeCluster()
 	if err != nil {
@@ -364,7 +393,11 @@ func (helper *HelperImpl) GetTopicSettings(ctx context.Context, topic *model.Top
 		if err != nil {
 			return err
 		}
-		defer admin.Close()
+		defer func() {
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Name, topic.Instance, err)
+			}
+		}()
 
 		return helper.enrichNewTopicSettings(ctx, admin, topic)
 	})
@@ -381,17 +414,6 @@ func (helper *HelperImpl) enrichNewTopicSettings(ctx context.Context, admin sara
 		log.ErrorC(ctx, "Failed to obtain kafka topic %s metadata from instance %s: %v", topic.Name, topic.Instance, err)
 		return err
 	}
-	return nil
-}
-
-// enrichExistingTopicSettings gets settings for existing topic from kafka without retry.
-func (helper *HelperImpl) enrichExistingTopicSettings(ctx context.Context, admin sarama.ClusterAdmin, topic *model.TopicRegistrationRespDto) error {
-	settings, err := helper.getTopicSettings(ctx, admin, topic.Name)
-	if err != nil {
-		log.ErrorC(ctx, "Failed to obtain kafka topic %s metadata from instance %s: %v", topic.Name, topic.Instance, err)
-		return err
-	}
-	topic.ActualSettings = settings
 	return nil
 }
 
@@ -430,7 +452,7 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 		log.ErrorC(ctx, "Failed to obtain kafka topic %s metadata from kafka: %v", topic, err)
 		return nil, err
 	} else if metadata[0].Err != 0 {
-		err = errors.New(fmt.Sprintf("kafka: failed to get created topic description (kafka err code %v)", metadata[0].Err))
+		err = fmt.Errorf("kafka: failed to get created topic description (kafka err code %v)", metadata[0].Err)
 		log.ErrorC(ctx, "Error in kafka topic %s metadata: %v", topic, err)
 		return nil, err
 	}
@@ -473,7 +495,11 @@ func (helper *HelperImpl) GetListTopics(ctx context.Context, instance *model.Kaf
 			log.ErrorC(ctx, "Failed to connect to kafka instance %s: %v", instance, err)
 			return nil, err
 		}
-		defer admin.Close()
+		defer func() {
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for instance %s: %v", instance.Id, err)
+			}
+		}()
 
 		if topics, err := admin.ListTopics(); err == nil {
 			return topics, nil
@@ -490,7 +516,11 @@ func (helper *HelperImpl) DoesTopicExistOnKafka(ctx context.Context, instance *m
 		if err != nil {
 			return false, utils.LogError(log, ctx, "Failed to connect to kafka instance %s: %v", instance, err)
 		}
-		defer admin.Close()
+		defer func() {
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topicName, instance.Id, err)
+			}
+		}()
 		if topics, err := admin.DescribeTopics([]string{topicName}); err == nil {
 			switch topics[0].Err { //https://cwiki.apache.org/confluence/display/KAFKA/A+Guide+To+The+Kafka+Protocol#AGuideToTheKafkaProtocol-ErrorCodes
 			case 0:
@@ -533,7 +563,11 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 	if err != nil {
 		return utils.LogError(log, ctx, "error create admin client to instance: %+v: %w", kafkaInstance, err)
 	}
-	defer admin.Close()
+	defer func() {
+		if err := admin.Close(); err != nil {
+			log.WarnC(ctx, "Failed to close kafka admin client for instance %s: %v", kafkaInstance.Id, err)
+		}
+	}()
 
 	topicNames := make([]string, 0, len(topics))
 	topicsByName := make(map[string]*model.TopicRegistrationRespDto, len(topics))

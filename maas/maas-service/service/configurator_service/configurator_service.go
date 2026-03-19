@@ -70,7 +70,6 @@ func init() {
 }
 
 type KindProcessor struct {
-	order   int
 	value   interface{}
 	handler func(context.Context, interface{}, string) (interface{}, error)
 }
@@ -216,8 +215,8 @@ func (cs *DefaultConfiguratorService) ApplyConfig(ctx context.Context, raw strin
 		msg := fmt.Sprintf(format, v...)
 		results = append(results,
 			model.ConfigMsResponse{
-				obj,
-				model.ConfigMsResult{Status: "error", Error: msg},
+				Request: obj,
+				Result:  model.ConfigMsResult{Status: "error", Error: msg},
 			},
 		)
 		if firstError == nil {
@@ -250,8 +249,8 @@ func (cs *DefaultConfiguratorService) ApplyConfig(ctx context.Context, raw strin
 
 			if result, err := proc.handler(ctx, config, namespace); err == nil {
 				results = append(results, model.ConfigMsResponse{
-					config,
-					model.ConfigMsResult{Status: model.STATUS_OK, Data: result},
+					Request: config,
+					Result:  model.ConfigMsResult{Status: model.STATUS_OK, Data: result},
 				})
 			} else {
 				log.ErrorC(ctx, "Error apply config: %v, \n\tConfig: %+v", err, config)
@@ -684,7 +683,7 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 	log.InfoC(ctx, "Starting to apply rabbit configuration for namespace '%v'", namespace)
 	serviceConfigs, ok := cfg.(model.ServiceConfigs)
 	if !ok {
-		errMsg := fmt.Sprintf("Error during converting config to 'ServiceConfigs', only aggregated config is allowed. Note, that you can't send rabbit config v2 to rabbit directly, it should be sent via deployed, which aggregates configs from all microservices of application")
+		errMsg := "Error during converting config to 'ServiceConfigs', only aggregated config is allowed. Note, that you can't send rabbit config v2 to rabbit directly, it should be sent via deployed, which aggregates configs from all microservices of application"
 		log.ErrorC(ctx, errMsg)
 		return results, model.AggregateConfigError{
 			Err:     model.ErrAggregateConfigParsing,

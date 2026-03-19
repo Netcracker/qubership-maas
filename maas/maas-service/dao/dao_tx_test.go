@@ -15,9 +15,9 @@ func TestAtomicTransactions(t *testing.T) {
 	ctx := context.Background()
 	WithSharedDao(t, func(baseDao *BaseDaoImpl) {
 		lock := &Lock{"TestAtomicTransactions"}
-		baseDao.UsingDb(ctx, func(db *gorm.DB) error {
+		assert.NoError(t, baseDao.UsingDb(ctx, func(db *gorm.DB) error {
 			return db.Create(lock).Error
-		})
+		}))
 		defer baseDao.db().Delete(lock)
 
 		// test record
@@ -35,13 +35,13 @@ func TestLocalTransactionsRollback(t *testing.T) {
 	ctx := context.Background()
 	WithSharedDao(t, func(baseDao *BaseDaoImpl) {
 		lock := &Lock{"TestLocalTransactionsRollback"}
-		baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
+		assert.Error(t, baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
 			if db.Create(lock).Error != nil {
 				panic("Unexpected error")
 			}
 
 			return errors.New("emulate error that should lead to tx rollback")
-		})
+		}))
 		defer baseDao.db().Delete(lock)
 
 		// test record
@@ -59,9 +59,9 @@ func TestLocalTransactions(t *testing.T) {
 	ctx := context.Background()
 	WithSharedDao(t, func(baseDao *BaseDaoImpl) {
 		lock := &Lock{"TestLocalTransactionsRollback"}
-		baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
+		assert.NoError(t, baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
 			return db.Create(lock).Error
-		})
+		}))
 		defer baseDao.db().Delete(lock)
 
 		// test record
@@ -83,13 +83,13 @@ func TestGlobalTransactions(t *testing.T) {
 		// use lock table just for its structure simplicity, not for intended purpose
 		lock := &Lock{"TestGlobalTransactions"}
 		go func() {
-			WithTransactionContext(ctx, func(ctx context.Context) error {
+			assert.NoError(t, WithTransactionContext(ctx, func(ctx context.Context) error {
 				fmt.Printf("Insert test record\n")
-				baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
+				assert.NoError(t, baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
 					return db.Create(lock).Error
-				})
+				}))
 
-				baseDao.UsingDb(ctx, func(db *gorm.DB) error {
+				assert.NoError(t, baseDao.UsingDb(ctx, func(db *gorm.DB) error {
 					var created bool
 					assert.NoError(t, db.Model(Lock{}).
 						Select("count(*) > 0").
@@ -98,18 +98,18 @@ func TestGlobalTransactions(t *testing.T) {
 						Error)
 					assert.True(t, created)
 					return nil
-				})
+				}))
 
 				sem.Notify("check")                   // unlock check visibility code block
 				sem.Await("continue", 10*time.Second) // wait answer, that checks has been done
 
 				fmt.Printf("Delete test record\n")
-				baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
+				assert.NoError(t, baseDao.WithTx(ctx, func(ctx context.Context, db *gorm.DB) error {
 					return db.Delete(lock).Error
-				})
+				}))
 				fmt.Printf("Finished\n")
 				return nil
-			})
+			}))
 
 			sem.Notify("finished")
 		}()

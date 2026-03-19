@@ -94,7 +94,6 @@ type RabbitServiceImpl struct {
 	rabbitDao       RabbitServiceDao
 	instanceService instance.RabbitInstanceService
 	km              KeyManager
-	resolve         func(ctx context.Context, instance string) (helper.RabbitHelper, string, error)
 	getRabbitHelper RabbitHelperFunc
 	auditService    monitoring.Auditor
 	bgService       bg_service.BgService
@@ -307,6 +306,9 @@ func (s *RabbitServiceImpl) Warmup(ctx context.Context, bgState *domain.BGState)
 		var entities model.RabbitEntities
 
 		allEntities, err := s.rabbitDao.GetRabbitEntitiesByVhostId(ctx, oldVhost.Id)
+		if err != nil {
+			return utils.LogError(log, ctx, "Error during GetRabbitEntitiesByVhostId while in rabbit Warmup: %v", err)
+		}
 		for _, entity := range allEntities {
 			if entity.EntityType == model.ExchangeType.String() {
 				entities.Exchanges = append(entities.Exchanges, entity.ClientEntity)
@@ -792,7 +794,9 @@ func (s *RabbitServiceImpl) CreateAndRegisterVHost(ctx context.Context, instance
 		if errors.Is(err, dao.ClassifierUniqIndexErr) {
 			return nil, dao.ClassifierUniqIndexErr
 		}
-		s.km.DeletePassword(ctx, vhost.Password)
+		if delErr := s.km.DeletePassword(ctx, vhost.Password); delErr != nil {
+			log.Error("Failed to delete password after registration error: %v", delErr)
+		}
 		log.Error("Registration error: %v", err.Error())
 		return nil, err
 	}
@@ -999,9 +1003,6 @@ func (s *RabbitServiceImpl) CreateOrUpdateEntitiesV1(ctx context.Context, vHostR
 
 	resultIsNotNil := false
 	for _, ent := range entities.Exchanges {
-
-		resultIsNotNil = true
-
 		//todo refactor interface{} to map[string]interface{}
 		createdExchange, updateReason, err := rabbitHelper.CreateExchange(ctx, ent)
 		if err != nil {
@@ -1030,6 +1031,7 @@ func (s *RabbitServiceImpl) CreateOrUpdateEntitiesV1(ctx context.Context, vHostR
 
 		log.InfoC(ctx, "Finished processing exchange with name: %s", rabbitEntity.EntityName.String)
 	}
+	resultIsNotNil = resultIsNotNil || len(entities.Exchanges) > 0
 
 	//lazy binding check moved here, because lazy binding could exist in DB, but config can have both E and B and created binding will conflict with existing (but not created) lazy binding
 
@@ -1062,8 +1064,6 @@ func (s *RabbitServiceImpl) CreateOrUpdateEntitiesV1(ctx context.Context, vHostR
 	}
 
 	for _, ent := range entities.Queues {
-		resultIsNotNil = true
-
 		//todo refactor interface{} to map[string]interface{}
 		createdQueue, updateReason, err := rabbitHelper.CreateQueue(ctx, ent)
 		if err != nil {
@@ -1092,10 +1092,9 @@ func (s *RabbitServiceImpl) CreateOrUpdateEntitiesV1(ctx context.Context, vHostR
 
 		log.InfoC(ctx, "Finished processing queue with name: %s", rabbitEntity.EntityName.String)
 	}
+	resultIsNotNil = resultIsNotNil || len(entities.Queues) > 0
 
 	for _, ent := range entities.Bindings {
-		resultIsNotNil = true
-
 		binding := ent.(map[string]interface{})
 		createdBinding, err := rabbitHelper.CreateNormalOrLazyBinding(ctx, binding)
 		if err != nil {
@@ -1103,7 +1102,11 @@ func (s *RabbitServiceImpl) CreateOrUpdateEntitiesV1(ctx context.Context, vHostR
 			return result, nil, err
 		}
 
-		source, destination, err := utils.ExtractSourceAndDestination(binding)
+		source, destination, extractErr := utils.ExtractSourceAndDestination(binding)
+		if extractErr != nil {
+			// keep backward compatibility for legacy/lazy bindings that may not have source/destination fields
+			log.WarnC(ctx, "failed to extract source/destination for binding while in CreateOrUpdateEntitiesV1: %v", extractErr)
+		}
 		lazyBinding := model.RabbitEntity{
 			VhostId:    vHostRegistration.Id,
 			Namespace:  vHostRegistration.Namespace,
@@ -1133,11 +1136,11 @@ func (s *RabbitServiceImpl) CreateOrUpdateEntitiesV1(ctx context.Context, vHostR
 		}
 
 		log.InfoC(ctx, "Finished processing binding from-to: %s - %s", source, destination)
+	}
+	resultIsNotNil = resultIsNotNil || len(entities.Bindings) > 0
 
-		//what?
-		if !resultIsNotNil {
-			result = nil
-		}
+	if !resultIsNotNil {
+		result = nil
 	}
 
 	//deletion section - delete lazy binding by classifier source and dest
@@ -1155,12 +1158,10 @@ func (s *RabbitServiceImpl) ApplyPolicies(ctx context.Context, classifier model.
 		return result, err
 	}
 
-	if policies != nil {
-		for _, ent := range policies {
-			err := createEntity(ctx, ent, rabbitHelper.CreatePolicy, &result, nil)
-			if err != nil {
-				return result, err
-			}
+	for _, ent := range policies {
+		err := createEntity(ctx, ent, rabbitHelper.CreatePolicy, &result, nil)
+		if err != nil {
+			return result, err
 		}
 	}
 
@@ -1308,7 +1309,8 @@ func (s *RabbitServiceImpl) DeleteEntitiesByRabbitVersionedEntities(ctx context.
 			return result, err
 		}
 
-		if versionedEntity.EntityType == "exchange" {
+		switch versionedEntity.EntityType {
+		case "exchange":
 			err := deleteEntity(ctx, versionedEntity.RabbitEntity, rabbitHelper.DeleteExchange, &result.Exchanges)
 			if err != nil {
 				log.ErrorC(ctx, "error during exchange deletion for exchange '%+v': %v", versionedEntity, err)
@@ -1334,13 +1336,13 @@ func (s *RabbitServiceImpl) DeleteEntitiesByRabbitVersionedEntities(ctx context.
 				}
 
 			}
-		} else if versionedEntity.EntityType == "queue" {
+		case "queue":
 			err := deleteEntity(ctx, versionedEntity.RabbitEntity, rabbitHelper.DeleteQueue, &result.Queues)
 			if err != nil {
 				log.ErrorC(ctx, "error during queue deletion for queue '%+v': %v", versionedEntity, err)
 				return result, err
 			}
-		} else if versionedEntity.EntityType == "binding" {
+		case "binding":
 			// lazy binding might not be created, RabbitEntity field should be empty then
 			if versionedEntity.RabbitEntity != nil {
 				err := deleteEntity(ctx, versionedEntity.RabbitEntity, rabbitHelper.DeleteBinding, &result.Bindings)
@@ -1349,6 +1351,8 @@ func (s *RabbitServiceImpl) DeleteEntitiesByRabbitVersionedEntities(ctx context.
 					return result, err
 				}
 			}
+		default:
+			return result, utils.LogError(log, ctx, "incorrect rabbit entity type: %w", msg.BadRequest)
 		}
 	}
 	return result, nil
@@ -1386,7 +1390,7 @@ func createEntity(ctx context.Context, ent interface{}, handler helper.CreateEnt
 	}
 	if updateReason != "" {
 		if updateStatus != nil {
-			*updateStatus = append(*updateStatus, model.UpdateStatus{entity, "updated", updateReason})
+			*updateStatus = append(*updateStatus, model.UpdateStatus{Entity: entity, Status: "updated", Reason: updateReason})
 		}
 	}
 	return nil
@@ -2070,6 +2074,9 @@ func (s *RabbitServiceImpl) RabbitBgValidation(ctx context.Context, namespace st
 
 		//B have non-empty and existing E-source
 		incorrectBindings, err := s.rabbitDao.CheckBindingsHaveExistingESource(ctx, vhost.Id, candidateVersion)
+		if err != nil {
+			return utils.LogError(log, ctx, "check binding exchange sources: %w", err)
+		}
 		if len(incorrectBindings) != 0 {
 			//since PDSDNREQ-6232 lazy bindings were introduced, exchange existence is not mandatory
 			msg := fmt.Sprintf("validation warning - these bindings have non-existing exchange source within vhost '%v' and candidateVersion '%v' :", (incorrectBindings)[0].MsConfig.Vhost.Classifier, candidateVersion)
@@ -2314,11 +2321,9 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 		}
 		vhostInstance := vhost.InstanceId
 
-		var exportedQueues []model.RabbitEntity
 		var exportedQueuesEntities = make(map[string]model.Queue)
 		var exportedQueuesVhosts = make(map[string][]model.VHostRegistration)
 
-		var exportedExchanges []model.RabbitEntity
 		var exportedExchangesEntities = make(map[string]model.Exchange)
 		var exportedExchangeVhostsAndVersion = make(map[string][]model.VhostAndVersion)
 
@@ -2365,11 +2370,9 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 				log.InfoC(ctx, "ProcessExportedVhost: found exported entity with name '%s'", entity.EntityName.String)
 				switch entity.EntityType {
 				case model.QueueType.String():
-					exportedQueues = append(exportedQueues, entity)
 					exportedQueuesEntities[entity.EntityName.String] = entity.ClientEntity
 					exportedQueuesVhosts[entity.EntityName.String] = append(exportedQueuesVhosts[entity.EntityName.String], *vhost)
 				case model.ExchangeType.String():
-					exportedExchanges = append(exportedExchanges, entity)
 					exportedExchangesEntities[entity.EntityName.String] = entity.ClientEntity
 
 					var version string
@@ -2413,7 +2416,7 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 
 			if exportedVhost == nil {
 				log.InfoC(ctx, "ProcessExportedVhost: exported vhost is needed (exported entities exist) but not created, starting creation")
-				_, exportedVhost, err = s.getOrCreateVhostInternal(ctx, vhostInstance, &exportedClassifier, nil)
+				_, _, err = s.getOrCreateVhostInternal(ctx, vhostInstance, &exportedClassifier, nil)
 				if err != nil {
 					return utils.LogError(log, ctx, "Error during GetOrCreateVhost exported while in ProcessExportedVhost: %w", err)
 				}
@@ -2431,10 +2434,8 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 
 			// build set of existing shovel names for quick lookup
 			existingShovelsSet := make(map[string]struct{})
-			if existingShovels != nil {
-				for _, shovel := range existingShovels {
-					existingShovelsSet[shovel.Name] = struct{}{}
-				}
+			for _, shovel := range existingShovels {
+				existingShovelsSet[shovel.Name] = struct{}{}
 			}
 
 			var createdShovelNames []string

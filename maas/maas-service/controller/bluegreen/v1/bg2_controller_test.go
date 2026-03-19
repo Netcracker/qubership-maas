@@ -78,7 +78,9 @@ func TestBg2Controller_InitDomain(t *testing.T) {
 }
 `
 	req = httptest.NewRequest("POST", "/operation/init-domain", strings.NewReader(payload))
-	resp, _ = app.Test(req, 10000000)
+	var err error
+	resp, err = app.Test(req, 10000000)
+	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -211,6 +213,7 @@ func TestBg2Controller_ListDomains(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	responseBody, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
 	var result []domain.BGNamespaces
 	assert.NoError(t, json.Unmarshal(responseBody, &result))
 	assert.Equal(t, 2, len(result))

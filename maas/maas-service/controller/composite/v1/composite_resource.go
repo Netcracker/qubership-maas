@@ -68,7 +68,7 @@ func (c *RegistrationController) GetById(fiberCtx *fiber.Ctx) error {
 		return err
 	}
 	if registration == nil {
-		return fmt.Errorf("No composite registration found by compositeId: %v: %w", baseline, msg.NotFound)
+		return fmt.Errorf("no composite registration found by compositeId: %v: %w", baseline, msg.NotFound)
 	}
 
 	return controller.RespondWithJson(fiberCtx, http.StatusOK, NewRegistrationResponse(registration))

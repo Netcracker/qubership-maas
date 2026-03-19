@@ -30,6 +30,8 @@ func init() {
 }
 
 var ErrEntityAlreadyExists = errors.New("dao: entity already exists")
+
+//nolint:staticcheck // ST1012: legacy exported name used across the project
 var MasterDatabaseUnavailableForUpdate = errors.New("master database is unavailable. Check PG availability. Service use data cache and supports all requests ONLY in READ-ONLY mode")
 
 //go:generate mockgen -source=dao.go -destination=mock_dao/mock.go
@@ -66,9 +68,13 @@ type metrics struct {
 	replicaFailedRequests    prometheus.Counter
 }
 
+//nolint:staticcheck // ST1012: legacy exported names used across the project
 var ClassifierUniqIndexErr = errors.New("classifier unique violation")
 
+//nolint:staticcheck // ST1012: legacy exported names used across the project
 var InstanceDesignatorUniqueIndexErr = errors.New("instance designator unique violation")
+
+//nolint:staticcheck // ST1012: legacy exported names used across the project
 var InstanceDesignatorForeignKeyErr = errors.New("instance designator foreign key instance violation")
 
 type InstanceError struct {
@@ -106,9 +112,12 @@ func New(dbConfig *db.Config) *BaseDaoImpl {
 		log.Errorf("error register sql execution metric: %v", err)
 	}
 
-	dbGorm, err := gorm.Open(pg2.Open(dsn, dbConfig.DrMode), &gorm.Config{
+	dbGorm, openErr := gorm.Open(pg2.Open(dsn, dbConfig.DrMode), &gorm.Config{
 		Logger: &GormLogger{log, sqlExecMetric},
 	})
+	if openErr != nil {
+		log.Panic("gorm.Open: Error : %s\n", openErr)
+	}
 
 	// setup pooling
 	sqlDb, err := dbGorm.DB()
@@ -155,10 +164,7 @@ func (d *BaseDaoImpl) IsUniqIntegrityViolation(err error) bool {
 }
 
 func (d *BaseDaoImpl) IsForeignKeyIntegrityViolation(err error) bool {
-	if strings.Contains(err.Error(), "23503") {
-		return true
-	}
-	return false
+	return strings.Contains(err.Error(), "23503")
 }
 
 func (d *BaseDaoImpl) DSN() string {

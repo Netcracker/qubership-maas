@@ -31,6 +31,10 @@ var authHeaderRegex = regexp.MustCompile(`^(?i)(Basic|Bearer)\s+(\S+)$`)
 
 const RequestIdPropertyName = "requestId"
 
+type requestIDContextKeyType string
+
+const requestIDContextKey requestIDContextKeyType = RequestIdPropertyName
+
 type WaitGroupWithTimeout struct {
 	sync.WaitGroup
 }
@@ -53,7 +57,7 @@ func (wg *WaitGroupWithTimeout) Wait(timeout time.Duration) bool {
 }
 
 func CreateContextFromString(rId string) context.Context {
-	return context.WithValue(context.Background(), RequestIdPropertyName, rId)
+	return context.WithValue(context.Background(), requestIDContextKey, rId)
 }
 func GetBasicAuth(fiberCtx *fiber.Ctx) (string, SecretString, error) {
 	var basicAuthPrefix = []byte("Basic ")
@@ -284,45 +288,76 @@ func NarrowInputToOutputStrict(input interface{}, output interface{}) error {
 	return d.Decode(output)
 }
 
-func FormatterUtil(ai interface{}, state fmt.State, verb int32) {
-	if verb == 's' || verb == 'q' {
-		switch ai.(type) {
-		case fmt.Stringer:
-			fmt.Fprint(state, ai.(fmt.Stringer).String())
-			return
-		default:
-			// override rune and use formatting code below
-			verb = 'v'
+func FormatterUtil(ai interface{}, state fmt.State, verb rune) {
+	write := func(args ...interface{}) bool {
+		if _, err := fmt.Fprint(state, args...); err != nil {
+			return false
 		}
+		return true
+	}
+	writef := func(format string, args ...interface{}) bool {
+		if _, err := fmt.Fprintf(state, format, args...); err != nil {
+			return false
+		}
+		return true
+	}
+
+	if verb == 's' || verb == 'q' {
+		if v, ok := ai.(fmt.Stringer); ok {
+			if !write(v.String()) {
+				return
+			}
+			return
+		}
+		// override rune and use formatting code below
+		verb = 'v'
 	}
 	switch verb {
 	case 'v':
 		if state.Flag('#') {
 			// Emit type before
-			fmt.Fprintf(state, "%T", ai)
+			if !writef("%T", ai) {
+				return
+			}
 		}
-		fmt.Fprint(state, "{")
+		if !write("{") {
+			return
+		}
 		tpe := reflect.TypeOf(ai)
 		val := reflect.ValueOf(ai)
 		for i := 0; i < val.NumField(); i++ {
 			if state.Flag('#') || state.Flag('+') {
-				fmt.Fprintf(state, "%s:", tpe.Field(i).Name)
+				if !writef("%s:", tpe.Field(i).Name) {
+					return
+				}
 			}
 
 			if tpe.Field(i).Tag.Get("fmt") == "obfuscate" {
-				fmt.Fprint(state, "***")
+				if !write("***") {
+					return
+				}
 			} else {
-				fmt.Fprint(state, val.Field(i))
+				if !write(val.Field(i)) {
+					return
+				}
 			}
 
 			if i < val.NumField()-1 {
-				fmt.Fprint(state, " ") // field values separator
+				if !write(" ") { // field values separator
+					return
+				}
 			}
 		}
-		fmt.Fprint(state, "}")
+		if !write("}") {
+			return
+		}
 	default:
-		fmt.Fprintf(state, "Unsupported format: ")
-		fmt.Fprint(state, string(verb))
+		if !writef("Unsupported format: ") {
+			return
+		}
+		if !write(string(verb)) {
+			return
+		}
 	}
 }
 

@@ -22,16 +22,17 @@ func TestInsertNewRegistration(t *testing.T) {
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		domainDao := domain.NewBGDomainDao(baseDao)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		_, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 
 		instance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
 		sd := NewKafkaServiceDao(baseDao, func(context.Context, string) (*domain.BGNamespaces, error) {
-			return &domain.BGNamespaces{"controller", "primary", "secondary"}, nil
+			return &domain.BGNamespaces{Origin: "controller", Peer: "primary", ControllerNamespace: "secondary"}, nil
 		})
 
 		reg := model.TopicRegistration{
@@ -54,11 +55,12 @@ func TestFindTopicsBySearchRequest(t *testing.T) {
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		domainDao := domain.NewBGDomainDao(baseDao)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		_, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 
 		instance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -222,11 +224,12 @@ func TestKafkaBg2Composite(t *testing.T) {
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		domainDao := domain.NewBGDomainDao(baseDao)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		_, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 
 		instance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -299,7 +302,7 @@ func TestKafkaBg2Composite(t *testing.T) {
 			InstanceRef: instance,
 		}
 
-		_, topic, err = kafkaService.GetOrCreateTopic(ctx, &regContr, model.Fail)
+		_, _, err = kafkaService.GetOrCreateTopic(ctx, &regContr, model.Fail)
 		assert.Error(t, err)
 	})
 }
@@ -309,11 +312,12 @@ func TestKafkaTopicDefinitionsWarmup(t *testing.T) {
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
 		domainDao := domain.NewBGDomainDao(baseDao)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		_, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
 		})
+		assert.NoError(t, err)
 
 		sd := NewKafkaServiceDao(baseDao, func(context.Context, string) (*domain.BGNamespaces, error) { return nil, nil })
 
@@ -326,7 +330,7 @@ func TestKafkaTopicDefinitionsWarmup(t *testing.T) {
 			Name:       "first-td",
 			Kind:       model.TopicDefinitionKindTenant,
 		}
-		err := sd.InsertTopicDefinition(ctx, &originalTopicDefinition)
+		err = sd.InsertTopicDefinition(ctx, &originalTopicDefinition)
 		assert.NoError(t, err)
 
 		topicDefinitions, err := sd.FindTopicDefinitions(ctx, TopicDefinitionSearch{Namespace: "primary", Kind: model.TopicDefinitionKindTenant})
@@ -732,7 +736,7 @@ func TestKafkaDaoImpl_FindTopicTemplateById(t *testing.T) {
 		assert.Equal(t, "first", templateById.Name)
 		assert.Equal(t, "test-namespace", templateById.Namespace)
 
-		templateById, err = sd.FindTopicTemplateById(ctx, int64(42))
+		_, err = sd.FindTopicTemplateById(ctx, int64(42))
 		assert.Error(t, err)
 	})
 }

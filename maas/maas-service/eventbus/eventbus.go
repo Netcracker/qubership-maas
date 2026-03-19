@@ -27,7 +27,6 @@ type eventBus struct {
 	channelName string
 	clientId    uuid.UUID
 	broadcast   *broadcast.Broadcast[Event]
-	closeFunc   func()
 
 	log logging.Logger
 }

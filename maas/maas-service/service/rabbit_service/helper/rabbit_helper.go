@@ -278,7 +278,7 @@ func (h RabbitHelperImpl) createEntity(ctx context.Context, entity interface{}, 
 		//in binding case adding properties_key from response header
 		if strings.Contains(initResponse.Request.URL, "/api/bindings/") {
 			location := initResponse.Header().Get("Location")
-			pattern := regexp.MustCompile("^.*\\/(.*)$")
+			pattern := regexp.MustCompile(`^.*/(.*)$`)
 			groups := pattern.FindStringSubmatch(location)
 			mapEntity := entity.(map[string]interface{})
 			mapEntity["properties_key"] = groups[1]
@@ -350,11 +350,12 @@ func (h RabbitHelperImpl) deleteEntity(ctx context.Context, entity interface{}, 
 		fmt.Sprintf("Error deleting url '%v' for entity : %v", url, entity)); err != nil {
 		return nil, err
 	} else {
-		if response.RawResponse.StatusCode == http.StatusNoContent {
+		switch response.RawResponse.StatusCode {
+		case http.StatusNoContent:
 			return entity, nil
-		} else if response.RawResponse.StatusCode == http.StatusNotFound {
+		case http.StatusNotFound:
 			return nil, nil
-		} else {
+		default:
 			return nil, errors.Errorf("Unexpected error during entity deletion, return status code: %v", response.RawResponse.StatusCode)
 		}
 	}
@@ -508,7 +509,7 @@ func (h RabbitHelperImpl) CreateNormalOrLazyBinding(ctx context.Context, binding
 
 	location := initResponse.Header().Get("Location")
 	if location != "" {
-		pattern := regexp.MustCompile("^.*\\/(.*)$")
+		pattern := regexp.MustCompile(`^.*/(.*)$`)
 		groups := pattern.FindStringSubmatch(location)
 		createdBinding["properties_key"] = groups[1]
 		return createdBinding, nil
@@ -745,8 +746,8 @@ func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhos
 	}
 
 	address := h.instance.AmqpUrl
-	address = strings.TrimLeft(address, "amqp://")
-	address = strings.TrimLeft(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqp://")
 
 	var createdShovelNames []string
 	for _, vhost := range vhosts {
@@ -789,8 +790,8 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 	}
 
 	address := h.instance.AmqpUrl
-	address = strings.TrimLeft(address, "amqp://")
-	address = strings.TrimLeft(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqp://")
 
 	var createdShovelNames []string
 	for _, vhostAndVersion := range vhostsAndVersion {

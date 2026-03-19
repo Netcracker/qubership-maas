@@ -1143,6 +1143,7 @@ func TestRabbitBg2(t *testing.T) {
 		}
 
 		found, createdVhost, err := service.GetOrCreateVhost(ctx, "test-instance", &classifier, nil)
+		assertion.NoError(err)
 		assertion.False(found)
 		assertion.NotNil(createdVhost)
 		assertion.Equal("maas.origin.test", createdVhost.Vhost)
@@ -1167,6 +1168,7 @@ func TestRabbitBg2(t *testing.T) {
 
 		//check old vhost not changed
 		getVhost, err := service.FindVhostByClassifier(ctx, &classifier)
+		assertion.NoError(err)
 		assertion.NotNil(getVhost)
 		assertion.Equal("maas.origin.test", getVhost.Vhost)
 
