@@ -208,7 +208,7 @@ public abstract class AbstractMaasIT {
     protected KafkaTopicResponse createKafkaTopicWithK8sToken(int expectStatus, Map<String, Object> classifier) throws IOException {
         var topicRequest = KafkaTopicRequest.builder().classifier(classifier).build();
         log.info("Create kafka topic with classifier {}", topicRequest.getClassifier());
-        Request request = helper.createJsonRequestWithNamespaceAndK8sToken(KAFKA_TOPIC_PATH, k8sAuthHelper.getMaasToken(), topicRequest, POST, TEST_NAMESPACE);
+        Request request = helper.createJsonRequestWithNamespaceAndK8sToken(KAFKA_TOPIC_PATH, k8sAuthHelper.getMaasToken(), topicRequest, POST);
         return helper.doRequest(request, KafkaTopicResponse.class, expectStatus);
     }
 
