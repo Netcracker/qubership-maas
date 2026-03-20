@@ -103,9 +103,15 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
 			}
+
+			ctx.Request().Header.Add(HeaderXMicroservice, account.Username)
+			ctx.Request().Header.Add(HeaderXNamespace, account.Namespace)
+
 			rc := model.RequestContextOf(ctx.UserContext())
-			rc.Namespace = account.Namespace
-			rc.Microservice = account.Username
+			if rc != nil {
+				rc.Namespace = account.Namespace
+				rc.Microservice = account.Username
+			}
 		default:
 			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
 		}
