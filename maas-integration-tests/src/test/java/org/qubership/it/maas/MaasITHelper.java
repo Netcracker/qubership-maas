@@ -122,7 +122,7 @@ public class MaasITHelper {
                 .build();
     }
 
-    public Request createJsonRequestWithNamespaceAndK8sToken(String url, String authorization, Object body, String method, String namespace) throws JsonProcessingException {
+    public Request createJsonRequestWithNamespaceAndK8sToken(String url, String authorization, Object body, String method) throws JsonProcessingException {
         return createJsonRequestWithNamespaceAndScheme(url, authorization, "Bearer", body, method).build();
     }
 

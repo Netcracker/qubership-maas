@@ -293,9 +293,10 @@ public abstract class AbstractMaasIT {
 
     protected VirtualHostResponse createVirtualHostWithK8sToken(int expectStatus) throws IOException {
         Map<String, Object> classifier = createSimpleClassifier("VirtualHostBasicOperationsIT", "it-test");
+        classifier.put(NAMESPACE, "maas-it-test");
         var vhRequest = VirtualHostRequest.builder().classifier(classifier).build();
         log.info("Create virtual host with classifier {}", vhRequest.getClassifier());
-        Request request = helper.createJsonRequestWithNamespaceAndK8sToken(RABBIT_VIRTUAL_HOST_PATH, k8sAuthHelper.getMaasToken(), vhRequest, MaasITHelper.POST, TEST_NAMESPACE);
+        Request request = helper.createJsonRequestWithNamespaceAndK8sToken(RABBIT_VIRTUAL_HOST_PATH, k8sAuthHelper.getMaasToken(), vhRequest, MaasITHelper.POST);
         return helper.doRequest(request, VirtualHostResponse.class, expectStatus);
     }
 
