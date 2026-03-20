@@ -29,7 +29,8 @@ db:
     key: thisis32bitlongpassphraseimusing
 
 kubernetes:
-  oidc:
+  jwt:
+    enabled: true
     audience: maas
 
 
