@@ -107,6 +107,10 @@ spec:
             - name: GOMEMLIMIT
               value: "{{ sub  $memLimitMiB (mulf $memLimitMiB 0.2) }}MiB"
 {{ end }}
+            - name: KUBERNETES_JWT_ENABLED
+              value: "{{ .Values.KUBERNETES_JWT_ENABLED }}"
+            - name: KUBERNETES_JWT_AUDIENCE
+              value: "{{ .Values.KUBERNETES_JWT_AUDIENCE }}"
           resources:
             requests:
               cpu: "{{ .Values.CPU_REQUEST }}"
