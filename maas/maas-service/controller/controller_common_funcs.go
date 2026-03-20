@@ -194,6 +194,12 @@ func ExtractRequestContext(fiberCtx *fiber.Ctx) error {
 
 // Namespace parameter shouldn't be emoty
 func RequiresNamespaceHeader(fiberCtx *fiber.Ctx) error {
+	// Skip namespace check for k8s m2m token requests
+	authScheme, _, ok := utils.ParseAuthHeader(fiberCtx.Get("Authorization"))
+	if ok && strings.ToLower(authScheme) == "bearer" {
+		return fiberCtx.Next()
+	}
+
 	ctx := fiberCtx.UserContext()
 	rc := model.RequestContextOf(ctx)
 	if rc == nil {
