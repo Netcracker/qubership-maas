@@ -61,32 +61,6 @@ roleRef:
   kind: Role
   name: maas-prehook-role
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ .Values.SERVICE_NAME }}-env-variables
-  annotations:
-    helm.sh/hook: "pre-install,pre-upgrade"
-    helm.sh/hook-weight: "-120"
-    helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
-  labels:
-    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    app.kubernetes.io/managed-by: "helm"
-    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
-stringData:
-  NAMESPACE: {{ .Values.NAMESPACE }}
-  SERVICE_NAME: {{ .Values.SERVICE_NAME | quote }}
-  DB_POSTGRESQL_ADDRESS: {{ .Values.DB_POSTGRESQL_ADDRESS | quote }}
-  DB_POSTGRESQL_DATABASE: {{ .Values.DB_POSTGRESQL_DATABASE | quote }}
-  DB_POSTGRESQL_USERNAME: {{ .Values.DB_POSTGRESQL_USERNAME | quote }}
-  DB_POSTGRESQL_PASSWORD: {{ .Values.DB_POSTGRESQL_PASSWORD | quote }}
-  DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES: {{ .Values.DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES | quote }}
-  DBAAS_AGGREGATOR_ADDRESS:  {{ .Values.DBAAS_AGGREGATOR_ADDRESS | quote }}
-  DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME:  {{ .Values.DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME | quote }}
-  DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD:  {{ .Values.DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD | quote }}
-  MAAS_ACCOUNT_MANAGER_USERNAME: {{ .Values.MAAS_ACCOUNT_MANAGER_USERNAME | quote }}
-  MAAS_ACCOUNT_MANAGER_PASSWORD: {{ .Values.MAAS_ACCOUNT_MANAGER_PASSWORD | quote }}
----
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -107,12 +81,18 @@ spec:
     spec:
       serviceAccountName: '{{ .Values.SERVICE_NAME }}-sa'
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: bootstrap-secrets
+          secret:
+            secretName: {{ .Values.SERVICE_NAME }}-env-variables
+            defaultMode: 0400
       containers:
         - name: validation-hook-{{ .Values.SERVICE_NAME }}
           image: {{ .Values.DECLARATIVE_HOOK_IMAGE }}
           command: ["/bootstrap.sh"]
           imagePullPolicy: IfNotPresent
-          envFrom:
-            - secretRef:
-                name: {{ .Values.SERVICE_NAME }}-env-variables
+          volumeMounts:
+            - name: bootstrap-secrets
+              mountPath: /var/run/secrets/maas/bootstrap
+              readOnly: true
       restartPolicy: Never

@@ -2,7 +2,7 @@
 set -e
 
 if [[ -n "${FWD_DBAAS_URL}" ]]; then
-  export dbaas_url=${FWD_DBAAS_URL}
+  export dbaas_url="${FWD_DBAAS_URL}"
 elif [[ -n "${DBAAS_AGGREGATOR_ADDRESS}" ]]; then
   echo "Deprecated parameter DBAAS_AGGREGATOR_ADDRESS is not empty and will be used instead of FWD_DBAAS_URL and API_DBAAS_ADDRESS"
   echo "Please, consider using API_DBAAS_ADDRESS instead"
@@ -14,14 +14,15 @@ fi
 
 function createDbaasAutoBalanceRules() {
       local rules=${DBAAS_LODB_PER_NAMESPACE_AUTOBALANCE_RULES// /} # remove all whitespaces
-      rules=(${rules//||/ }) # split by ||
+      IFS=' ' read -ra rules <<< "${rules//||/ }" # split by ||
       for i in "${rules[@]}" ; do
-          local rule=(${i//=>/ }) # split by =>
+          IFS=' ' read -ra rule <<< "${i//=>/ }" # split by =>
           local db_type="${rule[0]}"
           local phy_db_id="${rule[1]}"
 
           local rule_name="${NAMESPACE}-${db_type}"
-          local rule_json=$(cat << EOF
+          local rule_json
+          rule_json=$(cat << EOF
   {
       "type": "${db_type}",
       "rule": {
@@ -39,19 +40,19 @@ EOF
           local aggregator_rules_url="${dbaas_url}/api/v3/dbaas/${NAMESPACE}/physical_databases/balancing/rules/${rule_name}"
 
           HTTP_RESPONSE=$(echo "$rule_json" | curl --insecure -s --write-out "HTTPSTATUS:%{http_code}" -X PUT \
-            -H "Authorization: Basic $(printf ${DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME}:${DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD} | base64)" \
+            -H "Authorization: Basic $(printf '%s:%s' "${DBAAS_CLUSTER_DBA_CREDENTIALS_USERNAME}" "${DBAAS_CLUSTER_DBA_CREDENTIALS_PASSWORD}" | base64)" \
             -H 'content-type: application/json' \
-            -d @- ${aggregator_rules_url}) || echo ""
+            -d @- "${aggregator_rules_url}") || echo ""
 
-          if [ -z $HTTP_RESPONSE ] ; then
+          if [ -z "${HTTP_RESPONSE}" ] ; then
               echo "Error creating dbaas per namespace balancing rule"
               exit 121
           fi
 
-          HTTP_BODY=$(echo $HTTP_RESPONSE | sed -e 's/HTTPSTATUS\:.*//g')
-          HTTP_STATUS=$(echo $HTTP_RESPONSE | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+          HTTP_BODY="${HTTP_RESPONSE%%HTTPSTATUS:*}"
+          HTTP_STATUS="${HTTP_RESPONSE##*HTTPSTATUS:}"
 
-          if [ $HTTP_STATUS -ne 201 ] && [ $HTTP_STATUS -ne 200 ]; then
+          if [ "${HTTP_STATUS}" -ne 201 ] && [ "${HTTP_STATUS}" -ne 200 ]; then
               echo "Error creating dbaas per namespace balancing rule [HTTP status: $HTTP_STATUS]"
               echo "[HTTP body: $HTTP_BODY]"
               exit 121

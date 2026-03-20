@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Load parameters from mounted secret files when present (e.g. /var/run/secrets/maas/validation)
+MAAS_VALIDATION_SECRETS_DIR="${MAAS_VALIDATION_SECRETS_DIR:-/var/run/secrets/maas/validation}"
+if [ -d "${MAAS_VALIDATION_SECRETS_DIR}" ]; then
+  for f in "${MAAS_VALIDATION_SECRETS_DIR}"/*; do
+    if [ -f "${f}" ]; then
+      key=$(basename "${f}")
+      export "${key}=$(cat "${f}")"
+    fi
+  done
+fi
+
 check_postgres() {
   echo "Start to check postgresql's parameters..."
 
@@ -13,21 +24,20 @@ check_postgres() {
   POSTGRES_PORT=${DB_POSTGRESQL_ADDRESS##*:}
 
   POSTGRES_PORT="${POSTGRES_PORT:-"5432"}"
-  (echo > /dev/tcp/${POSTGRES_HOST}/${POSTGRES_PORT}) 2>/dev/null
-  if [ $(echo $?) != 0 ]; then
+  if ! (echo > /dev/tcp/"${POSTGRES_HOST}"/"${POSTGRES_PORT}") 2>/dev/null; then
     echo "ERROR! CHECK FAILED!"
     echo "Wrong parameter:"
     echo "POSTGRES_HOST=${POSTGRES_HOST}"
     echo "POSTGRES_PORT=${POSTGRES_PORT}"
-    exit ${ERROR_EXIT_CODE}
+    exit "${ERROR_EXIT_CODE}"
   fi
   echo 'Param DB_POSTGRESQL_ADDRESS is correct'
 
-  IS_DB_EXISTS=$(psql "host=${POSTGRES_HOST} port=${POSTGRES_PORT} user=${DB_POSTGRESQL_USERNAME} password=${DB_POSTGRESQL_PASSWORD} dbname=postgres" -lqt | cut -d \| -f 1 | grep -qw ${DB_POSTGRESQL_DATABASE} || echo FAIL)
+  IS_DB_EXISTS=$(psql "host=${POSTGRES_HOST} port=${POSTGRES_PORT} user=${DB_POSTGRESQL_USERNAME} password=${DB_POSTGRESQL_PASSWORD} dbname=postgres" -lqt | cut -d \| -f 1 | grep -qw "${DB_POSTGRESQL_DATABASE}" || echo FAIL)
   if [ "${IS_DB_EXISTS}" = "FAIL" ]; then
     echo "ERROR! CHECK FAILED!"
     echo "DB_POSTGRESQL_DATABASE=${DB_POSTGRESQL_DATABASE} does not exists."
-    exit ${ERROR_EXIT_CODE}
+    exit "${ERROR_EXIT_CODE}"
   fi
   echo 'Params DB_POSTGRESQL_USERNAME, DB_POSTGRESQL_PASSWORD are correct'
 
