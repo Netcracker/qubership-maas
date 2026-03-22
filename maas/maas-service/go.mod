@@ -16,12 +16,13 @@ require (
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/gofiber/fiber/v2 v2.52.12
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jucardi/go-streams/v2 v2.0.3
 	github.com/knadh/koanf/providers/confmap v1.0.0
-	github.com/lib/pq v1.11.2
+	github.com/lib/pq v1.12.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.7.0
 	github.com/onsi/gomega v1.39.1
@@ -82,7 +83,6 @@ require (
 	github.com/go-pg/zerochecker v0.2.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/influxdata/tdigest v0.0.1 // indirect
