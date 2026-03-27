@@ -30,6 +30,7 @@ db:
 
 kubernetes:
   oidc:
+    on: true
     audience: maas
 
 
