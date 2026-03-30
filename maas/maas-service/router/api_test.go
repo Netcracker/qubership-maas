@@ -1,10 +1,17 @@
 package router_test
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-maas/controller"
 	controllerBluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
@@ -17,6 +24,7 @@ import (
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/keymanagement"
 	"github.com/netcracker/qubership-maas/monitoring"
+	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/router"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/service/bg2"
@@ -32,16 +40,57 @@ import (
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
 	"github.com/netcracker/qubership-maas/service/tenant"
 	"github.com/netcracker/qubership-maas/watchdog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type mockTokenVerifier struct {
+	token     string
+	username  string
+	namespace string
+}
+
+func (mv mockTokenVerifier) Verify(ctx context.Context, rawToken string) (*jwt.Token, error) {
+	if rawToken != mv.token {
+		return nil, errors.Join(errors.New("invalid token"), msg.AuthError)
+	}
+	return &jwt.Token{
+		Claims: jwt.MapClaims{
+			"kubernetes.io": map[string]any{
+				"namespace":      mv.namespace,
+				"serviceaccount": map[string]any{"name": mv.username},
+			},
+		},
+	}, nil
+}
+
 func TestK8s_M2M_FeatureToggle(t *testing.T) {
+	testNamespaceName := "test-namespace"
+	validToken := "valid_token"
+	tokenVerifier := mockTokenVerifier{
+		token:     validToken,
+		username:  "test-service",
+		namespace: testNamespaceName,
+	}
+
 	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
-		_ = initApp(t, baseDao)
+		app := initApp(t, baseDao, tokenVerifier, true)
+
+		config := `
+apiVersion: nc.maas.config/v2
+kind: config
+spec:
+  version: v1
+`
+		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
+		req.Header.Set("Content-Type", "application/x-yaml")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
+		resp, _ := app.Test(req)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }
 
-func initApp(t *testing.T, baseDao *dao.BaseDaoImpl) *fiber.App {
+func initApp(t *testing.T, baseDao *dao.BaseDaoImpl, tokenVerifier mockTokenVerifier, k8sJwtEnabled bool) *fiber.App {
 	ctx := t.Context()
 	configloader.InitWithSourcesArray(configloader.BasePropertySources(configloader.YamlPropertySourceParams{ConfigFilePath: "../application.yaml"}))
 
@@ -53,7 +102,7 @@ func initApp(t *testing.T, baseDao *dao.BaseDaoImpl) *fiber.App {
 	bgService := bg_service.NewBgService(bg_service.NewBgServiceDao(baseDao))
 	domainDao := domain.NewBGDomainDao(baseDao)
 	bgDomainService := domain.NewBGDomainService(domainDao)
-	authService := auth.NewAuthService(auth.NewAuthDao(baseDao), compositeRegistrationService, bgDomainService, nil)
+	authService := auth.NewAuthService(auth.NewAuthDao(baseDao), compositeRegistrationService, bgDomainService, tokenVerifier)
 
 	kafkaHelper := helper.CreateKafkaHelper(ctx)
 	kafkaInstanceService := instance.NewKafkaInstanceService(instance.NewKafkaInstancesDao(baseDao, domainDao), kafkaHelper)
@@ -115,5 +164,5 @@ func initApp(t *testing.T, baseDao *dao.BaseDaoImpl) *fiber.App {
 		CompositeRegistrationController: controllerCompositeV1.NewRegistrationController(compositeRegistrationService),
 	}
 	healthAggregator := watchdog.NewHealthAggregator(baseDao.IsAvailable, instanceWatchdog.All)
-	return router.CreateApi(ctx, controllers, healthAggregator, authService, false)
+	return router.CreateApi(ctx, controllers, healthAggregator, authService, k8sJwtEnabled)
 }
