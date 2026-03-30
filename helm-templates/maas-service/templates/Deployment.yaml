@@ -11,8 +11,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      name: {{ .Values.SERVICE_NAME }}
-  replicas: {{ .Values.REPLICAS }}
+      name: "{{ .Values.SERVICE_NAME }}"
+  replicas: "{{ .Values.REPLICAS }}"
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -137,10 +137,10 @@ spec:
               name: "{{ .Values.SERVICE_NAME }}"
 {{- end }}
 {{- else }}
-            - maxSkew: 1
-              topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
-              whenUnsatisfiable: ScheduleAnyway
-              labelSelector:
-                matchLabels:
-                  name: "{{ .Values.SERVICE_NAME }}"
+        - maxSkew: 1
+          topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              name: "{{ .Values.SERVICE_NAME }}"
 {{- end }}
