@@ -88,7 +88,10 @@ spec:
 		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
 		req.Header.Set("Content-Type", "application/x-yaml")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
-		resp, _ := app.Test(req)
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
@@ -101,7 +104,10 @@ spec:
 		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
 		req.Header.Set("Content-Type", "application/x-yaml")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
-		resp, _ := app.Test(req)
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 }
