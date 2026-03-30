@@ -40,6 +40,7 @@ import (
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
 	"github.com/netcracker/qubership-maas/service/tenant"
 	"github.com/netcracker/qubership-maas/watchdog"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -73,20 +74,35 @@ func TestK8s_M2M_FeatureToggle(t *testing.T) {
 		namespace: testNamespaceName,
 	}
 
-	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
-		app := initApp(t, baseDao, tokenVerifier, true)
-
-		config := `
+	config := `
 apiVersion: nc.maas.config/v2
 kind: config
 spec:
   version: v1
 `
+
+	// k8sJwtEnabled set to true
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		app := initApp(t, baseDao, tokenVerifier, true)
+
 		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
 		req.Header.Set("Content-Type", "application/x-yaml")
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
 		resp, _ := app.Test(req)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
+
+	// k8sJwtEnabled set to false
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		app := initApp(t, baseDao, tokenVerifier, false)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
+		req.Header.Set("Content-Type", "application/x-yaml")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
+		resp, _ := app.Test(req)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 }
 
