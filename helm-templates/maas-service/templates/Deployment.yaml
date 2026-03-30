@@ -12,7 +12,7 @@ spec:
   selector:
     matchLabels:
       name: "{{ .Values.SERVICE_NAME }}"
-  replicas: "{{ .Values.REPLICAS }}"
+  replicas: {{ .Values.REPLICAS }}
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
