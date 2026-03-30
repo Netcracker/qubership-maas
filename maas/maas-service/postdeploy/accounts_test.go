@@ -47,7 +47,7 @@ func TestAccounts_ManagerCreateAndUpdate(t *testing.T) {
 	)
 
 	// change root folder to temp with mock content
-	EtcMaaSRoot = filepath.Join(os.TempDir())
+	utils.MaasSecretsDir = filepath.Join(os.TempDir())
 	withAccountFile(t, "manager-username", "scott", func() {
 		withAccountFile(t, "manager-password", "tiger", func() {
 			err := createManagerAccount(ctx, authService)
@@ -92,7 +92,7 @@ func TestAccounts_DeployerClientCreateAndUpdate(t *testing.T) {
 	)
 
 	// change root folder to temp with mock content
-	EtcMaaSRoot = filepath.Join(os.TempDir())
+	utils.MaasSecretsDir = filepath.Join(os.TempDir())
 	withAccountFile(t, "deployer-username", "scott", func() {
 		withAccountFile(t, "deployer-password", "tiger", func() {
 			err := createDeployerAccount(ctx, authService)
@@ -106,7 +106,7 @@ func TestAccounts_DeployerClientCreateAndUpdate(t *testing.T) {
 }
 
 func withAccountFile(t *testing.T, name string, content string, callback func()) {
-	accountsDir := filepath.Join(EtcMaaSRoot, "maas-accounts")
+	accountsDir := filepath.Join(utils.MaasSecretsDir, "maas-accounts")
 	if _, err := os.Stat(accountsDir); err != nil && os.IsNotExist(err) {
 		err = os.Mkdir(accountsDir, 0755)
 		assert.NoError(t, err)

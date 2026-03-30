@@ -43,7 +43,7 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
-
+	"path/filepath"
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
@@ -220,20 +220,27 @@ func startPProf() {
 
 func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Duration) dao.BaseDao {
 	configSection := configloader.GetKoanf()
+	dbDir := filepath.Join(utils.MaasSecretsDir, "db")
+	cipherDir := filepath.Join(utils.MaasSecretsDir, "cipher")
+	dbFromFile := utils.SecretDirMounted(dbDir)
+	cipherFromFile := utils.SecretDirMounted(cipherDir)
+
+	addr, user, password, database, tlsEnabled, cipherKey := resolveDbSecrets(ctx, configSection, dbDir, cipherDir, dbFromFile, cipherFromFile)
+
 	dbConfig := db.Config{
-		Addr:          configSection.String("db.postgresql.address"),
-		User:          configSection.String("db.postgresql.username"),
-		Password:      configSection.String("db.postgresql.password"),
-		Database:      configSection.String("db.postgresql.database"),
+		Addr:          addr,
+		User:          user,
+		Password:      password,
+		Database:      database,
 		PoolSize:      configSection.Int("db.pool.size"),
 		ConnectionTtl: configSection.Duration("db.connection.ttl"),
 		DrMode:        drMode,
-		TlsEnabled:    configSection.Bool("db.postgresql.tls.enabled"),
+		TlsEnabled:    tlsEnabled,
 		TlsSkipVerify: configSection.Bool("db.postgresql.tls.skipverify"),
-		CipherKey:     configSection.MustString("db.cipher.key"),
+		CipherKey:     cipherKey,
 	}
 
-	log.Info("Initialize dao with db: %+v", dbConfig)
+	log.Info("Initialize dao with db: addr=%s, database=%s, poolSize=%d, tlsEnabled=%v", dbConfig.Addr, dbConfig.Database, dbConfig.PoolSize, dbConfig.TlsEnabled)
 	daoInstance := dao.New(&dbConfig)
 
 	if err := daoInstance.StartMonitor(ctx, healthCheckInterval); err != nil {
@@ -260,4 +267,55 @@ func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Dur
 	}()
 
 	return daoInstance
+}
+
+// resolveDbSecrets returns DB connection and cipher values. When the db or cipher dir is mounted, secrets are required from files; otherwise config/env is used.
+func resolveDbSecrets(ctx context.Context, configSection interface {
+	String(string) string
+	Bool(string) bool
+	MustString(string) string
+}, dbDir, cipherDir string, dbFromFile, cipherFromFile bool) (addr, user, password, database string, tlsEnabled bool, cipherKey string) {
+	if dbFromFile {
+		log.InfoC(ctx, "DB credentials: from file (dir %s)", dbDir)
+		var err error
+		addr, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("pg_address"))
+		if err != nil {
+			log.PanicC(ctx, "pg_address: %v", err)
+		}
+		user, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("username"))
+		if err != nil {
+			log.PanicC(ctx, "username: %v", err)
+		}
+		password, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("password"))
+		if err != nil {
+			log.PanicC(ctx, "password: %v", err)
+		}
+		database, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("dbname"))
+		if err != nil {
+			log.PanicC(ctx, "dbname: %v", err)
+		}
+		tlsEnabled, err = utils.ReadSecretBoolFromFileRequired(utils.PathDbSecret("tls"))
+		if err != nil {
+			log.PanicC(ctx, "tls: %v", err)
+		}
+	} else {
+		log.InfoC(ctx, "DB credentials: from config/env")
+		addr = configSection.String("db.postgresql.address")
+		user = configSection.String("db.postgresql.username")
+		password = configSection.String("db.postgresql.password")
+		database = configSection.String("db.postgresql.database")
+		tlsEnabled = configSection.Bool("db.postgresql.tls.enabled")
+	}
+	if cipherFromFile {
+		log.InfoC(ctx, "Cipher key: from file (dir %s)", cipherDir)
+		var err error
+		cipherKey, err = utils.ReadSecretFromFileRequired(utils.PathCipherSecret("key"))
+		if err != nil {
+			log.PanicC(ctx, "cipher key: %v", err)
+		}
+	} else {
+		log.InfoC(ctx, "Cipher key: from config/env")
+		cipherKey = configSection.MustString("db.cipher.key")
+	}
+	return addr, user, password, database, tlsEnabled, cipherKey
 }

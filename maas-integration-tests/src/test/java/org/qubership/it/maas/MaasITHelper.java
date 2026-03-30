@@ -116,24 +116,24 @@ public class MaasITHelper {
     }
 
     public Request createJsonRequestWithNamespace(String url, String authorization, Object body, String method, String namespace) throws JsonProcessingException {
-        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Basic", body, method, namespace);
+        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Basic", body, method)
+                .addHeader("X-Origin-Namespace", namespace)
+                .addHeader("X-Origin-Microservice", TEST_MICROSERVICE)
+                .build();
     }
 
-    public Request createJsonRequestWithNamespaceAndK8sToken(String url, String authorization, Object body, String method, String namespace) throws JsonProcessingException {
-        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Bearer", body, method, namespace);
+    public Request createJsonRequestWithNamespaceAndK8sToken(String url, String authorization, Object body, String method) throws JsonProcessingException {
+        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Bearer", body, method).build();
     }
 
-    private Request createJsonRequestWithNamespaceAndScheme(String url, String authorization, String authScheme, Object body, String method, String namespace) throws JsonProcessingException {
+    private Request.Builder createJsonRequestWithNamespaceAndScheme(String url, String authorization, String authScheme, Object body, String method) throws JsonProcessingException {
         String content = mapper.writeValueAsString(body);
         log.info("Request body {}, url {}, method {}, auth {}", content, url, method, authorization);
         return new Request.Builder()
                 .url(maasAddress + url)
                 .addHeader("Authorization", authScheme + " " + authorization)
-                .addHeader("X-Origin-Namespace", namespace)
-                .addHeader("X-Origin-Microservice", TEST_MICROSERVICE)
                 .addHeader("Content-Type", "application/json")
-                .method(method, body != null ? RequestBody.create(content, JSON) : null)
-                .build();
+                .method(method, body != null ? RequestBody.create(content, JSON) : null);
     }
 
     public Request createJsonRequest(String url, String authorization, String namespace, Object body, String method) throws JsonProcessingException {

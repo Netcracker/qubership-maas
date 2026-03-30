@@ -62,12 +62,11 @@ func init() {
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
 type authorizeWithBasicFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
-type authorizeWithTokenFunc func(context.Context, string, string, []model.RoleName) (*model.Account, error)
+type authorizeWithTokenFunc func(context.Context, string, []model.RoleName) (*model.Account, error)
 
 func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		userCtx := ctx.UserContext()
-		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
 
 		var (
@@ -92,6 +91,7 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 				return utils.LogError(log, userCtx, "security middleware error: %w", err)
 			}
 
+			namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
 			account, err = authorizeWithBasic(userCtx, username, password, namespace, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
@@ -103,9 +103,18 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			}
 
 			var err error
-			account, err = authorizeWithToken(userCtx, creds, namespace, roles)
+			account, err = authorizeWithToken(userCtx, creds, roles)
 			if err != nil {
 				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			}
+
+			ctx.Request().Header.Add(HeaderXMicroservice, account.Username)
+			ctx.Request().Header.Add(HeaderXNamespace, account.Namespace)
+
+			rc := model.RequestContextOf(ctx.UserContext())
+			if rc != nil {
+				rc.Namespace = account.Namespace
+				rc.Microservice = account.Username
 			}
 		default:
 			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
@@ -196,6 +205,12 @@ func ExtractRequestContext(fiberCtx *fiber.Ctx) error {
 
 // Namespace parameter shouldn't be emoty
 func RequiresNamespaceHeader(fiberCtx *fiber.Ctx) error {
+	// Skip namespace check for k8s m2m token requests
+	authScheme, _, ok := utils.ParseAuthHeader(fiberCtx.Get("Authorization"))
+	if ok && strings.ToLower(authScheme) == "bearer" {
+		return fiberCtx.Next()
+	}
+
 	ctx := fiberCtx.UserContext()
 	rc := model.RequestContextOf(ctx)
 	if rc == nil {

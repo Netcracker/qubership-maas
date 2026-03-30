@@ -32,6 +32,14 @@ spec:
         - name: "maas-accounts"
           secret:
             secretName: "maas-accounts"
+        - name: "maas-db-credentials"
+          secret:
+            secretName: "maas-db-postgresql-credentials-secret"
+            defaultMode: 0400
+        - name: "maas-db-cipher"
+          secret:
+            secretName: "maas-db-cipher-key-secret"
+            defaultMode: 0400
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
         - name: sslcerts
           emptyDir: {}
@@ -64,40 +72,10 @@ spec:
                   fieldPath: metadata.namespace
             - name: EXECUTION_MODE
               value: "{{ .Values.EXECUTION_MODE }}"
-            - name: DB_POSTGRESQL_ADDRESS
-              valueFrom:
-                secretKeyRef:
-                  name: "maas-db-postgresql-credentials-secret"
-                  key: pg_address
-            - name: DB_POSTGRESQL_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  name: "maas-db-postgresql-credentials-secret"
-                  key: dbname
-            - name: DB_POSTGRESQL_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: "maas-db-postgresql-credentials-secret"
-                  key: username
-            - name: DB_POSTGRESQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: "maas-db-postgresql-credentials-secret"
-                  key: password
-            - name: DB_POSTGRESQL_TLS_ENABLED
-              valueFrom:
-                secretKeyRef:
-                  name: "maas-db-postgresql-credentials-secret"
-                  key: tls
             - name: DB_POSTGRESQL_TLS_SKIPVERIFY
               value: "{{ .Values.DB_POSTGRESQL_TLS_SKIPVERIFY }}"
             - name: DB_POOL_SIZE
               value: "{{ .Values.DB_POOL_SIZE }}"
-            - name: DB_CIPHER_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: "maas-db-cipher-key-secret"
-                  key: key
             - name: KAFKA_CLIENT_TIMEOUT
               value: "{{ .Values.KAFKA_CLIENT_TIMEOUT }}"
             - name: LOG_LEVEL
@@ -133,9 +111,15 @@ spec:
                 - ALL
           volumeMounts:
             - name: "maas-instance-registrations"
-              mountPath: "/etc/maas/maas-instance-registrations"
+              mountPath: "/var/run/secrets/maas/maas-instance-registrations"
             - name: "maas-accounts"
-              mountPath: "/etc/maas/maas-accounts"
+              mountPath: "/var/run/secrets/maas/maas-accounts"
+            - name: "maas-db-credentials"
+              mountPath: "/var/run/secrets/maas/db"
+              readOnly: true
+            - name: "maas-db-cipher"
+              mountPath: "/var/run/secrets/maas/cipher"
+              readOnly: true
 {{ if and .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED (eq .Values.PAAS_PLATFORM "KUBERNETES") }}
             - name: sslcerts
               mountPath: /etc/ssl/certs

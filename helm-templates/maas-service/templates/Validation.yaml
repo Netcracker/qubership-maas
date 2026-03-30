@@ -1,19 +1,4 @@
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ .Values.SERVICE_NAME }}-v-env-variables
-  annotations:
-    helm.sh/hook: "pre-install,pre-upgrade"
-    helm.sh/hook-weight: "-250"
-    helm.sh/hook-delete-policy: "before-hook-creation, hook-succeeded"
-  labels:
-    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
-    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
-    app.kubernetes.io/part-of: maas
-stringData:
-{{- tpl (.Files.Get "data/variables.yaml") $ | nindent 2 }}
----
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -33,11 +18,17 @@ spec:
       name: validation-hook-{{ .Values.SERVICE_NAME }}
     spec:
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: validation-secrets
+          secret:
+            secretName: {{ .Values.SERVICE_NAME }}-env-variables
+            defaultMode: 0400
       containers:
       - name: validation-hook-{{ .Values.SERVICE_NAME }}
         image: {{ .Values.DECLARATIVE_HOOK_IMAGE }}
         imagePullPolicy: IfNotPresent
-        envFrom:
-        - secretRef:
-            name: {{ .Values.SERVICE_NAME }}-v-env-variables
+        volumeMounts:
+          - name: validation-secrets
+            mountPath: /var/run/secrets/maas/validation
+            readOnly: true
       restartPolicy: Never
