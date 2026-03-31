@@ -33,14 +33,13 @@ kubernetes:
     enabled: true
     audience: maas
 
-
 # DR mode defaults
 execution.mode: active
 
 # defaults for dev mode, but on cloud it is overridden by env value
 production.mode: false
 
-#kafka.topics.update.timeout: 10s - deprecated property
+# kafka.topics.update.timeout: 10s - deprecated property
 kafka.client.timeout: 10s
 health.check.interval: 5s
 
