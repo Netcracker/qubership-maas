@@ -19,10 +19,10 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.1
 	github.com/jucardi/go-streams/v2 v2.0.3
 	github.com/knadh/koanf/providers/confmap v1.0.0
-	github.com/lib/pq v1.11.2
+	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.7.0
 	github.com/onsi/gomega v1.39.1
