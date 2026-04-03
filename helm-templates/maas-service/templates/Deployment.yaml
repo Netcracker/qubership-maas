@@ -11,8 +11,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      name: "{{ .Values.SERVICE_NAME }}"
-  replicas: "{{ .Values.REPLICAS }}"
+      name: {{ .Values.SERVICE_NAME }}
+  replicas: {{ .Values.REPLICAS }}
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -81,7 +81,7 @@ spec:
             - name: LOG_LEVEL
               value: "{{ .Values.LOG_LEVEL }}"
 {{ if .Values.MEMORY_LIMIT }}
-{{- $memLimitMiB := include "to_MiB" .Values.MEMORY_LIMIT | atof }}
+{{- $memLimitMiB := include "to_MiB" .Values.MEMORY_LIMIT }}
             - name: GOMEMLIMIT
               value: "{{ sub  $memLimitMiB (mulf $memLimitMiB 0.2) }}MiB"
 {{ end }}
@@ -134,13 +134,13 @@ spec:
           whenUnsatisfiable: {{ $v.whenUnsatisfiable | default "ScheduleAnyway" }}
           labelSelector:
             matchLabels:
-              name: "{{ $.Values.SERVICE_NAME }}"
+              name: "{{ .Values.SERVICE_NAME }}"
 {{- end }}
 {{- else }}
-        - maxSkew: 1
-          topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              name: "{{ .Values.SERVICE_NAME }}"
+            - maxSkew: 1
+              topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  name: "{{ .Values.SERVICE_NAME }}"
 {{- end }}
