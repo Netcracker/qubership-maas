@@ -81,6 +81,8 @@ spec:
     spec:
       serviceAccountName: '{{ .Values.SERVICE_NAME }}-sa'
       terminationGracePeriodSeconds: 10
+      securityContext:
+        fsGroup: 1000
       volumes:
         - name: bootstrap-secrets
           secret:

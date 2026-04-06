@@ -25,6 +25,8 @@ spec:
         name: "{{ .Values.SERVICE_NAME }}"
     spec:
       serviceAccountName: '{{ .Values.SERVICE_NAME }}'
+      securityContext:
+        fsGroup: 1000
       volumes:
         - name: "maas-instance-registrations"
           secret:
