@@ -236,7 +236,7 @@ func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Dur
 	}
 
 	go func() {
-		// give CPU a time for other tasks that have much higher priority that this shitty cache
+		//  give CPU a time for other tasks that have much higher priority that this shitty cache
 		if !utils.CancelableSleep(ctx, 30*time.Second) {
 			return
 		}
