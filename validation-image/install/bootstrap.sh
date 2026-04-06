@@ -2,6 +2,7 @@
 
 # Load parameters from mounted secret files when present (e.g. /var/run/secrets/maas/bootstrap)
 MAAS_BOOTSTRAP_SECRETS_DIR="${MAAS_BOOTSTRAP_SECRETS_DIR:-/var/run/secrets/maas/bootstrap}"
+id
 ls -a -l /var/run/secrets/maas/bootstrap
 if [ -d "${MAAS_BOOTSTRAP_SECRETS_DIR}" ]; then
   for f in "${MAAS_BOOTSTRAP_SECRETS_DIR}"/*; do
