@@ -18,6 +18,8 @@ COPY --chown=10001:0 --from=build app/application.yaml /app/
 COPY --chown=10001:0 --from=build app/docs/swagger.json /app/
 COPY --chown=10001:0 --from=build app/docs/swagger.yaml /app/
 
+USER root
+
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories  \
     && echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk add --update --upgrade --no-cache \
