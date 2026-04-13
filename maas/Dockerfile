@@ -21,10 +21,9 @@ COPY --chown=10001:0 --from=build app/docs/swagger.yaml /app/
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories  \
     && echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk add --update --upgrade --no-cache \
-        pcre2 curl gnutls libcurl jq openssl libcrypto3 binutils libssl3 musl musl-utils zlib
+        pcre2 curl gnutls libcurl jq openssl libcrypto3 binutils libssl3 zlib musl musl-utils
 
 WORKDIR /app
-
 
 USER 10001:10001
 
