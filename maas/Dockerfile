@@ -25,6 +25,7 @@ RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositori
 
 WORKDIR /app
 
+
 USER 10001:10001
 
 CMD ["/app/maas"]
