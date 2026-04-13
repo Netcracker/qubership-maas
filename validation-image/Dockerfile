@@ -8,3 +8,4 @@ RUN chmod +x /tmp/install.sh && /tmp/install.sh
 USER 1000
 
 ENTRYPOINT ["/validation.sh"]
+
