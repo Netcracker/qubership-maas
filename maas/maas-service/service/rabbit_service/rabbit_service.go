@@ -823,6 +823,41 @@ func (s *RabbitServiceImpl) DeleteVHost(ctx context.Context, vhost *model.VHostR
 		return err
 	}
 
+	// cleanup exported vhost shovels before deleting the base vhost. order of deletion - exported vhost first.
+	classifier, err := model.ConvertToClassifier(vhost.Classifier)
+	if err != nil {
+		return utils.LogError(log, ctx, "Error parsing classifier during DeleteVHost: %w", err)
+	}
+	if !strings.HasSuffix(classifier.Name, "-exported") {
+		exportedClassifier := model.Classifier{
+			Name:      classifier.Name + "-exported",
+			Namespace: classifier.Namespace,
+		}
+		exportedVhost, err := s.rabbitDao.FindVhostByClassifier(ctx, exportedClassifier)
+		if err != nil {
+			return utils.LogError(log, ctx, "Error finding exported vhost during DeleteVHost: %w", err)
+		}
+		if exportedVhost != nil {
+			log.InfoC(ctx, "DeleteVHost: found paired exported vhost '%s', will delete its shovels before deleting base vhost", exportedVhost.Vhost)
+			exportedHelper, err := s.getRabbitHelper(ctx, s, nil, nil, &exportedClassifier)
+			if err != nil {
+				return utils.LogError(log, ctx, "Error getting helper for exported vhost during DeleteVHost: %w", err)
+			}
+			shovels, err := exportedHelper.GetVhostShovels(ctx)
+			if err != nil {
+				return utils.LogError(log, ctx, "Error listing shovels on exported vhost '%s' during DeleteVHost: %w", exportedVhost.Vhost, err)
+			}
+			for _, shovel := range shovels {
+				if err := exportedHelper.DeleteShovelByName(ctx, shovel.Name); err != nil {
+					return utils.LogError(log, ctx, "Error deleting shovel '%s' on exported vhost '%s' during DeleteVHost: %w", shovel.Name, exportedVhost.Vhost, err)
+				}
+				log.InfoC(ctx, "DeleteVHost: deleted shovel '%s' from exported vhost '%s'", shovel.Name, exportedVhost.Vhost)
+			}
+		} else {
+			log.InfoC(ctx, "DeleteVHost: no paired exported vhost found for classifier '%s', skipping shovel cleanup", classifier.Name)
+		}
+	}
+
 	// delete vhost and user in rabbit
 	if err := rabbitHelper.DeleteVHost(ctx); err != nil {
 		return utils.LogError(log, ctx, "Error delete vhost: %w", err)
