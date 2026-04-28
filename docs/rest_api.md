@@ -1,5 +1,3 @@
-[[_TOC_]]
-
 # Rest API
 ## RabbitMQ API
 ### Register Rabbit instance
