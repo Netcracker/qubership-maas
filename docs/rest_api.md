@@ -3441,7 +3441,7 @@ Get kafka instance designator. You can have only one instance designator of brok
 Delete Kafka instance designator
 
 * **URI:**  `{maas_host}/api/v2/kafka/instance-designator`  
-* **Method:** `GET`
+* **Method:** `DELETE`
 * **Headers:**  
     `Content-Type: application/json`  
     `X-Origin-Namespace` - Namespace (project name);  
@@ -3562,7 +3562,7 @@ Get rabbit instance designator. You can have only one instance designator of bro
 Delete rabbit instance designator
 
 * **URI:**  `{maas_host}/api/v2/rabbit/instance-designator`  
-* **Method:** `GET`
+* **Method:** `DELETE`
 * **Headers:**  
   `Content-Type: application/json`  
   `X-Origin-Namespace` - Namespace (project name);  
