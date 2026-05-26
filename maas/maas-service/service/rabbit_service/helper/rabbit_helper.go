@@ -919,13 +919,38 @@ func (h RabbitHelperImpl) convertToType(obj interface{}, toType interface{}) (in
 	}
 }
 
-func (h RabbitHelperImpl) IsInstanceAvailable() error {
-	res, err := h.httpClient.R().
-		SetBasicAuth(h.instance.User, h.instance.Password).
-		Get(h.instance.ApiUrl + "/healthchecks/node")
+const (
+	rabbitHealthCheckAlarmsPath = "/health/checks/alarms"
+	rabbitHealthCheckLegacyPath = "/healthchecks/node"
+)
 
+func (h RabbitHelperImpl) IsInstanceAvailable() error {
+	res, err := h.rabbitHealthCheck(rabbitHealthCheckAlarmsPath)
 	if err != nil {
 		return err
+	}
+	if res.StatusCode() == http.StatusNotFound {
+		res, err = h.rabbitHealthCheck(rabbitHealthCheckLegacyPath)
+		if err != nil {
+			return err
+		}
+	}
+	return interpretRabbitHealthCheckResponse(res)
+}
+
+func (h RabbitHelperImpl) rabbitHealthCheck(pathSuffix string) (*resty.Response, error) {
+	return h.httpClient.R().
+		SetBasicAuth(h.instance.User, h.instance.Password).
+		Get(h.instance.ApiUrl + pathSuffix)
+}
+
+func interpretRabbitHealthCheckResponse(res *resty.Response) error {
+	statusCode := res.StatusCode()
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
+		return fmt.Errorf("healthcheck request unauthorized (HTTP %d): check instance credentials", statusCode)
+	}
+	if statusCode != http.StatusOK && statusCode != http.StatusServiceUnavailable {
+		return fmt.Errorf("healthcheck unexpected HTTP status: %d, body: %s", statusCode, string(res.Body()))
 	}
 
 	raw := res.Body()
