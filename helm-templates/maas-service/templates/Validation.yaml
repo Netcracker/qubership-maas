@@ -17,6 +17,8 @@ spec:
     metadata:
       name: validation-hook-{{ .Values.SERVICE_NAME }}
     spec:
+      securityContext:
+        fsGroup: 1000
       terminationGracePeriodSeconds: 10
       volumes:
         - name: validation-secrets

@@ -30,8 +30,8 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
     protected static final KafkaContainer KAFKA_CONTAINER_1 = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.1")).withNetwork(TEST_NETWORK);
     protected static final KafkaContainer KAFKA_CONTAINER_2 = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.1")).withNetwork(TEST_NETWORK);
 
-    protected static final RabbitMQContainer RABBITMQ_CONTAINER_1 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK);
-    protected static final RabbitMQContainer RABBITMQ_CONTAINER_2 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK);
+    protected static final RabbitMQContainer RABBITMQ_CONTAINER_1 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK).withPluginsEnabled("rabbitmq_shovel", "rabbitmq_shovel_management");
+    protected static final RabbitMQContainer RABBITMQ_CONTAINER_2 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK).withPluginsEnabled("rabbitmq_shovel", "rabbitmq_shovel_management");
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
 

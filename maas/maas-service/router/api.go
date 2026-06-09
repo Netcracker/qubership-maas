@@ -52,7 +52,7 @@ type ApiControllers struct {
 	CompositeRegistrationController *compositeV1.RegistrationController
 }
 
-func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService) *fiber.App {
+func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService, k8sJwtEnabled bool) *fiber.App {
 	log.InfoC(ctx, "Creating API controller")
 	app := fiber.New(fiber.Config{
 		IdleTimeout:    30 * time.Second,
@@ -89,7 +89,10 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiCompositeV1 := app.Group("/api/composite/v1/")
 
 	roles := func(roles ...model.RoleName) fiber.Handler {
-		return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken)
+		if k8sJwtEnabled {
+			return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken)
+		}
+		return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, nil)
 	}
 
 	createV1Api(app, controllers, roles)

@@ -1669,6 +1669,122 @@ func TestRabbitServiceImpl_CleanupNamespace(t *testing.T) {
 	})
 }
 
+// TestDeleteVHost_WithExportedVhost_DeletesShovelsBeforeBaseVhost verifies that when a base
+// vhost has a paired "-exported" vhost with shovels, all shovels are deleted before the base
+// vhost itself is removed.
+func TestDeleteVHost_WithExportedVhost_DeletesShovelsBeforeBaseVhost(t *testing.T) {
+	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
+
+		testInitializer(t)
+		initDbAndDaoAndDomainAndInstance(tdb)
+		defer mockCtrl.Finish()
+
+		km.EXPECT().SecurePassword(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("km:secured", nil).AnyTimes()
+		km.EXPECT().DeletePassword(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().CreateVHost(gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().FormatCnnUrl(gomock.Any()).Return("").AnyTimes()
+		auditService.EXPECT().AddEntityRequestStat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		authService.EXPECT().CheckSecurityForBoundNamespaces(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		authService.EXPECT().CheckSecurityForSingleNamespace(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		svc := NewRabbitServiceWithHelper(rabbitDao, instanceService, km, rabbitHelperMockFunc, auditService, nil, domainService, authService).(*RabbitServiceImpl)
+
+		baseClassifier := model.Classifier{Name: "test", Namespace: namespace}
+		_, baseVhost, err := svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &baseClassifier, nil)
+		assertion.NoError(err)
+
+		exportedClassifier := model.Classifier{Name: "test-exported", Namespace: namespace}
+		_, _, err = svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &exportedClassifier, nil)
+		assertion.NoError(err)
+
+		shovels := []model.Shovel{
+			{Name: "q1-test-namespace-exported", Vhost: "maas.test-namespace.test-exported"},
+			{Name: "q2-test-namespace-exported", Vhost: "maas.test-namespace.test-exported"},
+		}
+
+		gomock.InOrder(
+			rabbitHelper.EXPECT().GetVhostShovels(gomock.Any()).Return(shovels, nil),
+			rabbitHelper.EXPECT().DeleteShovelByName(gomock.Any(), "q1-test-namespace-exported").Return(nil),
+			rabbitHelper.EXPECT().DeleteShovelByName(gomock.Any(), "q2-test-namespace-exported").Return(nil),
+			rabbitHelper.EXPECT().DeleteVHost(gomock.Any()).Return(nil),
+		)
+
+		err = svc.DeleteVHost(ctx, baseVhost)
+		assertion.NoError(err)
+	})
+}
+
+// TestDeleteVHost_WithExportedVhostNoShovels_DeletesBaseVhostDirectly verifies that when the
+// paired "-exported" vhost has no shovels, deletion proceeds without any DeleteShovelByName
+// calls.
+func TestDeleteVHost_WithExportedVhostNoShovels_DeletesBaseVhostDirectly(t *testing.T) {
+	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
+
+		testInitializer(t)
+		initDbAndDaoAndDomainAndInstance(tdb)
+		defer mockCtrl.Finish()
+
+		km.EXPECT().SecurePassword(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("km:secured", nil).AnyTimes()
+		km.EXPECT().DeletePassword(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().CreateVHost(gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().FormatCnnUrl(gomock.Any()).Return("").AnyTimes()
+		auditService.EXPECT().AddEntityRequestStat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		authService.EXPECT().CheckSecurityForBoundNamespaces(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		authService.EXPECT().CheckSecurityForSingleNamespace(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		svc := NewRabbitServiceWithHelper(rabbitDao, instanceService, km, rabbitHelperMockFunc, auditService, nil, domainService, authService).(*RabbitServiceImpl)
+
+		baseClassifier := model.Classifier{Name: "test", Namespace: namespace}
+		_, baseVhost, err := svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &baseClassifier, nil)
+		assertion.NoError(err)
+
+		exportedClassifier := model.Classifier{Name: "test-exported", Namespace: namespace}
+		_, _, err = svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &exportedClassifier, nil)
+		assertion.NoError(err)
+
+		rabbitHelper.EXPECT().GetVhostShovels(gomock.Any()).Return([]model.Shovel{}, nil)
+		rabbitHelper.EXPECT().DeleteVHost(gomock.Any()).Return(nil)
+
+		err = svc.DeleteVHost(ctx, baseVhost)
+		assertion.NoError(err)
+	})
+}
+
+// TestDeleteVHost_ExportedVhostItself_SkipsShovelLookup verifies that deleting an "-exported"
+// vhost directly does not trigger any shovel lookup or cleanup (shovels are owned by that
+// vhost and are removed by RabbitMQ automatically on vhost deletion).
+func TestDeleteVHost_ExportedVhostItself_SkipsShovelLookup(t *testing.T) {
+	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
+
+		testInitializer(t)
+		initDbAndDaoAndDomainAndInstance(tdb)
+		defer mockCtrl.Finish()
+
+		km.EXPECT().SecurePassword(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("km:secured", nil).AnyTimes()
+		km.EXPECT().DeletePassword(gomock.Any(), gomock.Any()).Return(nil)
+		rabbitHelper.EXPECT().CreateVHost(gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().FormatCnnUrl(gomock.Any()).Return("").AnyTimes()
+		auditService.EXPECT().AddEntityRequestStat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		authService.EXPECT().CheckSecurityForBoundNamespaces(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		authService.EXPECT().CheckSecurityForSingleNamespace(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		svc := NewRabbitServiceWithHelper(rabbitDao, instanceService, km, rabbitHelperMockFunc, auditService, nil, domainService, authService).(*RabbitServiceImpl)
+
+		exportedClassifier := model.Classifier{Name: "test-exported", Namespace: namespace}
+		_, exportedVhost, err := svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &exportedClassifier, nil)
+		assertion.NoError(err)
+
+		// GetVhostShovels must NOT be called — any unexpected call will fail the test via mockCtrl
+		rabbitHelper.EXPECT().DeleteVHost(gomock.Any()).Return(nil)
+
+		err = svc.DeleteVHost(ctx, exportedVhost)
+		assertion.NoError(err)
+	})
+}
+
 func TestRabbitServiceImpl_GetLazyBindings(t *testing.T) {
 	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
 
