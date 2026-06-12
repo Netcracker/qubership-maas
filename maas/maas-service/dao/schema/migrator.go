@@ -5,12 +5,24 @@ import (
 	core_tls "crypto/tls"
 	"github.com/go-pg/migrations/v8"
 	pgv10 "github.com/go-pg/pg/v10"
+	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-maas/dao/db"
 	"github.com/netcracker/qubership-maas/dao/pg"
 	"time"
 )
 
+// migrationCipherKey is set per Migrate() call so evolutions use the same key as runtime DAO.
+var migrationCipherKey string
+
+func cipherKeyForMigration(dbConfig *db.Config) string {
+	if dbConfig != nil && dbConfig.CipherKey != "" {
+		return dbConfig.CipherKey
+	}
+	return configloader.GetKoanf().MustString("db.cipher.key")
+}
+
 func Migrate(dbConfig *db.Config) {
+	migrationCipherKey = cipherKeyForMigration(dbConfig)
 	poolOptions := pgv10.Options{
 		Addr:     dbConfig.Addr,
 		User:     dbConfig.User,
