@@ -85,10 +85,10 @@ func main() {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
 	}
 
-	jwtEnabled := configloader.GetKoanf().Bool("kubernetes.jwt.enabled")
-	audience := configloader.GetKoanf().String("kubernetes.jwt.audience")
+	m2mEnabled := configloader.GetKoanf().Bool("kubernetes.m2m.enabled")
+	audience := configloader.GetKoanf().String("kubernetes.m2m.audience")
 	var oidcVerifier tokenverifier.Verifier
-	if jwtEnabled {
+	if m2mEnabled {
 		v, err := tokenverifier.NewKubernetesVerifier(ctx, audience)
 		if err != nil {
 			log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
@@ -171,7 +171,7 @@ func main() {
 	}
 
 	healthAggregator := watchdog.NewHealthAggregator(pg.IsAvailable, instanceWatchdog.All)
-	app := router.CreateApi(ctx, controllers, healthAggregator, authService, jwtEnabled)
+	app := router.CreateApi(ctx, controllers, healthAggregator, authService, m2mEnabled)
 
 	utils.RegisterShutdownHook(func(code int) {
 		// save exit code to be used in Exit() call

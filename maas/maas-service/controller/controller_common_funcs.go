@@ -99,7 +99,7 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		case "bearer":
 			if authorizeWithToken == nil {
-				return utils.LogError(log, userCtx, "kubernetes m2m authentication is not enabled, use basic or set KUBERNETES_JWT_ENABLED=true: %w", msg.AuthError)
+				return utils.LogError(log, userCtx, "kubernetes m2m authentication is not enabled, use basic or set KUBERNETES_M2M_ENABLED=true: %w", msg.AuthError)
 			}
 
 			var err error
