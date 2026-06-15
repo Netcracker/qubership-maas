@@ -113,7 +113,8 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
                             "DB_POSTGRESQL_DATABASE", POSTGRES_CONTAINER.getDatabaseName(),
                             "DB_POSTGRESQL_USERNAME", POSTGRES_CONTAINER.getUsername(),
                             "DB_POSTGRESQL_PASSWORD", POSTGRES_CONTAINER.getPassword(),
-                            "HEALTH_CHECK_INTERVAL", "1s"
+                            "HEALTH_CHECK_INTERVAL", "1s",
+                            "KUBERNETES_M2M_ENABLED", "true"
                     )
             )
             .withNetwork(TEST_NETWORK)
