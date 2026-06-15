@@ -29,8 +29,8 @@ db:
     key: thisis32bitlongpassphraseimusing
 
 kubernetes:
-  jwt:
-    enabled: true
+  m2m:
+    enabled: false
     audience: maas
 
 # DR mode defaults
