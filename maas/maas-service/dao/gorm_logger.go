@@ -24,13 +24,13 @@ func (gl *GormLogger) LogMode(_ gormlogger.LogLevel) gormlogger.Interface {
 }
 
 func (gl *GormLogger) Info(ctx context.Context, format string, args ...interface{}) {
-	gl.log.InfoC(ctx, format, args...)
+	gl.log.InfoC(ctx, "%s", fmt.Sprintf(format, args...))
 }
 func (gl *GormLogger) Warn(ctx context.Context, format string, args ...interface{}) {
-	gl.log.WarnC(ctx, format, args...)
+	gl.log.WarnC(ctx, "%s", fmt.Sprintf(format, args...))
 }
 func (gl *GormLogger) Error(ctx context.Context, format string, args ...interface{}) {
-	gl.log.ErrorC(ctx, format, args...)
+	gl.log.ErrorC(ctx, "%s", fmt.Sprintf(format, args...))
 }
 
 func (gl *GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {

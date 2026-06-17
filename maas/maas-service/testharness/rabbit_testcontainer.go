@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/stretchr/testify/require"
@@ -72,7 +72,7 @@ func newTestRabbit(t *testing.T) *TestRabbit {
 		defer cancel()
 		p, err := rabbit.MappedPort(ctx, "15672")
 		require.NoError(t, err)
-		tdb.apiPort = p.Int()
+		tdb.apiPort = int(p.Num())
 	}
 
 	{ // get port
@@ -80,7 +80,7 @@ func newTestRabbit(t *testing.T) *TestRabbit {
 		defer cancel()
 		p, err := rabbit.MappedPort(ctx, "5672")
 		require.NoError(t, err)
-		tdb.amqpPort = p.Int()
+		tdb.amqpPort = int(p.Num())
 	}
 
 	t.Logf("Rabbit test container endpoint: %+v\n", tdb)

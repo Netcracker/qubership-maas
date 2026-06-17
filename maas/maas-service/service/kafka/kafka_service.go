@@ -124,7 +124,7 @@ func NewKafkaService(dao KafkaDao, instanceService instance.KafkaInstanceService
 			if classifier, err := model.NewClassifierFromReq(event.Message); err == nil {
 				ch <- classifier
 			} else {
-				log.Error("error handle eventbus event: %+v, %w", event, err)
+				log.Error("error handle eventbus event: %+v, %v", event, err)
 			}
 		})
 	}
@@ -247,7 +247,7 @@ func (srv *KafkaServiceImpl) GetOrCreateTopicWithAuth(ctx context.Context, topic
 
 			err = srv.setDefaultInstanceIfNeeded(ctx, topic)
 			if err != nil {
-				return utils.LogError(log, ctx, "Error in setDefaultInstanceIfNeeded during GetOrCreateTopic: %v", err)
+				return utils.LogError(log, ctx, "Error in setDefaultInstanceIfNeeded during GetOrCreateTopic: %w", err)
 			}
 
 			log.DebugC(ctx, "Search kafka topic with name %s on kafka instance %s", topic.Topic, topic.Instance)
@@ -827,7 +827,7 @@ func (srv *KafkaServiceImpl) UpdateTopicTemplate(ctx context.Context, template m
 	log.DebugC(ctx, "template before UpdateTopicTemplate: %+v", template)
 	err := srv.dao.UpdateTopicTemplate(ctx, &template)
 	if err != nil {
-		log.ErrorC(ctx, "Failed to update topic template %s settings in database due to error: %v", template, err)
+		log.ErrorC(ctx, "Failed to update topic template %+v settings in database due to error: %v", template, err)
 	}
 	return err
 }
@@ -1146,7 +1146,7 @@ func (srv *KafkaServiceImpl) MatchDesignator(ctx context.Context, classifier mod
 	instance, res, err := instance.MatchDesignator(ctx, classifier, designator, func(namespace string) string {
 		domainNamespace, err := srv.bgDomainService.FindByNamespace(ctx, namespace)
 		if err != nil {
-			log.ErrorC(ctx, "can not get domain namespace for '%s': %w", namespace, err)
+			log.ErrorC(ctx, "can not get domain namespace for '%s': %v", namespace, err)
 			return namespace
 		}
 		if domainNamespace == nil {

@@ -319,7 +319,7 @@ func registerMetrics(sqlDb *sql.DB, drMode dr.Mode) metrics {
 			ConstLabels: labels,
 		})
 		if err := prometheus.Register(collector); err != nil {
-			log.Errorf("Error registering metric maas_db_request_count with labels: %+v: %w", labels, err)
+			log.Errorf("Error registering metric maas_db_request_count with labels: %+v: %v", labels, err)
 		}
 		return collector
 	}

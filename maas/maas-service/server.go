@@ -166,7 +166,7 @@ func main() {
 	if drMode.IsActive() {
 		err := kafkaService.MigrateKafka(ctx)
 		if err != nil {
-			log.PanicC(ctx, err.Error())
+			log.PanicC(ctx, "%s", err.Error())
 		}
 	}
 
@@ -189,7 +189,7 @@ func main() {
 		log.InfoC(ctx, "Run postdeploy actions...")
 		err := postdeploy.RunPostdeployScripts(ctx, authService, rabbitInstanceService, kafkaInstanceService)
 		if err != nil {
-			log.PanicC(ctx, err.Error())
+			log.PanicC(ctx, "%s", err.Error())
 		}
 		log.InfoC(ctx, "Postdeploy actions finished")
 	} else {
@@ -199,7 +199,7 @@ func main() {
 	serverBind := configloader.GetOrDefaultString("http.server.bind", ":8080")
 	log.InfoC(ctx, "Starting server on %v", serverBind)
 	if err := app.Listen(serverBind); err != nil {
-		log.PanicC(ctx, err.Error())
+		log.PanicC(ctx, "%s", err.Error())
 	}
 
 	log.InfoC(ctx, "Server gracefully finished with exit code: %d", exitCode.Load())
