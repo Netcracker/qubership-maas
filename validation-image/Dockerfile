@@ -1,4 +1,4 @@
-FROM ghcr.io/netcracker/qubership-core-base:2.2.12@sha256:a53c3219e1b6ffea834430f544d79ea350a2cd244a02077ef9cce5d035b2ea5a
+FROM ghcr.io/netcracker/qubership-core-base:2.3.3@sha256:1339716127a7d170ba307b89f3a933f5e09c447607c89e16bf8d5a379db4e1f6
 LABEL maintainer="qubership"
 
 ADD ./install /tmp/
