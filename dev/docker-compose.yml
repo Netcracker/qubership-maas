@@ -3,7 +3,7 @@ version: '3'
 services:
 
   kafka:
-    image: ghcr.io/netcracker/qubership-docker-kafka:main
+    image: ghcr.io/netcracker/qubership-docker-kafka:main@sha256:fe0fb45dacfb42d6165cd50c811f57c18eb791fd44404a5b9c98a4ff1c3f1271
     ports:
       - "9094:9094"
     environment:
@@ -24,7 +24,7 @@ services:
       - REPLICATION_FACTOR=1
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:latest@sha256:8f2ff02d64b0a7a2b71b6b3b3148b85f66d00ec20ad40c30bdcd415d46d31818
     ports:
       - "3000:8080"
     environment:
