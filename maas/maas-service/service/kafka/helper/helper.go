@@ -271,14 +271,14 @@ func (helper *HelperImpl) createPartitionsForTopic(ctx context.Context, topic *m
 	if (*requestedSettings.NumPartitions != 0 && *requestedSettings.NumPartitions < *originalSettings.NumPartitions) &&
 		(requestedSettings.MinNumPartitions == nil || *requestedSettings.MinNumPartitions == 0) {
 		errMsg := fmt.Sprintf("Invalid update settings request for topic %v: %v. Current num partitions is '%v', requested num partitions is '%v'", topic.Name, ErrInvalidPartitionsUpdate, *originalSettings.NumPartitions, *requestedSettings.NumPartitions)
-		log.ErrorC(ctx, errMsg)
+		log.ErrorC(ctx, "%s", errMsg)
 		return false, fmt.Errorf("%v: %w", errMsg, ErrInvalidPartitionsUpdate)
 	}
 
 	numPartitions := requestedSettings.ActualNumPartitions()
 	newPartitionsNum := numPartitions - originalSettings.ActualNumPartitions()
 	if newPartitionsNum <= 0 {
-		log.InfoC(ctx, "No need to increase partitions count: was=%d, requested=%s", numPartitions, newPartitionsNum)
+		log.InfoC(ctx, "No need to increase partitions count: was=%d, requested=%d", numPartitions, newPartitionsNum)
 		return false, nil
 	}
 	log.DebugC(ctx, "numPartitions %v", numPartitions)
@@ -514,7 +514,7 @@ func (helper *HelperImpl) DoesTopicExistOnKafka(ctx context.Context, instance *m
 	return measureTimeValue(isTopicExistsMethodMetric, func() (bool, error) {
 		admin, err := helper.createClusterAdmin(ctx, instance)
 		if err != nil {
-			return false, utils.LogError(log, ctx, "Failed to connect to kafka instance %s: %v", instance, err)
+			return false, utils.LogError(log, ctx, "Failed to connect to kafka instance %s: %w", instance, err)
 		}
 		defer func() {
 			if err := admin.Close(); err != nil {
@@ -531,7 +531,7 @@ func (helper *HelperImpl) DoesTopicExistOnKafka(ctx context.Context, instance *m
 				return false, utils.LogError(log, ctx, "received description of topic %s from kafka instance %s with error: %s", topicName, instance, topics[0].Err.Error())
 			}
 		} else {
-			return false, utils.LogError(log, ctx, "Failed to receive description of topic %s from kafka instance %s: %v", topicName, instance, err)
+			return false, utils.LogError(log, ctx, "Failed to receive description of topic %s from kafka instance %s: %w", topicName, instance, err)
 		}
 	})
 }
@@ -693,13 +693,13 @@ func (sl *SaramaLogger) format(v ...interface{}) string {
 	}
 }
 func (sl *SaramaLogger) Print(v ...interface{}) {
-	sl.log.DebugC(sl.ctx, strings.TrimSpace(sl.format(v...)))
+	sl.log.DebugC(sl.ctx, "%s", strings.TrimSpace(sl.format(v...)))
 }
 func (sl *SaramaLogger) Printf(format string, v ...interface{}) {
-	sl.log.DebugC(sl.ctx, strings.TrimSpace(fmt.Sprintf(format, v...)))
+	sl.log.DebugC(sl.ctx, "%s", strings.TrimSpace(fmt.Sprintf(format, v...)))
 }
 func (sl *SaramaLogger) Println(v ...interface{}) {
-	sl.log.DebugC(sl.ctx, sl.format(v...))
+	sl.log.DebugC(sl.ctx, "%s", sl.format(v...))
 }
 
 func newMetricCounter(methodName string) prometheus.Histogram {

@@ -684,7 +684,7 @@ func (d *RabbitServiceDaoImpl) CheckExchangesAndQueuesHaveUniqueName(ctx context
 			Find(nonUniqueNames).Error
 	}); err != nil {
 		err = fmt.Errorf("error during group by request in CheckExchangesAndQueuesHaveUniqueName in db: %w", err)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return err
 	}
 
@@ -776,7 +776,7 @@ func (d *RabbitServiceDaoImpl) CheckBindingsHaveExistingESource(ctx context.Cont
 			Find(incorrectBindings).Error
 	}); err != nil {
 		err = fmt.Errorf("error during CheckBindingsHaveExistingESource in db: %w", err)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, err
 	}
 

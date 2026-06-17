@@ -600,7 +600,7 @@ func (d *KafkaDaoImpl) FindTopicTemplateById(ctx context.Context, id int64) (*mo
 	if err := d.base.UsingDb(ctx, func(cnn *gorm.DB) error {
 		return cnn.First(obj, id).Error
 	}); err != nil {
-		log.ErrorC(ctx, "Error query TopicTemplate by id %d, error: %w", id, err)
+		log.ErrorC(ctx, "Error query TopicTemplate by id %d, error: %v", id, err)
 		return nil, err
 	}
 

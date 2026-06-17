@@ -370,7 +370,7 @@ func (bsr *BackupStorageReplicator) startAsyncTasks(ctx context.Context, dsn str
 				return
 			case updateId := <-syncChannel:
 				if err := bsr.handleSyncEvent(ctx, updateId); err != nil {
-					bsr.logger.ErrorC(ctx, "ignore replicate error: %s, update id: %s", err, updateId)
+					bsr.logger.ErrorC(ctx, "ignore replicate error: %v, update id: %d", err, updateId)
 				}
 			}
 		}

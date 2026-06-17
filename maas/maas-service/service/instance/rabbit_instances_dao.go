@@ -242,7 +242,7 @@ func (k RabbitInstancesDaoImpl) InsertInstanceDesignatorRabbit(ctx context.Conte
 					Err:     dao.InstanceDesignatorUniqueIndexErr,
 					Message: fmt.Sprintf("Instance designator rabbit should be unique for namespace '%v', existing designator: '%+v'", instanceDesignator.Namespace, existingDesig),
 				}
-				log.ErrorC(ctx, e.Error())
+				log.ErrorC(ctx, "%s", e.Error())
 				return err
 			}
 			if k.base.IsForeignKeyIntegrityViolation(e) {
@@ -250,7 +250,7 @@ func (k RabbitInstancesDaoImpl) InsertInstanceDesignatorRabbit(ctx context.Conte
 					Err:     dao.InstanceDesignatorForeignKeyErr,
 					Message: fmt.Sprintf("instance designator rabbit should be linked to already existing instance, check your default instance '%v'", *instanceDesignator.DefaultInstanceId),
 				}
-				log.ErrorC(ctx, e.Error())
+				log.ErrorC(ctx, "%s", e.Error())
 				return err
 			}
 			return e
