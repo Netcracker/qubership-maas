@@ -1,11 +1,10 @@
 module github.com/netcracker/qubership-maas
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/IBM/sarama v1.50.3
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/docker v28.5.2+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/glebarez/go-sqlite v1.22.0
 	github.com/glebarez/sqlite v1.11.0
@@ -24,8 +23,9 @@ require (
 	github.com/knadh/koanf/providers/confmap v1.0.0
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/moby/moby/api v1.54.1
 	github.com/netcracker/qubership-core-lib-go/v3 v3.11.0
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/gomega v1.42.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/proullon/ramsql v0.1.4
@@ -39,7 +39,7 @@ require (
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.31.1
+	gorm.io/gorm v1.31.2
 )
 
 require (
@@ -112,7 +112,6 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
-	github.com/moby/moby/api v1.54.1 // indirect
 	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
