@@ -231,9 +231,9 @@
         "$id": "#/properties/READONLY_CONTAINER_FILE_SYSTEM_ENABLED",
         "type": "boolean",
         "title": "The READONLY_CONTAINER_FILE_SYSTEM_ENABLED schema",
-        "description": "Read-only container file system is enabled",
+        "description": "Read-only root filesystem is enabled by default on Kubernetes (PAAS_PLATFORM=KUBERNETES). Set to false to opt out. Ignored on OpenShift.",
         "examples": [
-          false
+          true
         ]
       },
       "CLOUD_TOPOLOGY_KEY": {
