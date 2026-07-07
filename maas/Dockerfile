@@ -11,7 +11,7 @@ RUN go build -o maas-service .
 RUN chmod 555 maas-service && \
     chmod 444 application.yaml docs/swagger.json docs/swagger.yaml
 
-FROM ghcr.io/netcracker/qubership-core-base:2.3.3@sha256:1339716127a7d170ba307b89f3a933f5e09c447607c89e16bf8d5a379db4e1f6 AS run
+FROM ghcr.io/netcracker/qubership-core-base:2.3.4@sha256:55b2de47ca9fd85127a2077c65b9187f04ffd41849b2460f49c71b7e6372f940 AS run
 
 COPY --chown=10001:0 --from=build app/maas-service /app/maas
 COPY --chown=10001:0 --from=build app/application.yaml /app/
