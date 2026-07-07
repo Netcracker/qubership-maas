@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
@@ -65,8 +65,8 @@ type authorizeWithBasicFunc func(context.Context, string, utils.SecretString, st
 type authorizeWithTokenFunc func(context.Context, string, []model.RoleName) (*model.Account, error)
 
 func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		userCtx := ctx.UserContext()
+	return func(ctx fiber.Ctx) error {
+		userCtx := ctx.Context()
 		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
 
 		var (
@@ -111,7 +111,7 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			ctx.Request().Header.Add(HeaderXMicroservice, account.Username)
 			ctx.Request().Header.Add(HeaderXNamespace, account.Namespace)
 
-			rc := model.RequestContextOf(ctx.UserContext())
+			rc := model.RequestContextOf(ctx.Context())
 			if rc != nil {
 				rc.Namespace = account.Namespace
 				rc.Microservice = account.Username
@@ -121,20 +121,20 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 		}
 
 		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
-		ctx.SetUserContext(model.WithSecurityContext(userCtx, secCtx))
+		ctx.SetContext(model.WithSecurityContext(userCtx, secCtx))
 		return ctx.Next()
 	}
 }
 
-func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func ExtractOrAttachXRequestId(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	requestId := string(fiberCtx.Request().Header.Peek(HeaderXRequestId))
 	if requestId == "" {
 		requestId = uuid.New().String()
 		log.InfoC(ctx, "Header 'X-Request-Id' is missing, generated requestId: %v", requestId)
 	}
 	ctx = context.WithValue(ctx, headerContextKey(HeaderXRequestId), requestId)
-	fiberCtx.SetUserContext(ctx)
+	fiberCtx.SetContext(ctx)
 
 	// add request-id to response
 	fiberCtx.Set(HeaderXRequestId, requestId)
@@ -146,8 +146,8 @@ func maskPasswordInBody(originalBody string) string {
 	return passwordRegExp.ReplaceAllString(originalBody, `"password": "******",`)
 }
 
-func LogRequest(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func LogRequest(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	body := string(fiberCtx.Body())
 	if body != "" {
 		body = maskPasswordInBody(fmt.Sprintf("\n\tBody: %s", strings.ReplaceAll(body, "\n", "\n\t\t")))
@@ -178,8 +178,8 @@ func LogRequest(fiberCtx *fiber.Ctx) error {
 	return err
 }
 
-func ExtractRequestContext(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func ExtractRequestContext(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	requestContext := &model.RequestContext{}
 
 	namespace := string(fiberCtx.Request().Header.Peek(HeaderXNamespace))
@@ -199,19 +199,19 @@ func ExtractRequestContext(fiberCtx *fiber.Ctx) error {
 	requestContext.Version = version
 
 	ctx = model.WithRequestContext(ctx, requestContext)
-	fiberCtx.SetUserContext(ctx)
+	fiberCtx.SetContext(ctx)
 	return fiberCtx.Next()
 }
 
 // Namespace parameter shouldn't be emoty
-func RequiresNamespaceHeader(fiberCtx *fiber.Ctx) error {
+func RequiresNamespaceHeader(fiberCtx fiber.Ctx) error {
 	// Skip namespace check for k8s m2m token requests
 	authScheme, _, ok := utils.ParseAuthHeader(fiberCtx.Get("Authorization"))
 	if ok && strings.ToLower(authScheme) == "bearer" {
 		return fiberCtx.Next()
 	}
 
-	ctx := fiberCtx.UserContext()
+	ctx := fiberCtx.Context()
 	rc := model.RequestContextOf(ctx)
 	if rc == nil {
 		return errors.New("request context not yet extracted")
@@ -224,8 +224,8 @@ func RequiresNamespaceHeader(fiberCtx *fiber.Ctx) error {
 	return fiberCtx.Next()
 }
 
-func ParseRequestParametersFromConfig(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func ParseRequestParametersFromConfig(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	narrow := func(o interface{}, out interface{}) error {
 		m, err := json.Marshal(o)
@@ -276,25 +276,25 @@ func ParseRequestParametersFromConfig(fiberCtx *fiber.Ctx) error {
 		log.DebugC(ctx, "Version field in spec is missed")
 	}
 
-	fiberCtx.SetUserContext(model.WithRequestContext(ctx, requestContext))
+	fiberCtx.SetContext(model.WithRequestContext(ctx, requestContext))
 	return fiberCtx.Next()
 }
 
-func RespondWithJson(c *fiber.Ctx, code int, payload interface{}) error {
-	log.InfoC(c.UserContext(), "Responding with code '%v' and payload: %+v", code, payload)
+func RespondWithJson(c fiber.Ctx, code int, payload interface{}) error {
+	log.InfoC(c.Context(), "Responding with code '%v' and payload: %+v", code, payload)
 	if payload == nil {
 		return c.Status(code).Send(nil)
 	}
 	return c.Status(code).JSON(payload)
 }
 
-func Respond(c *fiber.Ctx, code int) error {
-	log.InfoC(c.UserContext(), "Responding with code '%d'", code)
+func Respond(c fiber.Ctx, code int) error {
+	log.InfoC(c.Context(), "Responding with code '%d'", code)
 	return c.Status(code).Send(nil)
 }
 
-func UnmarshalRequestBody[T any](fiberCtx *fiber.Ctx, obj T, handler func(ctx context.Context) error) error {
-	ctx := fiberCtx.UserContext()
+func UnmarshalRequestBody[T any](fiberCtx fiber.Ctx, obj T, handler func(ctx context.Context) error) error {
+	ctx := fiberCtx.Context()
 	if err := json.Unmarshal(fiberCtx.Body(), obj); err != nil {
 		return utils.LogError(log, ctx, "error unmarshall body: %v: %w", err.Error(), msg.BadRequest)
 	}
@@ -302,7 +302,7 @@ func UnmarshalRequestBody[T any](fiberCtx *fiber.Ctx, obj T, handler func(ctx co
 	return handler(ctx)
 }
 
-func TmfErrorHandler(ctx *fiber.Ctx, err error) error {
+func TmfErrorHandler(ctx fiber.Ctx, err error) error {
 	code := http.StatusInternalServerError
 	var meta map[string]string
 
@@ -344,12 +344,12 @@ func TmfErrorHandler(ctx *fiber.Ctx, err error) error {
 		NSType:  "NC.TMFErrorResponse.v1.0",
 	}
 
-	log.ErrorC(ctx.UserContext(), "[%v][%v] %s", tmfError.Code, tmfError.Id, err.Error())
+	log.ErrorC(ctx.Context(), "[%v][%v] %s", tmfError.Code, tmfError.Id, err.Error())
 	return ctx.Status(code).JSON(tmfError)
 }
 
-func ExtractAndValidateClassifier(fiberCtx *fiber.Ctx, handler func(ctx context.Context, classifier *model.Classifier) error) error {
-	ctx := fiberCtx.UserContext()
+func ExtractAndValidateClassifier(fiberCtx fiber.Ctx, handler func(ctx context.Context, classifier *model.Classifier) error) error {
+	ctx := fiberCtx.Context()
 	classifier, err := model.NewClassifierFromReq(string(fiberCtx.Body()))
 	if err != nil {
 		return utils.LogError(log, ctx, "failed to create classifier from request body: %v: %w", err.Error(), msg.BadRequest)
@@ -362,20 +362,20 @@ func ExtractAndValidateClassifier(fiberCtx *fiber.Ctx, handler func(ctx context.
 	return handler(ctx, &classifier)
 }
 
-func WithYaml[T any](next func(*fiber.Ctx, *T) error) func(*fiber.Ctx) error {
+func WithYaml[T any](next func(fiber.Ctx, *T) error) func(fiber.Ctx) error {
 	return WithBody(yaml.Unmarshal, next)
 }
 
-func WithJson[T any](next func(*fiber.Ctx, *T) error) func(*fiber.Ctx) error {
+func WithJson[T any](next func(fiber.Ctx, *T) error) func(fiber.Ctx) error {
 	return WithBody(json.Unmarshal, next)
 }
 
-func WithBody[T any](bodyParser func(data []byte, v any) error, next func(*fiber.Ctx, *T) error) func(*fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func WithBody[T any](bodyParser func(data []byte, v any) error, next func(fiber.Ctx, *T) error) func(fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var body T
 		err := bodyParser(ctx.Body(), &body)
 		if err != nil {
-			return utils.LogError(log, ctx.UserContext(), "failed to parse body: %s: %w", err.Error(), msg.BadRequest)
+			return utils.LogError(log, ctx.Context(), "failed to parse body: %s: %w", err.Error(), msg.BadRequest)
 		}
 		if err := v.Get().Struct(body); err != nil {
 			return err

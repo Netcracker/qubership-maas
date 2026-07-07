@@ -1,12 +1,13 @@
 package controller
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/service/tenant"
 	"github.com/netcracker/qubership-maas/utils"
-	"net/http"
 )
 
 type TenantController struct {
@@ -29,8 +30,8 @@ func NewTenantController(s *tenant.TenantServiceImpl, a auth.AuthService) *Tenan
 // @Success 200 {object}    []model.SyncTenantsResp
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/synchronize-tenants [post]
-func (tc *TenantController) SyncTenants(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (tc *TenantController) SyncTenants(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Receive request to SyncTenants...")
 	syncData := string(fiberCtx.Body())
 	resp, err := tc.tenantService.ApplyTenants(ctx, syncData)
@@ -51,8 +52,8 @@ func (tc *TenantController) SyncTenants(fiberCtx *fiber.Ctx) error {
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v1/tenants [get]
-func (tc *TenantController) GetTenantsByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (tc *TenantController) GetTenantsByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Received request to get all tenants by namespace ctx: %+v", model.RequestContextOf(ctx))
 	tenants, err := tc.tenantService.GetTenantsByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
 	if err != nil {

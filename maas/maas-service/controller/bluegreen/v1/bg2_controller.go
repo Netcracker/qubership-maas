@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/model"
@@ -12,7 +14,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
 	"github.com/netcracker/qubership-maas/utils"
-	"net/http"
 )
 
 var log logging.Logger
@@ -40,52 +41,52 @@ func NewController(bgManager Manager) *Controller {
 	return &Controller{bgManager}
 }
 
-func (c *Controller) InitDomain(fiberCtx *fiber.Ctx, body *BGStateOperation) error {
+func (c *Controller) InitDomain(fiberCtx fiber.Ctx, body *BGStateOperation) error {
 	return handleRequestWithBody(fiberCtx, "Init", func() error {
-		return c.bgManager.InitDomain(fiberCtx.UserContext(), *body.BGState)
+		return c.bgManager.InitDomain(fiberCtx.Context(), *body.BGState)
 	})
 }
 
-func (c *Controller) Warmup(fiberCtx *fiber.Ctx, body *BGStateOperation) error {
+func (c *Controller) Warmup(fiberCtx fiber.Ctx, body *BGStateOperation) error {
 	return handleRequestWithBody(fiberCtx, "Warmup", func() error {
-		return c.bgManager.Warmup(fiberCtx.UserContext(), *body.BGState)
+		return c.bgManager.Warmup(fiberCtx.Context(), *body.BGState)
 	})
 }
 
-func (c *Controller) Commit(fiberCtx *fiber.Ctx, body *BGStateOperation) error {
+func (c *Controller) Commit(fiberCtx fiber.Ctx, body *BGStateOperation) error {
 	return handleRequestWithBody(fiberCtx, "Commit", func() error {
-		return c.bgManager.Commit(fiberCtx.UserContext(), *body.BGState)
+		return c.bgManager.Commit(fiberCtx.Context(), *body.BGState)
 	})
 }
 
-func (c *Controller) Promote(fiberCtx *fiber.Ctx, body *BGStateOperation) error {
+func (c *Controller) Promote(fiberCtx fiber.Ctx, body *BGStateOperation) error {
 	return handleRequestWithBody(fiberCtx, "Promote", func() error {
-		return c.bgManager.Promote(fiberCtx.UserContext(), *body.BGState)
+		return c.bgManager.Promote(fiberCtx.Context(), *body.BGState)
 	})
 }
 
-func (c *Controller) Rollback(fiberCtx *fiber.Ctx, body *BGStateOperation) error {
+func (c *Controller) Rollback(fiberCtx fiber.Ctx, body *BGStateOperation) error {
 	return handleRequestWithBody(fiberCtx, "Rollback", func() error {
-		return c.bgManager.Rollback(fiberCtx.UserContext(), *body.BGState)
+		return c.bgManager.Rollback(fiberCtx.Context(), *body.BGState)
 	})
 }
 
-func (c *Controller) DestroyDomain(fiberCtx *fiber.Ctx, body *domain.BGNamespaces) error {
+func (c *Controller) DestroyDomain(fiberCtx fiber.Ctx, body *domain.BGNamespaces) error {
 	return handleRequestWithBody(fiberCtx, "Destroy Domain", func() error {
-		return c.bgManager.DestroyDomain(fiberCtx.UserContext(), *body)
+		return c.bgManager.DestroyDomain(fiberCtx.Context(), *body)
 	})
 }
 
-func (c *Controller) ListDomains(ctx *fiber.Ctx) error {
-	if list, err := c.bgManager.ListDomains(ctx.UserContext()); err == nil {
+func (c *Controller) ListDomains(ctx fiber.Ctx) error {
+	if list, err := c.bgManager.ListDomains(ctx.Context()); err == nil {
 		return controller.RespondWithJson(ctx, http.StatusOK, list)
 	} else {
 		return err
 	}
 }
 
-func handleRequestWithBody(fiberCtx *fiber.Ctx, operationName string, handler func() error) error {
-	ctx := fiberCtx.UserContext()
+func handleRequestWithBody(fiberCtx fiber.Ctx, operationName string, handler func() error) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Received request to %v: %+v", operationName, model.RequestContextOf(ctx))
 
 	if handler != nil {

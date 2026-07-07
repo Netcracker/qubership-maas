@@ -2,11 +2,12 @@ package controller
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/service/configurator_service"
-	"net/http"
 )
 
 type ConfiguratorController struct {
@@ -30,8 +31,8 @@ func NewConfiguratorController(s configurator_service.ConfiguratorService, a aut
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v1/config [post]
-func (c *ConfiguratorController) ApplyConfig(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *ConfiguratorController) ApplyConfig(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Receive request to apply configs...")
 	namespace := model.RequestContextOf(ctx).Namespace
 	result, err := c.configuratorService.ApplyConfig(ctx, string(fiberCtx.Body()), namespace)
@@ -70,8 +71,8 @@ func (c *ConfiguratorController) ApplyConfig(fiberCtx *fiber.Ctx) error {
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v2/config [post]
-func (c *ConfiguratorController) ApplyConfigV2(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *ConfiguratorController) ApplyConfigV2(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.DebugC(ctx, "Receive request to apply configs...")
 	msResponses, err := c.configuratorService.ApplyConfigV2(ctx, string(fiberCtx.Body()))
 

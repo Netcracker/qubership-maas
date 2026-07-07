@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/controller"
 	bluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
@@ -74,7 +74,7 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	app.Use(controller.LogRequest)
 	app.Use(controller.ExtractRequestContext)
 	// swagger
-	app.Get("/swagger-ui/swagger.json", func(ctx *fiber.Ctx) error {
+	app.Get("/swagger-ui/swagger.json", func(ctx fiber.Ctx) error {
 		ctx.Set("Content-Type", "application/json")
 		return ctx.Status(http.StatusOK).SendString(docs.SwaggerInfo.ReadDoc())
 	})
@@ -210,15 +210,15 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	return app
 }
 
-func propagateContext(ctx context.Context) func(fiberCtx *fiber.Ctx) error {
-	return func(fiberCtx *fiber.Ctx) error {
-		fiberCtx.SetUserContext(ctx)
+func propagateContext(ctx context.Context) func(fiberCtx fiber.Ctx) error {
+	return func(fiberCtx fiber.Ctx) error {
+		fiberCtx.SetContext(ctx)
 		return fiberCtx.Next()
 	}
 }
 
-func healthShortcut(health func() watchdog.AggregatedStatus) func(*fiber.Ctx) error {
-	return func(fiberCtx *fiber.Ctx) error {
+func healthShortcut(health func() watchdog.AggregatedStatus) func(fiber.Ctx) error {
+	return func(fiberCtx fiber.Ctx) error {
 		if fiberCtx.OriginalURL() == "/health" {
 			return fiberCtx.Status(http.StatusOK).JSON(health())
 		} else {
@@ -227,8 +227,8 @@ func healthShortcut(health func() watchdog.AggregatedStatus) func(*fiber.Ctx) er
 	}
 }
 
-func indexPage(_ context.Context) func(fiberCtx *fiber.Ctx) error {
-	return func(fiberCtx *fiber.Ctx) error {
+func indexPage(_ context.Context) func(fiberCtx fiber.Ctx) error {
+	return func(fiberCtx fiber.Ctx) error {
 		if fiberCtx.OriginalURL() == "/" {
 			_, err := fiberCtx.WriteString("Nothing to see here")
 			return err
@@ -237,7 +237,7 @@ func indexPage(_ context.Context) func(fiberCtx *fiber.Ctx) error {
 	}
 }
 
-func prometheusHandler(app fiber.Router) func(ctx *fiber.Ctx) error {
+func prometheusHandler(app fiber.Router) func(ctx fiber.Ctx) error {
 	promHandler := utils.NewWithRegistry(prometheus.DefaultRegisterer, "maas-service", "http", "", nil)
 	promHandler.RegisterAt(app, "/prometheus")
 	return promHandler.Middleware

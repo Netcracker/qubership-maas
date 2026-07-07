@@ -2,17 +2,18 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
-	"github.com/netcracker/qubership-maas/model"
-	mock_auth "github.com/netcracker/qubership-maas/service/auth/mock"
-	mock_rabbit_service "github.com/netcracker/qubership-maas/service/rabbit_service/mock"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/model"
+	mock_auth "github.com/netcracker/qubership-maas/service/auth/mock"
+	mock_rabbit_service "github.com/netcracker/qubership-maas/service/rabbit_service/mock"
+	"github.com/stretchr/testify/assert"
 )
 
 var vhostReq = `{

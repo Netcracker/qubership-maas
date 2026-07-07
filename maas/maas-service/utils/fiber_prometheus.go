@@ -4,9 +4,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/adaptor"
+	"github.com/gofiber/utils/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -109,12 +109,23 @@ func NewWithRegistry(registry prometheus.Registerer, serviceName, namespace, sub
 func (ps *FiberPrometheus) RegisterAt(app fiber.Router, url string, handlers ...fiber.Handler) {
 	ps.defaultURL = url
 
-	h := append(handlers, adaptor.HTTPHandler(promhttp.HandlerFor(ps.gatherer, promhttp.HandlerOpts{})))
-	app.Get(ps.defaultURL, h...)
+	allHandlers := append([]fiber.Handler{}, handlers...)
+	allHandlers = append(allHandlers, adaptor.HTTPHandler(promhttp.HandlerFor(ps.gatherer, promhttp.HandlerOpts{})))
+
+	if len(allHandlers) == 1 {
+		app.Get(ps.defaultURL, allHandlers[0])
+		return
+	}
+
+	rest := make([]any, len(allHandlers)-1)
+	for i, handler := range allHandlers[1:] {
+		rest[i] = handler
+	}
+	app.Get(ps.defaultURL, allHandlers[0], rest...)
 }
 
 // Middleware is the actual default middleware implementation
-func (ps *FiberPrometheus) Middleware(ctx *fiber.Ctx) error {
+func (ps *FiberPrometheus) Middleware(ctx fiber.Ctx) error {
 	path := string(ctx.Request().RequestURI())
 
 	if path == ps.defaultURL {

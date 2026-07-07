@@ -19,7 +19,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/go-resty/resty/v2"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
@@ -59,7 +59,7 @@ func (wg *WaitGroupWithTimeout) Wait(timeout time.Duration) bool {
 func CreateContextFromString(rId string) context.Context {
 	return context.WithValue(context.Background(), requestIDContextKey, rId)
 }
-func GetBasicAuth(fiberCtx *fiber.Ctx) (string, SecretString, error) {
+func GetBasicAuth(fiberCtx fiber.Ctx) (string, SecretString, error) {
 	var basicAuthPrefix = []byte("Basic ")
 	var username string
 	var password SecretString

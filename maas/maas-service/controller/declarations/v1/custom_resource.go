@@ -3,12 +3,13 @@ package v1
 import (
 	"context"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"strconv"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/cr"
-	"net/http"
-	"strconv"
 )
 
 type CustomResourceController struct {
@@ -26,16 +27,16 @@ func NewCustomResourceController(customResourceService CustomResourceProcessorSe
 	return &CustomResourceController{customResourceService: customResourceService}
 }
 
-func (c *CustomResourceController) Create(fiberCtx *fiber.Ctx, customResourceRequest *cr.CustomResourceRequest) error {
+func (c *CustomResourceController) Create(fiberCtx fiber.Ctx, customResourceRequest *cr.CustomResourceRequest) error {
 	return c.apply(fiberCtx, customResourceRequest, cr.ActionCreate)
 }
 
-func (c *CustomResourceController) Delete(fiberCtx *fiber.Ctx, customResourceRequest *cr.CustomResourceRequest) error {
+func (c *CustomResourceController) Delete(fiberCtx fiber.Ctx, customResourceRequest *cr.CustomResourceRequest) error {
 	return c.apply(fiberCtx, customResourceRequest, cr.ActionDelete)
 }
 
-func (c *CustomResourceController) apply(fiberCtx *fiber.Ctx, customResourceRequest *cr.CustomResourceRequest, action cr.Action) error {
-	waitEntity, err := c.customResourceService.Apply(fiberCtx.UserContext(), customResourceRequest, action)
+func (c *CustomResourceController) apply(fiberCtx fiber.Ctx, customResourceRequest *cr.CustomResourceRequest, action cr.Action) error {
+	waitEntity, err := c.customResourceService.Apply(fiberCtx.Context(), customResourceRequest, action)
 	if err != nil {
 		return fmt.Errorf("failed to apply custom resource request: %w", err)
 	}
@@ -50,13 +51,13 @@ func (c *CustomResourceController) apply(fiberCtx *fiber.Ctx, customResourceRequ
 	return controller.RespondWithJson(fiberCtx, http.StatusOK, cr.OkCRResponse)
 }
 
-func (c *CustomResourceController) Status(fiberCtx *fiber.Ctx) error {
+func (c *CustomResourceController) Status(fiberCtx fiber.Ctx) error {
 	trackingIdParam := fiberCtx.Params("trackingId")
 	trackingId, err := strconv.ParseInt(trackingIdParam, 10, 64)
 	if err != nil {
 		return fmt.Errorf("trackingId '%s' must be integer value: %s: %w", trackingIdParam, err.Error(), msg.BadRequest)
 	}
-	waitEntity, err := c.customResourceService.GetStatus(fiberCtx.UserContext(), trackingId)
+	waitEntity, err := c.customResourceService.GetStatus(fiberCtx.Context(), trackingId)
 	if err != nil {
 		return err
 	}
@@ -70,13 +71,13 @@ func (c *CustomResourceController) Status(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func (c *CustomResourceController) Terminate(fiberCtx *fiber.Ctx) error {
+func (c *CustomResourceController) Terminate(fiberCtx fiber.Ctx) error {
 	trackingIdParam := fiberCtx.Params("trackingId")
 	trackingId, err := strconv.ParseInt(trackingIdParam, 10, 64)
 	if err != nil {
 		return fmt.Errorf("trackingId '%s' must be integer value: %s: %w", trackingIdParam, err.Error(), msg.BadRequest)
 	}
-	waitEntity, err := c.customResourceService.Terminate(fiberCtx.UserContext(), trackingId)
+	waitEntity, err := c.customResourceService.Terminate(fiberCtx.Context(), trackingId)
 	if err != nil {
 		return err
 	}
