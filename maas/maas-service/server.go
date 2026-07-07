@@ -6,8 +6,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/pprof"
+	"path/filepath"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxmanager"
@@ -43,7 +45,7 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
-	"path/filepath"
+
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
@@ -198,7 +200,7 @@ func main() {
 
 	serverBind := configloader.GetOrDefaultString("http.server.bind", ":8080")
 	log.InfoC(ctx, "Starting server on %v", serverBind)
-	if err := app.Listen(serverBind); err != nil {
+	if err := app.Listen(serverBind, fiber.ListenConfig{DisableStartupMessage: true}); err != nil {
 		log.PanicC(ctx, "%s", err.Error())
 	}
 
@@ -208,10 +210,10 @@ func main() {
 
 func startPProf() {
 	go func() {
-		app := fiber.New(fiber.Config{DisableStartupMessage: true})
+		app := fiber.New(fiber.Config{})
 		app.Use(pprof.New())
 		log.Debugf("run pprof on 127.0.0.1:6060")
-		err := app.Listen("127.0.0.1:6060")
+		err := app.Listen("127.0.0.1:6060", fiber.ListenConfig{DisableStartupMessage: true})
 		if err != nil {
 			log.Debugf("pprof server error: %v", err)
 		}

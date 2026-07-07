@@ -19,7 +19,7 @@ import (
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/auth"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -69,7 +69,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		app.Get("/not-anonymous", SecurityMiddleware([]model.RoleName{testRoleName}, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken), func(ctx *fiber.Ctx) error {
+		app.Get("/not-anonymous", SecurityMiddleware([]model.RoleName{testRoleName}, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken), func(ctx fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 
@@ -96,7 +96,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		assert.NotNil(t, resp)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-		app.Get("/anonymous", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken), func(ctx *fiber.Ctx) error {
+		app.Get("/anonymous", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken), func(ctx fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 
@@ -140,7 +140,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 
 		// pass a nil authorizeWithTokenFunc to SecurityMiddleware to turn off k8s m2m
-		app.Get("/anonymous-without-k8s-m2m", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, authService.IsAccessGrantedWithBasic, nil), func(ctx *fiber.Ctx) error {
+		app.Get("/anonymous-without-k8s-m2m", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, authService.IsAccessGrantedWithBasic, nil), func(ctx fiber.Ctx) error {
 			return ctx.Status(200).JSON("ok")
 		})
 		req = httptest.NewRequest("GET", "/anonymous-without-k8s-m2m", nil)
@@ -159,7 +159,7 @@ func setBrearerAuth(r *http.Request, token string) {
 
 func TestTmfErrorHandler_ErrorFormat(t *testing.T) {
 	app := fiber.New(fiber.Config{ErrorHandler: TmfErrorHandler})
-	app.Get("/error", func(ctx *fiber.Ctx) error {
+	app.Get("/error", func(ctx fiber.Ctx) error {
 		return fmt.Errorf("test error: %w", msg.NotFound)
 	})
 
@@ -201,7 +201,7 @@ type testDto struct {
 
 func TestWithBody(t *testing.T) {
 	app := fiber.New()
-	app.Get("/json", WithBody(json.Unmarshal, func(ctx *fiber.Ctx, body *testDto) error {
+	app.Get("/json", WithBody(json.Unmarshal, func(ctx fiber.Ctx, body *testDto) error {
 		assert.Equal(t, "firstVal", body.First)
 		assert.Equal(t, "v1", body.Second["k1"])
 		assert.Equal(t, "v2", body.Second["k2"])
@@ -211,7 +211,7 @@ func TestWithBody(t *testing.T) {
 	_, err := app.Test(req)
 	assert.NoError(t, err)
 
-	app.Get("/yaml", WithBody(yaml.Unmarshal, func(ctx *fiber.Ctx, body *testDto) error {
+	app.Get("/yaml", WithBody(yaml.Unmarshal, func(ctx fiber.Ctx, body *testDto) error {
 		assert.Equal(t, "firstVal", body.First)
 		assert.Equal(t, "v1", body.Second["k1"])
 		assert.Equal(t, "v2", body.Second["k2"])

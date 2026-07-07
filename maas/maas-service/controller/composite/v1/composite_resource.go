@@ -3,12 +3,13 @@ package v1
 import (
 	"context"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/composite"
 	"golang.org/x/exp/slices"
-	"net/http"
 )
 
 type RegistrationController struct {
@@ -39,11 +40,11 @@ func NewRegistrationController(registrationService RegistrationService) *Registr
 // @Failure 409 {object}	map[string]string
 // @Failure 500 {object}	map[string]string
 // @Router /api/composite/v1/structure [post]
-func (c *RegistrationController) Create(fiberCtx *fiber.Ctx, registrationRequest *RegistrationRequest) error {
+func (c *RegistrationController) Create(fiberCtx fiber.Ctx, registrationRequest *RegistrationRequest) error {
 	if !slices.Contains(registrationRequest.Namespaces, registrationRequest.Id) {
 		return fmt.Errorf("'namespaces' array MUST contain namespace from 'id' param: %w", msg.BadRequest)
 	}
-	err := c.registrationService.Upsert(fiberCtx.UserContext(), registrationRequest.ToCompositeRegistration())
+	err := c.registrationService.Upsert(fiberCtx.Context(), registrationRequest.ToCompositeRegistration())
 	if err != nil {
 		return err
 	}
@@ -61,9 +62,9 @@ func (c *RegistrationController) Create(fiberCtx *fiber.Ctx, registrationRequest
 // @Failure 404
 // @Failure 500 {object} map[string]string
 // @Router /api/composite/v1/structure/{id} [get]
-func (c *RegistrationController) GetById(fiberCtx *fiber.Ctx) error {
+func (c *RegistrationController) GetById(fiberCtx fiber.Ctx) error {
 	baseline := fiberCtx.Params("id")
-	registration, err := c.registrationService.GetByBaseline(fiberCtx.UserContext(), baseline)
+	registration, err := c.registrationService.GetByBaseline(fiberCtx.Context(), baseline)
 	if err != nil {
 		return err
 	}
@@ -83,8 +84,8 @@ func (c *RegistrationController) GetById(fiberCtx *fiber.Ctx) error {
 // @Success 200 {object} []v1.RegistrationResponse
 // @Failure 500 {object}	map[string]string
 // @Router /api/composite/v1/structures [get]
-func (c *RegistrationController) GetAll(fiberCtx *fiber.Ctx) error {
-	entites, err := c.registrationService.List(fiberCtx.UserContext())
+func (c *RegistrationController) GetAll(fiberCtx fiber.Ctx) error {
+	entites, err := c.registrationService.List(fiberCtx.Context())
 	if err != nil {
 		return err
 	}
@@ -108,9 +109,9 @@ func (c *RegistrationController) GetAll(fiberCtx *fiber.Ctx) error {
 // @Failure 404
 // @Failure 500 {object}	map[string]string
 // @Router /api/composite/v1/structure/{id} [delete]
-func (c *RegistrationController) DeleteById(fiberCtx *fiber.Ctx) error {
+func (c *RegistrationController) DeleteById(fiberCtx fiber.Ctx) error {
 	baseline := fiberCtx.Params("id")
-	err := c.registrationService.Destroy(fiberCtx.UserContext(), baseline)
+	err := c.registrationService.Destroy(fiberCtx.Context(), baseline)
 	if err != nil {
 		return err
 	}

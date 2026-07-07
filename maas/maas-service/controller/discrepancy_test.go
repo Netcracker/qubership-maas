@@ -2,7 +2,12 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/monitoring"
@@ -10,10 +15,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/kafka"
 	mock_helper "github.com/netcracker/qubership-maas/service/kafka/helper/mock"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestDiscrepancyController(t *testing.T) {

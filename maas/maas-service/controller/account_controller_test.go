@@ -3,17 +3,19 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/auth"
 	mock_auth "github.com/netcracker/qubership-maas/service/auth/mock"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 const (
@@ -42,14 +44,14 @@ func TestAccountController_SaveClientAccount(t *testing.T) {
 			"roles": ["manager", "agent"]
 		}`))
 	{
-		resp, err := app.Test(req, 100)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 		assert.NotNil(t, resp.Body)
 	}
 
 	{
-		resp, err := app.Test(req, 100)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.NotNil(t, resp.Body)

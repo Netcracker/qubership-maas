@@ -1,11 +1,12 @@
 package controller
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/kafka"
 	"github.com/netcracker/qubership-maas/utils"
-	"net/http"
 )
 
 type DiscrepancyController struct {
@@ -27,18 +28,18 @@ func NewDiscrepancyController(kafkaService kafka.KafkaService) *DiscrepancyContr
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v2/kafka/discrepancy-report/{namespace} [get]
-func (c *DiscrepancyController) GetReport(fiberCtx *fiber.Ctx) error {
+func (c *DiscrepancyController) GetReport(fiberCtx fiber.Ctx) error {
 	namespace := fiberCtx.Params("namespace")
 	statusParam := fiberCtx.Query("status")
 
-	report, err := c.kafkaService.GetDiscrepancyReport(fiberCtx.UserContext(), namespace, func(item model.DiscrepancyReportItem) bool {
+	report, err := c.kafkaService.GetDiscrepancyReport(fiberCtx.Context(), namespace, func(item model.DiscrepancyReportItem) bool {
 		if statusParam == "" {
 			return true
 		}
 		return item.Status == statusParam
 	})
 	if err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "can not get kafka discrepancy report: %s", err.Error())
+		return utils.LogError(log, fiberCtx.Context(), "can not get kafka discrepancy report: %s", err.Error())
 	}
 	return RespondWithJson(fiberCtx, http.StatusOK, report)
 }
