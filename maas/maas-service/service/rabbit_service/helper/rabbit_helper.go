@@ -60,6 +60,7 @@ type RabbitHelper interface {
 	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error)
 	DeleteShovelByName(ctx context.Context, shovelName string) error
 	GetVhostShovels(ctx context.Context) ([]model.Shovel, error)
+	GetAllInstanceShovels(ctx context.Context) ([]model.Shovel, error)
 }
 
 const shovelQueue = "-sq"
@@ -425,8 +426,28 @@ func (h RabbitHelperImpl) DeleteQueue(ctx context.Context, queue interface{}) (i
 		log.ErrorC(ctx, "queue entity '%v' doesn't have name field", queue)
 		return nil, err
 	}
+	h.deleteAssociatedShovels(ctx, queueName)
 	url := fmt.Sprintf("queues/%s/%s", h.vhost.Vhost, queueName)
 	return h.DeleteEntity(ctx, queue, url)
+}
+
+// deleteAssociatedShovels deletes all shovels across all vhosts that source from queueName in this vhost.
+// Errors are logged as warnings and do not block queue deletion (e.g. when shovel plugin is disabled).
+func (h RabbitHelperImpl) deleteAssociatedShovels(ctx context.Context, queueName string) {
+	allShovels, err := h.GetAllInstanceShovels(ctx)
+	if err != nil || allShovels == nil {
+		log.WarnC(ctx, "Could not retrieve instance shovels (shovel plugin may be disabled), skipping shovel cleanup for queue '%s': %v", queueName, err)
+		return
+	}
+	for _, shovel := range allShovels {
+		if shovel.Value.SrcQueue == queueName && strings.Contains(shovel.Value.SrcUri, h.vhost.Vhost) {
+			log.InfoC(ctx, "Deleting shovel '%s' in vhost '%s' before deleting queue '%s'", shovel.Name, shovel.Vhost, queueName)
+			url := fmt.Sprintf("parameters/shovel/%s/%s", shovel.Vhost, shovel.Name)
+			if _, delErr := h.DeleteAdminEntity(ctx, nil, url); delErr != nil {
+				log.WarnC(ctx, "Failed to delete shovel '%s' in vhost '%s': %v", shovel.Name, shovel.Vhost, delErr)
+			}
+		}
+	}
 }
 
 func (h RabbitHelperImpl) GetBinding(ctx context.Context, binding interface{}) (interface{}, error) {
@@ -864,7 +885,21 @@ func (h RabbitHelperImpl) GetVhostShovels(ctx context.Context) ([]model.Shovel, 
 	url := fmt.Sprintf("parameters/shovel/%s", h.vhost.Vhost)
 	shovels, err := h.GetAdminEntity(ctx, url, []model.Shovel{})
 	if err != nil {
-		return nil, utils.LogError(log, ctx, "error during DeleteAdminEntity: %w", err)
+		return nil, utils.LogError(log, ctx, "error during GetAdminEntity for vhost shovels: %w", err)
+	}
+
+	if shovels == nil {
+		return nil, nil
+	}
+	shovelsConverted := shovels.(*[]model.Shovel)
+
+	return *shovelsConverted, nil
+}
+
+func (h RabbitHelperImpl) GetAllInstanceShovels(ctx context.Context) ([]model.Shovel, error) {
+	shovels, err := h.GetAdminEntity(ctx, "parameters/shovel", []model.Shovel{})
+	if err != nil {
+		return nil, utils.LogError(log, ctx, "error during GetAdminEntity for all instance shovels: %w", err)
 	}
 
 	if shovels == nil {

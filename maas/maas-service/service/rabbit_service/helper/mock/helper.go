@@ -500,6 +500,21 @@ func (mr *MockRabbitHelperMockRecorder) GetVhostShovels(ctx interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVhostShovels", reflect.TypeOf((*MockRabbitHelper)(nil).GetVhostShovels), ctx)
 }
 
+// GetAllInstanceShovels mocks base method.
+func (m *MockRabbitHelper) GetAllInstanceShovels(ctx context.Context) ([]model.Shovel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllInstanceShovels", ctx)
+	ret0, _ := ret[0].([]model.Shovel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllInstanceShovels indicates an expected call of GetAllInstanceShovels.
+func (mr *MockRabbitHelperMockRecorder) GetAllInstanceShovels(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllInstanceShovels", reflect.TypeOf((*MockRabbitHelper)(nil).GetAllInstanceShovels), ctx)
+}
+
 // IsInstanceAvailable mocks base method.
 func (m *MockRabbitHelper) IsInstanceAvailable() error {
 	m.ctrl.T.Helper()
