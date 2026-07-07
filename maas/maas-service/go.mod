@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-maas
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/IBM/sarama v1.50.3
@@ -24,7 +24,6 @@ require (
 	github.com/knadh/koanf/providers/confmap v1.0.0
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/moby/moby/api v1.55.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.13.0
 	github.com/onsi/gomega v1.42.1
 	github.com/pkg/errors v0.9.1
@@ -113,6 +112,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
+	github.com/moby/moby/api v1.55.0 // indirect
 	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
