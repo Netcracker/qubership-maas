@@ -111,7 +111,7 @@ func newTestDatabase(t *testing.T) *TestDatabase {
 		defer cancel()
 		p, err := pg.MappedPort(ctx, "5432")
 		require.NoError(t, err)
-		tdb.port = p.Int()
+		tdb.port = int(p.Num())
 	}
 
 	t.Logf("PostgresSQL test container endpoint: %+v\n", tdb)

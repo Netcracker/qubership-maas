@@ -180,7 +180,7 @@ func (h RabbitHelperImpl) DeleteVHost(ctx context.Context) error {
 		nil,
 		[]int{http.StatusNoContent, http.StatusNotFound},
 		fmt.Sprintf("Error delete user: %v", vhostUsername)); err != nil {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return err
 	}
 
@@ -191,7 +191,7 @@ func (h RabbitHelperImpl) DeleteVHost(ctx context.Context) error {
 		nil,
 		[]int{http.StatusNoContent, http.StatusNotFound},
 		fmt.Sprintf("Error delete vhostName: %v", vhostName)); err != nil {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return err
 	}
 	return nil
@@ -229,7 +229,7 @@ func (h RabbitHelperImpl) getEntity(ctx context.Context, url, user, password str
 		nil,
 		[]int{http.StatusOK, http.StatusNotFound},
 		fmt.Sprintf("Error getting entity with url '%v', user '%v'", url, user)); err != nil {
-		log.ErrorC(ctx, fmt.Sprintf("Error in getEntity during DoRequest: %v", err.Error()))
+		log.ErrorC(ctx, "%s", fmt.Sprintf("Error in getEntity during DoRequest: %v", err.Error()))
 		return nil, err
 	} else {
 		if response.RawResponse.StatusCode == http.StatusNotFound {
@@ -319,15 +319,15 @@ func (h RabbitHelperImpl) createEntity(ctx context.Context, entity interface{}, 
 			reasonMap, ok := reason.(*map[string]interface{})
 			if !ok {
 				err := fmt.Errorf("error during conversion to *map[string]interface{} for '%+v'", reason)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return nil, "", err
 			}
 			return response, (*reasonMap)["reason"].(string), nil
 		}
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, "", err
 	} else {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, "", err
 	}
 }
@@ -575,7 +575,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 					Message: fmt.Sprintf("User was not authorized for vhost: %+v", h.vhost),
 					Err:     ErrNotAuthorizedRabbit,
 				}
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return entities, err
 			}
 		}
@@ -586,7 +586,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 		_, ok := result.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion exchanges to *[]interface{} for '%+v'", result)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return entities, err
 		}
 		entities.Exchanges = *result.(*[]interface{})
@@ -595,7 +595,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 			Message: fmt.Sprintf("No exchanges in RabbitMQ for vhost: %+v", h.vhost),
 			Err:     err,
 		}
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return entities, err
 	}
 
@@ -610,7 +610,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 		_, ok := result.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion queues to *[]interface{} for '%+v'", result)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return entities, err
 		}
 		entities.Queues = *result.(*[]interface{})
@@ -626,7 +626,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 		_, ok := result.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion bindings to *[]interface{} for '%+v'", result)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return entities, err
 		}
 		entities.Bindings = *result.(*[]interface{})
@@ -651,7 +651,7 @@ func (h RabbitHelperImpl) GetAllExchanges(ctx context.Context) ([]interface{}, e
 	_, ok := result.(*[]interface{})
 	if !ok {
 		err := fmt.Errorf("error during conversion all exchanges to *[]interface{} for '%+v'", result)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, err
 	}
 	return *result.(*[]interface{}), nil
@@ -690,12 +690,12 @@ func (h RabbitHelperImpl) GetExchangeSourceBindings(ctx context.Context, exchang
 	url := fmt.Sprintf("exchanges/%s/%s/bindings/source", h.vhost.Vhost, exchangeName)
 	//bindings, err := h.GetEntity(ctx, url, []map[string]interface{}{})
 	bindings, err := h.GetEntity(ctx, url, []interface{}{})
-	log.InfoC(ctx, fmt.Sprintf("bindings of exchange '%v' are: %v", exchangeName, bindings))
+	log.InfoC(ctx, "%s", fmt.Sprintf("bindings of exchange '%v' are: %v", exchangeName, bindings))
 	if bindings != nil {
 		_, ok := bindings.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion exchange source bindings to *[]interface{} for '%+v'", bindings)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return nil, err
 		}
 		return *bindings.(*[]interface{}), err

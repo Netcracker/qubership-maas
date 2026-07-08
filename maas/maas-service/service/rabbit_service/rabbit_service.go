@@ -235,7 +235,7 @@ func (s RabbitServiceImpl) Commit(ctx context.Context, state *domain.BGState) er
 	//exported vhost section
 	err := s.ProcessExportedVhost(ctx, state.Origin.Name)
 	if err != nil {
-		return utils.LogError(log, ctx, "Error during ProcessExportedVhost while in rabbit Commit: %v", err)
+		return utils.LogError(log, ctx, "Error during ProcessExportedVhost while in rabbit Commit: %w", err)
 	}
 
 	log.InfoC(ctx, "Commit successfully finished for rabbit subsystem")
@@ -259,7 +259,7 @@ func (s *RabbitServiceImpl) Warmup(ctx context.Context, bgState *domain.BGState)
 
 	vhosts, err := s.rabbitDao.FindVhostsByNamespace(ctx, activeNamespace)
 	if err != nil {
-		return utils.LogError(log, ctx, "Error during FindVhostsByNamespace while in rabbit Warmup: %v", err)
+		return utils.LogError(log, ctx, "Error during FindVhostsByNamespace while in rabbit Warmup: %w", err)
 	}
 
 	for _, oldVhost := range vhosts {
@@ -300,14 +300,14 @@ func (s *RabbitServiceImpl) Warmup(ctx context.Context, bgState *domain.BGState)
 		log.InfoC(ctx, "Clone vhost during warmup with classifier: %+v", newClassifier)
 		_, newVhost, err := s.CloneVhost(ctx, oldVhost.InstanceId, &newClassifier, &candidateVersion)
 		if err != nil {
-			return utils.LogError(log, ctx, "Error during CloneVhost while in rabbit Warmup: %v", err)
+			return utils.LogError(log, ctx, "Error during CloneVhost while in rabbit Warmup: %w", err)
 		}
 
 		var entities model.RabbitEntities
 
 		allEntities, err := s.rabbitDao.GetRabbitEntitiesByVhostId(ctx, oldVhost.Id)
 		if err != nil {
-			return utils.LogError(log, ctx, "Error during GetRabbitEntitiesByVhostId while in rabbit Warmup: %v", err)
+			return utils.LogError(log, ctx, "Error during GetRabbitEntitiesByVhostId while in rabbit Warmup: %w", err)
 		}
 		for _, entity := range allEntities {
 			if entity.EntityType == model.ExchangeType.String() {
@@ -323,14 +323,14 @@ func (s *RabbitServiceImpl) Warmup(ctx context.Context, bgState *domain.BGState)
 
 		_, _, err = s.CreateOrUpdateEntitiesV1(ctx, newVhost, entities)
 		if err != nil {
-			return utils.LogError(log, ctx, "Error during CreateOrUpdateEntitiesV1 while in rabbit Warmup: %v", err)
+			return utils.LogError(log, ctx, "Error during CreateOrUpdateEntitiesV1 while in rabbit Warmup: %w", err)
 		}
 	}
 
 	//exported vhost section
 	err = s.ProcessExportedVhost(ctx, bgState.Origin.Name)
 	if err != nil {
-		return utils.LogError(log, ctx, "Error during ProcessExportedVhost while in rabbit Warmup: %v", err)
+		return utils.LogError(log, ctx, "Error during ProcessExportedVhost while in rabbit Warmup: %w", err)
 	}
 
 	return nil
@@ -361,7 +361,7 @@ func (s RabbitServiceImpl) Promote(ctx context.Context, state *domain.BGState) e
 
 		err = s.ChangeExportedExchangesActiveVersionBg2(ctx, classifier, activeNamespace)
 		if err != nil {
-			return utils.LogError(log, ctx, "Error during ChangeExportedExchangesActiveVersionBg2 while in rabbit Promote: %v", err)
+			return utils.LogError(log, ctx, "Error during ChangeExportedExchangesActiveVersionBg2 while in rabbit Promote: %w", err)
 		}
 	}
 
@@ -394,7 +394,7 @@ func (s RabbitServiceImpl) Rollback(ctx context.Context, state *domain.BGState) 
 
 		err = s.ChangeExportedExchangesActiveVersionBg2(ctx, classifier, activeNamespace)
 		if err != nil {
-			return utils.LogError(log, ctx, "Error during ChangeExportedExchangesActiveVersionBg2 while in rabbit Rollback: %v", err)
+			return utils.LogError(log, ctx, "Error during ChangeExportedExchangesActiveVersionBg2 while in rabbit Rollback: %w", err)
 		}
 	}
 
@@ -918,7 +918,7 @@ func (srv *RabbitServiceImpl) resolveRabbitInstance(ctx context.Context, instanc
 
 		if instance != "" {
 			errMsg := fmt.Sprintf("rabbit instance designator exists in namespace '%v', vhost instance field == '%v', you should use only one of these approaches.", namespace, instance)
-			log.ErrorC(ctx, errMsg)
+			log.ErrorC(ctx, "%s", errMsg)
 			return nil, VhostError{
 				Err:     ErrBothDesignatorAndInstanceRabbit,
 				Message: errMsg,
@@ -1505,7 +1505,7 @@ func (s *RabbitServiceImpl) ApplyMsConfigAndVersionedEntitiesToDb(ctx context.Co
 
 		newExchangesNames, err = ExtractNames(rabbitConfig.Spec.VersionedEntities.Exchanges)
 		if err != nil {
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return nil, err
 		}
 		oldExchanges, err := s.rabbitDao.GetRabbitVersEntitiesByMsConfigIdAndType(ctx, msConfig.Id, model.ExchangeType)
@@ -1517,7 +1517,7 @@ func (s *RabbitServiceImpl) ApplyMsConfigAndVersionedEntitiesToDb(ctx context.Co
 
 		newQueuesNames, err = ExtractNames(rabbitConfig.Spec.VersionedEntities.Queues)
 		if err != nil {
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return nil, err
 		}
 		oldQueues, err := s.rabbitDao.GetRabbitVersEntitiesByMsConfigIdAndType(ctx, msConfig.Id, model.QueueType)
@@ -1759,7 +1759,7 @@ func (s *RabbitServiceImpl) CreateVersionedEntities(ctx context.Context, namespa
 				checkedTempExchange, ok := tempExchange[0].(*map[string]interface{})
 				if !ok {
 					err := fmt.Errorf("error during conversion temp exchange to *map[string]interface{} for '%+v'", tempExchange[0])
-					log.ErrorC(ctx, err.Error())
+					log.ErrorC(ctx, "%s", err.Error())
 					return result, nil, err
 				}
 				ent.RabbitEntity = *checkedTempExchange
@@ -1798,7 +1798,7 @@ func (s *RabbitServiceImpl) CreateVersionedEntities(ctx context.Context, namespa
 					}
 					err = createEntity(ctx, aeBinding, rabbitHelper.CreateExchangeBinding, nil, nil)
 					if err != nil {
-						log.ErrorC(ctx, fmt.Sprintf("Error during creating default route for version router: '%v' with ae: '%v' with version: '%v'", versionRouterName, aeName, candidateVersion))
+						log.ErrorC(ctx, "%s", fmt.Sprintf("Error during creating default route for version router: '%v' with ae: '%v' with version: '%v'", versionRouterName, aeName, candidateVersion))
 						return result, updateStatus, err
 					}
 				}
@@ -1838,7 +1838,7 @@ func (s *RabbitServiceImpl) CreateVersionedEntities(ctx context.Context, namespa
 				checkedTempQueue, ok := tempQueue[0].(*map[string]interface{})
 				if !ok {
 					err := fmt.Errorf("error during conversion temp queue to *map[string]interface{} for '%+v'", tempQueue[0])
-					log.ErrorC(ctx, err.Error())
+					log.ErrorC(ctx, "%s", err.Error())
 					return result, nil, err
 				}
 				ent.RabbitEntity = *checkedTempQueue
@@ -1958,11 +1958,11 @@ func (s *RabbitServiceImpl) ChangeVersionRoutersActiveVersion(ctx context.Contex
 			rabbitErr, ok := err.(*helper.RabbitHttpError)
 			if !ok || rabbitErr.Code != http.StatusNotFound {
 				err = fmt.Errorf("error during creating ae binding from ae with name '%v' to versioned exchange with name '%v', err: %w", aeName, versionedExchangeName, err)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return err
 			} else {
 				//no versioned exchange for such version
-				log.WarnC(ctx, fmt.Sprintf("Default route for versioned exchange '%v' was not created, there is no versioned exchange for version '%v'", exchangeName, version))
+				log.WarnC(ctx, "%s", fmt.Sprintf("Default route for versioned exchange '%v' was not created, there is no versioned exchange for version '%v'", exchangeName, version))
 			}
 		}
 
@@ -1980,7 +1980,7 @@ func (s *RabbitServiceImpl) ChangeVersionRoutersActiveVersion(ctx context.Contex
 				continue
 			}
 
-			log.DebugC(ctx, fmt.Sprintf("Deleting old version binding: %v", binding))
+			log.DebugC(ctx, "%s", fmt.Sprintf("Deleting old version binding: %v", binding))
 			deletedBinding, err := rabbitHelper.DeleteExchangeBinding(ctx, binding)
 			if err != nil {
 				log.ErrorC(ctx, "Error during deleting exchange source binding %+v: %v", binding, err)
@@ -2049,11 +2049,11 @@ func (s *RabbitServiceImpl) ChangeExportedExchangesActiveVersionBg2(ctx context.
 			rabbitErr, ok := err.(helper.RabbitHelperError)
 			if !ok || errors.Is(rabbitErr, helper.ErrNotFound) {
 				err = fmt.Errorf("error during creating ae binding from ae with name '%v' to versioned queue with name '%v', err: %w", aeName, versionedExchangeName, err)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return err
 			} else {
 				//no versioned exchange for such version
-				log.WarnC(ctx, fmt.Sprintf("Default route for versioned exchange '%v' was not created, there is no versioned exchange for activeNamespace '%v'", exchangeName, activeNamespace))
+				log.WarnC(ctx, "%s", fmt.Sprintf("Default route for versioned exchange '%v' was not created, there is no versioned exchange for activeNamespace '%v'", exchangeName, activeNamespace))
 			}
 		}
 
@@ -2071,7 +2071,7 @@ func (s *RabbitServiceImpl) ChangeExportedExchangesActiveVersionBg2(ctx context.
 				continue
 			}
 
-			log.DebugC(ctx, fmt.Sprintf("Deleting old version binding: %v", binding))
+			log.DebugC(ctx, "%s", fmt.Sprintf("Deleting old version binding: %v", binding))
 			deletedBinding, err := rabbitHelper.DeleteBinding(ctx, binding)
 			if err != nil {
 				log.ErrorC(ctx, "Error during deleting exchange source binding %+v: %v", binding, err)
@@ -2445,7 +2445,7 @@ func (s *RabbitServiceImpl) ProcessExportedVhost(ctx context.Context, namespace 
 
 			//exported vhost exists but now no queues are exported, so if exportedQueuesEntities exist then need to delete existing queues later
 			if exportedVhost == nil && len(exportedQueuesEntities) == 0 && len(exportedExchangesEntities) == 0 {
-				log.InfoC(ctx, "No exported queues and exchanges for namespaces '%v' and no exported vhost exists, skipping creation")
+				log.InfoC(ctx, "No exported queues and exchanges for namespaces '%v' and no exported vhost exists, skipping creation", namespaces)
 				return nil
 			}
 
@@ -2666,7 +2666,7 @@ func (s *RabbitServiceImpl) checkExistenceOfVersionRouter(ctx context.Context, r
 			argumentsMap, ok := (*exch.(*map[string]interface{}))["arguments"].(map[string]interface{})
 			if !ok {
 				err := fmt.Errorf("error during conversion exch to (*exch.(*map[string]interface{}))[\"arguments\"].(map[string]interface{}) for '%+v'", exch)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return false, false, err
 			}
 			if argumentsMap["alternate-exchange"] != getAltExchNameByVersionRouter(versionRouter) && argumentsMap["blue-green"] != "true" {
@@ -2689,7 +2689,7 @@ func (s *RabbitServiceImpl) MatchDesignator(ctx context.Context, classifier mode
 	instance, matched, matchedBy := instance.MatchDesignator(ctx, classifier, designator, func(namespace string) string {
 		domainNamespace, err := s.bgDomainService.FindByNamespace(ctx, namespace)
 		if err != nil {
-			log.ErrorC(ctx, "can not get domain namespace for '%s': %w", namespace, err)
+			log.ErrorC(ctx, "can not get domain namespace for '%s': %v", namespace, err)
 			return namespace
 		}
 		if domainNamespace == nil {

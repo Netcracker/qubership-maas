@@ -41,11 +41,11 @@ func (c *ConfiguratorController) ApplyConfig(fiberCtx fiber.Ctx) error {
 	if result != nil && err == nil {
 		status = http.StatusOK
 	} else if result != nil && err != nil {
-		log.ErrorC(ctx, fmt.Sprintf("Result != nil with error: %v", err.Error()))
+		log.ErrorC(ctx, "%s", fmt.Sprintf("Result != nil with error: %v", err.Error()))
 		status = http.StatusInternalServerError
 	} else if result == nil && err != nil {
 		// may be request body is unparseable
-		log.ErrorC(ctx, fmt.Sprintf("Result == nil with error: %v", err.Error()))
+		log.ErrorC(ctx, "%s", fmt.Sprintf("Result == nil with error: %v", err.Error()))
 		status = http.StatusBadRequest
 	} else {
 		panic("Logic error")
@@ -78,7 +78,7 @@ func (c *ConfiguratorController) ApplyConfigV2(fiberCtx fiber.Ctx) error {
 
 	result := model.ConfigApplicationResponse{MsResponses: msResponses}
 	if err != nil {
-		log.ErrorC(ctx, fmt.Sprintf("Error in config controller during ApplyConfigV2: %v", err.Error()))
+		log.ErrorC(ctx, "%s", fmt.Sprintf("Error in config controller during ApplyConfigV2: %v", err.Error()))
 		result.Status = model.STATUS_ERROR
 		result.Error = err.Error()
 

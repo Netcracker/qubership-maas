@@ -22,7 +22,7 @@ const (
 func (e *OnEntityExistsEnum) UnmarshalJSON(b []byte) error {
 	var value string
 	if err := json.Unmarshal(b, &value); err != nil {
-		return fmt.Errorf("error unmarshal value for `on-entity-exists` field: `%v'", err)
+		return fmt.Errorf("error unmarshal value for `on-entity-exists` field: `%w'", err)
 	}
 	switch value {
 	case "merge":

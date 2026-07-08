@@ -472,7 +472,7 @@ func CancelableSleep(ctx context.Context, amount time.Duration) bool {
 
 func LogError(log logging.Logger, ctx context.Context, format string, args ...any) error {
 	s := fmt.Errorf(format, args...)
-	log.ErrorC(ctx, s.Error())
+	log.ErrorC(ctx, "%s", s.Error())
 	return s
 }
 
@@ -492,7 +492,7 @@ func MatchPattern(ctx context.Context, pattern string, value any) bool {
 	}
 	match, err := path.Match(pattern, v)
 	if err != nil {
-		log.ErrorC(ctx, "can not match '%s' with '%s': %w", value, pattern, err)
+		log.ErrorC(ctx, "can not match '%s' with '%s': %v", value, pattern, err)
 		return false
 	}
 	return match

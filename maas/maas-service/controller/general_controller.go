@@ -61,7 +61,7 @@ func (g *GeneralController) DeleteNamespace(fiberCtx fiber.Ctx) error {
 
 	err := g.cleanupService.DeleteNamespace(ctx, namespaceReq.Namespace)
 	if err != nil {
-		return utils.LogError(log, ctx, "error while deleting namespace: %v. Error: %s", namespaceReq, err.Error())
+		return utils.LogError(log, ctx, "error while deleting namespace: %v: %w", namespaceReq, err)
 	}
 	return RespondWithJson(fiberCtx, http.StatusOK, nil)
 }
