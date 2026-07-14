@@ -60,21 +60,21 @@ func CreateContextFromString(rId string) context.Context {
 	return context.WithValue(context.Background(), requestIDContextKey, rId)
 }
 func GetBasicAuth(fiberCtx fiber.Ctx) (string, SecretString, error) {
-	var basicAuthPrefix = []byte("Basic ")
 	var username string
 	var password SecretString
-	auth := fiberCtx.Request().Header.Peek(fiber.HeaderAuthorization)
+	auth := string(fiberCtx.Request().Header.Peek(fiber.HeaderAuthorization))
 
 	if len(auth) == 0 {
 		return "", "", fmt.Errorf("header `%v' is empty: %w", fiber.HeaderAuthorization, msg.AuthError)
 	}
 
-	if !bytes.HasPrefix(auth, basicAuthPrefix) {
+	scheme, creds, ok := ParseAuthHeader(auth)
+	if !ok || !strings.EqualFold(scheme, "basic") {
 		return "", "", fmt.Errorf("not a basic auth, should have prefix 'Basic': %w", msg.AuthError)
 	}
 
 	// Check credentials
-	payload, err := base64.StdEncoding.DecodeString(string(auth[len(basicAuthPrefix):]))
+	payload, err := base64.StdEncoding.DecodeString(creds)
 	if err != nil {
 		return "", "", fmt.Errorf("error during decoding auth string")
 	}
