@@ -2,7 +2,7 @@
 // entities registered in the maas database and entities actually existing on the brokers.
 //
 // For every registered broker instance three numbers are reported, broken down by the
-// maas namespace (tenant/service scope) the entity belongs to:
+// maas namespace and tenant the entity belongs to:
 //   - registered: entities maas knows about in its own database
 //   - lost:       registered in maas, but missing on the broker
 //   - ghost:      present on the broker, but not registered in maas
@@ -76,17 +76,23 @@ func DefaultRabbitHelperFactory(instance model.RabbitInstance) helper.RabbitHelp
 	return helper.NewRabbitHelperWithHttpHelper(instance, model.VHostRegistration{}, helper.NewHttpHelper())
 }
 
-// nsCounts is a discrepancy snapshot for a single (instance, namespace) pair
+// scopeKey identifies the namespace and tenant an entity belongs to
+type scopeKey struct {
+	namespace string
+	tenantId  string
+}
+
+// nsCounts is a discrepancy snapshot for a single (instance, scope) pair
 type nsCounts struct {
 	registered int
 	lost       int
 	ghost      int
 }
 
-// instanceResult holds the per-namespace discrepancy of one broker instance plus its reachability
+// instanceResult holds the per-scope discrepancy of one broker instance plus its reachability
 type instanceResult struct {
-	byNamespace map[string]nsCounts
-	reachable   bool
+	byScope   map[scopeKey]nsCounts
+	reachable bool
 }
 
 type instanceKey struct {
@@ -105,9 +111,9 @@ type MetricCollector struct {
 
 	collectInterval time.Duration
 
-	// last successfully calculated per-namespace numbers per instance. Kept so that a
+	// last successfully calculated per-scope numbers per instance. Kept so that a
 	// temporarily unreachable broker doesn't report all its entities as lost.
-	lastKnown map[instanceKey]map[string]nsCounts
+	lastKnown map[instanceKey]map[scopeKey]nsCounts
 
 	registeredMetric *prometheus.GaugeVec
 	lostMetric       *prometheus.GaugeVec
@@ -127,7 +133,7 @@ func NewMetricCollector(
 	if collectInterval <= 0 {
 		collectInterval = defaultCollectInterval
 	}
-	entityLabels := []string{"broker_type", "broker_id", "entity_namespace"}
+	entityLabels := []string{"broker_type", "broker_id", "entity_namespace", "tenant_id"}
 	brokerLabels := []string{"broker_type", "broker_id"}
 	return &MetricCollector{
 		kafkaInstances:  kafkaInstances,
@@ -137,7 +143,7 @@ func NewMetricCollector(
 		rabbitVhosts:    rabbitVhosts,
 		rabbitHelperOf:  rabbitHelperOf,
 		collectInterval: collectInterval,
-		lastKnown:       make(map[instanceKey]map[string]nsCounts),
+		lastKnown:       make(map[instanceKey]map[scopeKey]nsCounts),
 
 		registeredMetric: registerGaugeVec("registered_entities",
 			"number of entities registered in maas database", entityLabels),
@@ -199,15 +205,18 @@ func (c *MetricCollector) Collect(ctx context.Context) {
 	c.ghostMetric.Reset()
 	c.availableMetric.Reset()
 
-	c.lastKnown = make(map[instanceKey]map[string]nsCounts, len(current))
+	c.lastKnown = make(map[instanceKey]map[scopeKey]nsCounts, len(current))
 	for key, res := range current {
-		c.lastKnown[key] = res.byNamespace
+		c.lastKnown[key] = res.byScope
 		c.availableMetric.With(prometheus.Labels{
 			"broker_type": key.brokerType, "broker_id": key.instanceId,
 		}).Set(boolToFloat(res.reachable))
 
-		for ns, counts := range res.byNamespace {
-			labels := prometheus.Labels{"broker_type": key.brokerType, "broker_id": key.instanceId, "entity_namespace": ns}
+		for scope, counts := range res.byScope {
+			labels := prometheus.Labels{
+				"broker_type": key.brokerType, "broker_id": key.instanceId,
+				"entity_namespace": scope.namespace, "tenant_id": scope.tenantId,
+			}
 			c.registeredMetric.With(labels).Set(float64(counts.registered))
 			c.lostMetric.With(labels).Set(float64(counts.lost))
 			c.ghostMetric.With(labels).Set(float64(counts.ghost))
@@ -231,15 +240,15 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			result[key] = c.staleResult(key, nil)
 			continue
 		}
-		registeredByNs := make(map[string]map[string]bool)
+		registeredByScope := make(map[scopeKey]map[string]bool)
 		for _, topic := range topicsInDb {
-			addRegistered(registeredByNs, topic.Namespace, topic.Topic)
+			addRegistered(registeredByScope, scopeKey{topic.Namespace, topicTenantId(topic)}, topic.Topic)
 		}
 
 		topicsOnBroker, err := c.kafkaBroker.GetListTopics(ctx, &instance)
 		if err != nil {
 			log.WarnC(ctx, "error getting list of topics from kafka instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			result[key] = c.staleResult(key, registeredByNs)
+			result[key] = c.staleResult(key, registeredByScope)
 			continue
 		}
 
@@ -248,8 +257,16 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			existing[name] = true
 		}
 
-		result[key] = instanceResult{byNamespace: compareByNamespace(registeredByNs, existing), reachable: true}
+		result[key] = instanceResult{byScope: compareByScope(registeredByScope, existing), reachable: true}
 	}
+}
+
+// topicTenantId returns the tenant id from the topic classifier, empty for non-tenant topics
+func topicTenantId(topic *model.TopicRegistration) string {
+	if topic.Classifier == nil {
+		return ""
+	}
+	return topic.Classifier.TenantId
 }
 
 func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instanceKey]instanceResult) {
@@ -264,22 +281,22 @@ func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instance
 		log.ErrorC(ctx, "error getting list of vhosts from db, rabbit discrepancy metrics will not be updated: %v", err)
 		return
 	}
-	registeredByInstance := make(map[string]map[string]map[string]bool)
+	registeredByInstance := make(map[string]map[scopeKey]map[string]bool)
 	for _, vhost := range vhostsInDb {
 		if registeredByInstance[vhost.InstanceId] == nil {
-			registeredByInstance[vhost.InstanceId] = make(map[string]map[string]bool)
+			registeredByInstance[vhost.InstanceId] = make(map[scopeKey]map[string]bool)
 		}
-		addRegistered(registeredByInstance[vhost.InstanceId], vhost.Namespace, vhost.Vhost)
+		addRegistered(registeredByInstance[vhost.InstanceId], scopeKey{vhost.Namespace, vhostTenantId(vhost)}, vhost.Vhost)
 	}
 
 	for _, instance := range *instances {
 		key := instanceKey{brokerTypeRabbit, instance.GetId()}
-		registeredByNs := registeredByInstance[instance.GetId()]
+		registeredByScope := registeredByInstance[instance.GetId()]
 
 		vhostsOnBroker, err := c.rabbitHelperOf(instance).GetAllVhosts(ctx)
 		if err != nil {
 			log.WarnC(ctx, "error getting list of vhosts from rabbit instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			result[key] = c.staleResult(key, registeredByNs)
+			result[key] = c.staleResult(key, registeredByScope)
 			continue
 		}
 
@@ -288,26 +305,35 @@ func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instance
 			existing[vhost.Name] = true
 		}
 
-		result[key] = instanceResult{byNamespace: compareByNamespace(registeredByNs, existing), reachable: true}
+		result[key] = instanceResult{byScope: compareByScope(registeredByScope, existing), reachable: true}
 	}
 }
 
-// addRegistered records an entity name under its namespace bucket
-func addRegistered(byNs map[string]map[string]bool, namespace, name string) {
-	if byNs[namespace] == nil {
-		byNs[namespace] = make(map[string]bool)
+// vhostTenantId returns the tenant id from the vhost classifier, empty for non-tenant vhosts
+func vhostTenantId(vhost model.VHostRegistration) string {
+	classifier, err := model.ConvertToClassifier(vhost.Classifier)
+	if err != nil {
+		return ""
 	}
-	byNs[namespace][name] = true
+	return classifier.TenantId
 }
 
-// compareByNamespace calculates discrepancy between entities registered in maas and
-// entities existing on a broker, broken down by the maas namespace of each entity.
-func compareByNamespace(registeredByNs map[string]map[string]bool, existing map[string]bool) map[string]nsCounts {
-	result := make(map[string]nsCounts)
+// addRegistered records an entity name under its scope bucket
+func addRegistered(byScope map[scopeKey]map[string]bool, scope scopeKey, name string) {
+	if byScope[scope] == nil {
+		byScope[scope] = make(map[string]bool)
+	}
+	byScope[scope][name] = true
+}
 
-	// registered + lost are attributed to the namespace stored in the maas database
+// compareByScope calculates discrepancy between entities registered in maas and entities
+// existing on a broker, broken down by the namespace and tenant of each entity.
+func compareByScope(registeredByScope map[scopeKey]map[string]bool, existing map[string]bool) map[scopeKey]nsCounts {
+	result := make(map[scopeKey]nsCounts)
+
+	// registered + lost are attributed to the scope stored in the maas database
 	registeredNames := make(map[string]bool)
-	for ns, names := range registeredByNs {
+	for scope, names := range registeredByScope {
 		counts := nsCounts{registered: len(names)}
 		for name := range names {
 			registeredNames[name] = true
@@ -315,16 +341,17 @@ func compareByNamespace(registeredByNs map[string]map[string]bool, existing map[
 				counts.lost++
 			}
 		}
-		result[ns] = counts
+		result[scope] = counts
 	}
 
-	// ghosts exist only on the broker, so their namespace is parsed from the maas.<ns>... name
+	// ghosts exist only on the broker; the namespace is parsed from the maas.<ns>... name,
+	// but the tenant id can not be recovered from the name, so it is left empty
 	for name := range existing {
 		if strings.HasPrefix(name, maasEntityPrefix) && !registeredNames[name] {
-			ns := namespaceFromEntityName(name)
-			counts := result[ns]
+			scope := scopeKey{namespace: namespaceFromEntityName(name)}
+			counts := result[scope]
 			counts.ghost++
-			result[ns] = counts
+			result[scope] = counts
 		}
 	}
 	return result
@@ -345,18 +372,18 @@ func namespaceFromEntityName(name string) string {
 // staleResult keeps the per-namespace lost/ghost numbers of the previous successful
 // calculation (so an unreachable broker doesn't look like every entity has been lost)
 // while refreshing the registered counts from the current database view when available.
-func (c *MetricCollector) staleResult(key instanceKey, registeredByNs map[string]map[string]bool) instanceResult {
-	byNamespace := make(map[string]nsCounts)
-	for ns, counts := range c.lastKnown[key] {
+func (c *MetricCollector) staleResult(key instanceKey, registeredByScope map[scopeKey]map[string]bool) instanceResult {
+	byScope := make(map[scopeKey]nsCounts)
+	for scope, counts := range c.lastKnown[key] {
 		// drop the stale registered count; it is re-derived below when the db view is known
-		byNamespace[ns] = nsCounts{lost: counts.lost, ghost: counts.ghost}
+		byScope[scope] = nsCounts{lost: counts.lost, ghost: counts.ghost}
 	}
-	for ns, names := range registeredByNs {
-		counts := byNamespace[ns]
+	for scope, names := range registeredByScope {
+		counts := byScope[scope]
 		counts.registered = len(names)
-		byNamespace[ns] = counts
+		byScope[scope] = counts
 	}
-	return instanceResult{byNamespace: byNamespace, reachable: false}
+	return instanceResult{byScope: byScope, reachable: false}
 }
 
 func boolToFloat(value bool) float64 {

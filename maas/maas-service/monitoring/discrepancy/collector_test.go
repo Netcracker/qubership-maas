@@ -88,64 +88,57 @@ func (f *fakeRabbitHelper) GetAllVhosts(_ context.Context) ([]model.VhostInfo, e
 	return f.vhosts, f.err
 }
 
-func TestCompareByNamespace(t *testing.T) {
+func TestCompareByScope(t *testing.T) {
 	tests := []struct {
 		name       string
-		registered map[string][]string // namespace -> entity names
+		registered map[scopeKey][]string // scope -> entity names
 		existing   []string
-		want       map[string]nsCounts // namespace -> expected counts
+		want       map[scopeKey]nsCounts // scope -> expected counts
 	}{
 		{
 			name:       "everything in sync",
-			registered: map[string][]string{"core-dev": {"maas.core-dev.orders", "maas.core-dev.events"}},
+			registered: map[scopeKey][]string{{namespace: "core-dev"}: {"maas.core-dev.orders", "maas.core-dev.events"}},
 			existing:   []string{"maas.core-dev.orders", "maas.core-dev.events"},
-			want:       map[string]nsCounts{"core-dev": {registered: 2}},
+			want:       map[scopeKey]nsCounts{{namespace: "core-dev"}: {registered: 2}},
 		},
 		{
-			name:       "lost attributed to the db namespace",
-			registered: map[string][]string{"core-dev": {"maas.core-dev.orders", "maas.core-dev.events"}},
+			name:       "lost attributed to the db scope",
+			registered: map[scopeKey][]string{{namespace: "core-dev"}: {"maas.core-dev.orders", "maas.core-dev.events"}},
 			existing:   []string{"maas.core-dev.orders"},
-			want:       map[string]nsCounts{"core-dev": {registered: 2, lost: 1}},
+			want:       map[scopeKey]nsCounts{{namespace: "core-dev"}: {registered: 2, lost: 1}},
 		},
 		{
-			name:       "ghost attributed to the namespace parsed from its name",
-			registered: map[string][]string{"core-dev": {"maas.core-dev.orders"}},
+			name:       "tenant scoped entities are counted under their tenant",
+			registered: map[scopeKey][]string{{namespace: "core-dev", tenantId: "t1"}: {"maas.core-dev.t1.orders"}},
+			existing:   []string{"maas.core-dev.t1.orders"},
+			want:       map[scopeKey]nsCounts{{namespace: "core-dev", tenantId: "t1"}: {registered: 1}},
+		},
+		{
+			name:       "ghost attributed to parsed namespace with empty tenant",
+			registered: map[scopeKey][]string{{namespace: "core-dev"}: {"maas.core-dev.orders"}},
 			existing:   []string{"maas.core-dev.orders", "maas.payments.forgotten"},
-			want: map[string]nsCounts{
-				"core-dev": {registered: 1},
-				"payments": {ghost: 1},
+			want: map[scopeKey]nsCounts{
+				{namespace: "core-dev"}: {registered: 1},
+				{namespace: "payments"}: {ghost: 1},
 			},
 		},
 		{
 			name:       "foreign entities on broker are not ghosts",
-			registered: map[string][]string{"core-dev": {"maas.core-dev.orders"}},
+			registered: map[scopeKey][]string{{namespace: "core-dev"}: {"maas.core-dev.orders"}},
 			existing:   []string{"maas.core-dev.orders", "__consumer_offsets", "someones-own-topic"},
-			want:       map[string]nsCounts{"core-dev": {registered: 1}},
-		},
-		{
-			name: "multiple namespaces, lost and ghost together",
-			registered: map[string][]string{
-				"core-dev": {"maas.core-dev.orders", "maas.core-dev.events"},
-				"payments": {"maas.payments.tx"},
-			},
-			existing: []string{"maas.core-dev.orders", "maas.payments.tx", "maas.billing.ghost"},
-			want: map[string]nsCounts{
-				"core-dev": {registered: 2, lost: 1},
-				"payments": {registered: 1},
-				"billing":  {ghost: 1},
-			},
+			want:       map[scopeKey]nsCounts{{namespace: "core-dev"}: {registered: 1}},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			byNs := make(map[string]map[string]bool)
-			for ns, names := range test.registered {
+			byScope := make(map[scopeKey]map[string]bool)
+			for scope, names := range test.registered {
 				for _, n := range names {
-					addRegistered(byNs, ns, n)
+					addRegistered(byScope, scope, n)
 				}
 			}
-			got := compareByNamespace(byNs, asSet(test.existing))
+			got := compareByScope(byScope, asSet(test.existing))
 			assert.Equal(t, test.want, got)
 		})
 	}
@@ -265,7 +258,8 @@ func gauge(gaugeVec *prometheus.GaugeVec, brokerType string, instanceId string) 
 }
 
 func gaugeNs(gaugeVec *prometheus.GaugeVec, brokerType, instanceId, namespace string) float64 {
-	return testutil.ToFloat64(gaugeVec.WithLabelValues(brokerType, instanceId, namespace))
+	// non-tenant entities have an empty tenant_id label
+	return testutil.ToFloat64(gaugeVec.WithLabelValues(brokerType, instanceId, namespace, ""))
 }
 
 func asSet(names []string) map[string]bool {

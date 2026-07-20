@@ -597,7 +597,7 @@
       },
       "id": 200,
       "panels": [],
-      "title": "By Namespace (tenant/service)",
+      "title": "Breakdown by Namespace & Tenant",
       "type": "row"
     },
     {
@@ -605,7 +605,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Discrepancy broken down by the maas namespace (tenant/service) each entity belongs to. Lost = registered in MaaS but missing on the broker.",
+      "description": "Discrepancy broken down by the maas namespace and tenant each entity belongs to, per broker. Lost = registered in MaaS but missing on the broker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -725,7 +725,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -737,7 +737,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -749,37 +749,40 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
           "refId": "C"
         }
       ],
-      "title": "Discrepancy By Namespace",
+      "title": "Discrepancy by Namespace & Tenant",
       "type": "table",
       "transformations": [
         {
-          "id": "joinByField",
-          "options": {
-            "byField": "entity_namespace",
-            "mode": "outer"
-          }
+          "id": "merge",
+          "options": {}
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true,
-              "Time 1": true,
-              "Time 2": true,
-              "Time 3": true,
-              "broker_type 2": true,
-              "broker_type 3": true
+              "Time": true
+            },
+            "indexByName": {
+              "entity_namespace": 0,
+              "tenant_id": 1,
+              "broker_type": 2,
+              "broker_id": 3,
+              "Value #A": 4,
+              "Value #B": 5,
+              "Value #C": 6
             },
             "renameByName": {
               "entity_namespace": "Namespace",
-              "broker_type 1": "Broker",
+              "tenant_id": "Tenant",
+              "broker_type": "Broker Type",
+              "broker_id": "Broker",
               "Value #A": "Registered",
               "Value #B": "Lost",
               "Value #C": "Ghost"

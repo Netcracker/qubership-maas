@@ -238,6 +238,14 @@ id).
 | `maas_discrepancy_ghost_entities` | Named `maas.*` on the broker, **absent from the MaaS database** |
 | `maas_discrepancy_broker_reachable` | `1` if the last calculation reached the broker, `0` if its numbers are stale |
 
+The `registered`/`lost`/`ghost` metrics additionally carry **`entity_namespace`** and **`tenant_id`**
+labels — the MaaS namespace and tenant the topic/vhost belongs to — so discrepancy can be attributed to a
+specific namespace or tenant. For lost/registered both come from the database record (classifier); for ghost the
+namespace is parsed from the `maas.<namespace>.…` name (`unknown` if it cannot be determined) and the tenant
+is left empty, since it can not be recovered from the name. Non-tenant entities have an empty `tenant_id`.
+`broker_reachable` is a per-broker property and carries neither label. `entity_namespace` is deliberately
+**not** called `namespace`: Prometheus reserves that for the scrape target's Kubernetes namespace.
+
 ### Lost vs Ghost
 
 These two are not symmetric, and they mean different things operationally.
@@ -277,12 +285,13 @@ catastrophic data loss event.
 | **Unreachable Brokers** (stat) | `count(maas_discrepancy_broker_reachable == 0)` | Non-zero means the numbers on this dashboard are stale. Fix connectivity first — see Row 5. |
 | **Registered / Lost / Ghost By Broker** (timeseries) | per `broker_type` / `broker_id` | Shows which specific broker drifted and when. A step change pinpoints the deploy or manual operation responsible. |
 | **Broker Reachability** (state-timeline) | `maas_discrepancy_broker_reachable` | Green = reachable, red = stale. Use it to decide whether a lost spike was real or just an unreachable broker. |
+| **Discrepancy by Namespace & Tenant** (table) | grouped by `entity_namespace` / `tenant_id` / broker | Pinpoints which namespace and tenant drifted, per broker. Sorted by Lost descending. |
 
 ### Diagnosing a non-zero value
 
-The dashboard reports counts, not names. To find *which* entities drifted, use the discrepancy REST API
-(see [rest_api.md](rest_api.md)), which returns each registered topic with an `ok` / `absent` status per
-namespace.
+The dashboard reports counts, not names. First narrow it down with the **Discrepancy by Namespace & Tenant**
+table (the `entity_namespace` and `tenant_id` labels tell you which namespace/tenant drifted), then use the discrepancy
+REST API (see [rest_api.md](rest_api.md)) to get the exact topics with an `ok` / `absent` status.
 
 Common causes, in rough order of likelihood:
 
@@ -303,11 +312,27 @@ on shared brokers: the calculation is a full registry-versus-broker comparison, 
 
 ## OOB Alerts
 
-**No out-of-the-box alerts are shipped by the MaaS product team.** The product ships metrics and a dashboard only.
+### Shipped: discrepancy alerts
 
-If alerting is required, it must be configured by the platform/operations team. 
+When `MONITORING_ENABLED=true`, the chart ships a `PrometheusRule`
+(`templates/PrometheusRule.yaml`) with three discrepancy alerts. No extra configuration is required —
+the platform's VictoriaMetrics operator picks the rule up the same way it does the `PodMonitor`.
 
-### Recommended Alerts to Configure
+| Alert | Fires when | `for:` | Severity |
+|---|---|---|---|
+| `MaaSLostEntities` | `lost_entities > 0` on a reachable broker | 15m | warning |
+| `MaaSGhostEntities` | `ghost_entities > 0` on a reachable broker | 1h | info |
+| `MaaSDiscrepancyDataStale` | `broker_reachable == 0` | 15m | info |
+
+Each rule aggregates with `max without (instance, pod)` so replicas don't multiply the value, carries the
+`entity_namespace` label into its annotations (so the alert names the affected tenant), and — for lost and
+ghost — is guarded by `and … broker_reachable == 1`. That guard is essential: an unreachable broker keeps
+its last known lost/ghost values, and without the guard would page repeatedly for a discrepancy that is
+merely unverifiable. `MaaSDiscrepancyDataStale` covers the unreachable case on its own.
+
+### Recommended: service-health alerts (not shipped)
+
+These are **not** shipped — configure them per the platform/operations team's alerting stack.
 
 | Alert Name | PromQL Expression | Suggested `for:` | Severity |
 |---|---|---|---|
@@ -317,11 +342,3 @@ If alerting is required, it must be configured by the platform/operations team.
 | High 5xx Error Rate | `rate(http_requests_total{status_code=~"5.."}[5m]) > 0.1` | 5m | warning |
 | DB Connection Pool Saturation | `go_sql_stats_connections_in_use / go_sql_stats_connections_max_open > 0.9` | 5m | warning |
 | High Request Latency (P99) | `histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{status_code!~"5.."}[5m])) > 5` | 5m | warning |
-| Lost Entities Detected | `maas_discrepancy_lost_entities > 0 and maas_discrepancy_broker_reachable == 1` | 15m | warning |
-| Ghost Entities Detected | `maas_discrepancy_ghost_entities > 0 and maas_discrepancy_broker_reachable == 1` | 1h | info |
-| Discrepancy Data Stale | `maas_discrepancy_broker_reachable == 0` | 15m | info |
-
-> The `and maas_discrepancy_broker_reachable == 1` guard on the first two alerts is required. Without it,
-> an unreachable broker keeps its last known lost/ghost values and would page repeatedly for a
-> discrepancy that is merely unverifiable. `Broker Unreachable` above already covers the connectivity
-> failure itself.
