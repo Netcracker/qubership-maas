@@ -90,7 +90,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "lost",
           "refId": "A"
@@ -156,7 +156,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "ghost",
           "refId": "A"
@@ -218,7 +218,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "registered",
           "refId": "A"
@@ -350,7 +350,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_type}} / {{broker_id}}",
           "refId": "A"
         }
@@ -428,7 +428,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_type}} / {{broker_id}}",
           "refId": "A"
         }
@@ -493,7 +493,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_type}} / {{broker_id}}",
           "refId": "A"
         }
@@ -725,7 +725,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -737,7 +737,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -749,7 +749,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -933,6 +933,31 @@
         "name": "entity_namespace",
         "options": [],
         "query": "label_values(maas_discrepancy_registered_entities, entity_namespace)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(maas_discrepancy_registered_entities, tenant_id)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Tenant",
+        "multi": true,
+        "name": "tenant_id",
+        "options": [],
+        "query": "label_values(maas_discrepancy_registered_entities, tenant_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
