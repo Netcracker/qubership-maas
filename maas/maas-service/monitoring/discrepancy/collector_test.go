@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-maas/model"
@@ -268,4 +269,122 @@ func asSet(names []string) map[string]bool {
 		set[name] = true
 	}
 	return set
+}
+
+func gaugeScope(gaugeVec *prometheus.GaugeVec, brokerType, instanceId, namespace, tenant string) float64 {
+	return testutil.ToFloat64(gaugeVec.WithLabelValues(brokerType, instanceId, namespace, tenant))
+}
+
+func TestDefaultRabbitHelperFactory(t *testing.T) {
+	h := DefaultRabbitHelperFactory(model.RabbitInstance{Id: "x", ApiUrl: "http://localhost:15672/api"})
+	assert.NotNil(t, h)
+}
+
+func TestStart(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	collector := newTestCollector(
+		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
+		&fakeKafkaTopics{topics: []*model.TopicRegistration{{Topic: "maas.core-dev.a", Namespace: "core-dev", Instance: "kafka-1"}}},
+		&fakeKafkaBroker{topicsByInstance: map[string][]string{"kafka-1": {"maas.core-dev.a"}}},
+		&fakeRabbitInstances{},
+		&fakeRabbitVhosts{},
+		&fakeRabbitHelper{},
+	)
+	collector.Start(ctx)
+	assert.Eventually(t, func() bool {
+		return gauge(collector.availableMetric, "Kafka", "kafka-1") == 1.0
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestCollectTenantScoped(t *testing.T) {
+	ctx := context.Background()
+	collector := newTestCollector(
+		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
+		&fakeKafkaTopics{topics: []*model.TopicRegistration{
+			{Topic: "maas.core-dev.t1.orders", Namespace: "core-dev", Instance: "kafka-1",
+				Classifier: &model.Classifier{Namespace: "core-dev", TenantId: "t1"}},
+		}},
+		&fakeKafkaBroker{topicsByInstance: map[string][]string{"kafka-1": {"maas.core-dev.t1.orders"}}},
+		&fakeRabbitInstances{instances: []model.RabbitInstance{{Id: "rabbit-1"}}},
+		&fakeRabbitVhosts{vhosts: []model.VHostRegistration{
+			{Vhost: "maas.core-dev.billing", Namespace: "core-dev", InstanceId: "rabbit-1",
+				Classifier: `{"name":"billing","namespace":"core-dev","tenantId":"t2"}`},
+		}},
+		&fakeRabbitHelper{vhosts: []model.VhostInfo{{Name: "maas.core-dev.billing"}}},
+	)
+
+	collector.Collect(ctx)
+
+	assert.Equal(t, 1.0, gaugeScope(collector.registeredMetric, "Kafka", "kafka-1", "core-dev", "t1"))
+	assert.Equal(t, 1.0, gaugeScope(collector.registeredMetric, "RabbitMQ", "rabbit-1", "core-dev", "t2"))
+}
+
+func TestCollectSkipsWhenInstanceListingFails(t *testing.T) {
+	ctx := context.Background()
+	collector := newTestCollector(
+		&fakeKafkaInstances{err: errors.New("kafka instances down")},
+		&fakeKafkaTopics{},
+		&fakeKafkaBroker{},
+		&fakeRabbitInstances{err: errors.New("rabbit instances down")},
+		&fakeRabbitVhosts{},
+		&fakeRabbitHelper{},
+	)
+
+	collector.Collect(ctx)
+
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.registeredMetric))
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.availableMetric))
+}
+
+func TestCollectKafkaDbErrorMarksStale(t *testing.T) {
+	ctx := context.Background()
+	collector := newTestCollector(
+		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
+		&fakeKafkaTopics{err: errors.New("db down")},
+		&fakeKafkaBroker{},
+		&fakeRabbitInstances{},
+		&fakeRabbitVhosts{},
+		&fakeRabbitHelper{},
+	)
+
+	collector.Collect(ctx)
+
+	assert.Equal(t, 0.0, gauge(collector.availableMetric, "Kafka", "kafka-1"))
+}
+
+func TestCollectRabbitVhostDbErrorSkips(t *testing.T) {
+	ctx := context.Background()
+	collector := newTestCollector(
+		&fakeKafkaInstances{},
+		&fakeKafkaTopics{},
+		&fakeKafkaBroker{},
+		&fakeRabbitInstances{instances: []model.RabbitInstance{{Id: "rabbit-1"}}},
+		&fakeRabbitVhosts{err: errors.New("db down")},
+		&fakeRabbitHelper{},
+	)
+
+	collector.Collect(ctx)
+
+	// vhost db read failed before any instance was processed
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.availableMetric))
+}
+
+func TestCollectRabbitBrokerErrorMarksStale(t *testing.T) {
+	ctx := context.Background()
+	collector := newTestCollector(
+		&fakeKafkaInstances{},
+		&fakeKafkaTopics{},
+		&fakeKafkaBroker{},
+		&fakeRabbitInstances{instances: []model.RabbitInstance{{Id: "rabbit-1"}}},
+		&fakeRabbitVhosts{vhosts: []model.VHostRegistration{
+			{Vhost: "maas.core-dev.x", Namespace: "core-dev", InstanceId: "rabbit-1"},
+		}},
+		&fakeRabbitHelper{err: errors.New("broker down")},
+	)
+
+	collector.Collect(ctx)
+
+	assert.Equal(t, 1.0, gaugeScope(collector.registeredMetric, "RabbitMQ", "rabbit-1", "core-dev", ""))
+	assert.Equal(t, 0.0, gauge(collector.availableMetric, "RabbitMQ", "rabbit-1"))
 }
