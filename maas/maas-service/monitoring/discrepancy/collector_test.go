@@ -28,6 +28,7 @@ type fakeKafkaTopics struct {
 }
 
 func (f *fakeKafkaTopics) SearchTopicsInDB(_ context.Context, searchReq *model.TopicSearchRequest) ([]*model.TopicRegistration, error) {
+	// the real KafkaService refuses to run a search without any criteria
 	if searchReq.IsEmpty() {
 		return nil, errors.New("attempt to search with empty search request")
 	}
@@ -87,55 +88,73 @@ func (f *fakeRabbitHelper) GetAllVhosts(_ context.Context) ([]model.VhostInfo, e
 	return f.vhosts, f.err
 }
 
-func TestCompare(t *testing.T) {
+func TestCompareByNamespace(t *testing.T) {
 	tests := []struct {
 		name       string
-		registered []string
+		registered map[string][]string // namespace -> entity names
 		existing   []string
-		lost       int
-		ghost      int
+		want       map[string]nsCounts // namespace -> expected counts
 	}{
 		{
 			name:       "everything in sync",
-			registered: []string{"maas.core-dev.orders", "maas.core-dev.events"},
+			registered: map[string][]string{"core-dev": {"maas.core-dev.orders", "maas.core-dev.events"}},
 			existing:   []string{"maas.core-dev.orders", "maas.core-dev.events"},
+			want:       map[string]nsCounts{"core-dev": {registered: 2}},
 		},
 		{
-			name:       "registered in maas but missing on broker",
-			registered: []string{"maas.core-dev.orders", "maas.core-dev.events"},
+			name:       "lost attributed to the db namespace",
+			registered: map[string][]string{"core-dev": {"maas.core-dev.orders", "maas.core-dev.events"}},
 			existing:   []string{"maas.core-dev.orders"},
-			lost:       1,
+			want:       map[string]nsCounts{"core-dev": {registered: 2, lost: 1}},
 		},
 		{
-			name:       "maas named entity on broker without registration",
-			registered: []string{"maas.core-dev.orders"},
-			existing:   []string{"maas.core-dev.orders", "maas.core-dev.forgotten"},
-			ghost:      1,
+			name:       "ghost attributed to the namespace parsed from its name",
+			registered: map[string][]string{"core-dev": {"maas.core-dev.orders"}},
+			existing:   []string{"maas.core-dev.orders", "maas.payments.forgotten"},
+			want: map[string]nsCounts{
+				"core-dev": {registered: 1},
+				"payments": {ghost: 1},
+			},
 		},
 		{
 			name:       "foreign entities on broker are not ghosts",
-			registered: []string{"maas.core-dev.orders"},
+			registered: map[string][]string{"core-dev": {"maas.core-dev.orders"}},
 			existing:   []string{"maas.core-dev.orders", "__consumer_offsets", "someones-own-topic"},
+			want:       map[string]nsCounts{"core-dev": {registered: 1}},
 		},
 		{
-			name:       "lost and ghost at the same time",
-			registered: []string{"maas.core-dev.orders", "maas.core-dev.events"},
-			existing:   []string{"maas.core-dev.orders", "maas.core-dev.forgotten"},
-			lost:       1,
-			ghost:      1,
+			name: "multiple namespaces, lost and ghost together",
+			registered: map[string][]string{
+				"core-dev": {"maas.core-dev.orders", "maas.core-dev.events"},
+				"payments": {"maas.payments.tx"},
+			},
+			existing: []string{"maas.core-dev.orders", "maas.payments.tx", "maas.billing.ghost"},
+			want: map[string]nsCounts{
+				"core-dev": {registered: 2, lost: 1},
+				"payments": {registered: 1},
+				"billing":  {ghost: 1},
+			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			counts := compare(asSet(test.registered), asSet(test.existing))
-
-			assert.Equal(t, len(test.registered), counts.registered)
-			assert.Equal(t, test.lost, counts.lost)
-			assert.Equal(t, test.ghost, counts.ghost)
-			assert.True(t, counts.available)
+			byNs := make(map[string]map[string]bool)
+			for ns, names := range test.registered {
+				for _, n := range names {
+					addRegistered(byNs, ns, n)
+				}
+			}
+			got := compareByNamespace(byNs, asSet(test.existing))
+			assert.Equal(t, test.want, got)
 		})
 	}
+}
+
+func TestNamespaceFromEntityName(t *testing.T) {
+	assert.Equal(t, "core-dev", namespaceFromEntityName("maas.core-dev.orders"))
+	assert.Equal(t, "core-dev", namespaceFromEntityName("maas.core-dev")) // namespace-only vhost
+	assert.Equal(t, unknownNamespace, namespaceFromEntityName("maas."))
 }
 
 func TestCollect(t *testing.T) {
@@ -143,29 +162,36 @@ func TestCollect(t *testing.T) {
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
 		&fakeKafkaTopics{topics: []*model.TopicRegistration{
-			{Topic: "maas.core-dev.orders", Instance: "kafka-1"},
-			{Topic: "maas.core-dev.events", Instance: "kafka-1"},
+			{Topic: "maas.core-dev.orders", Namespace: "core-dev", Instance: "kafka-1"},
+			{Topic: "maas.core-dev.events", Namespace: "core-dev", Instance: "kafka-1"},
+			{Topic: "maas.payments.tx", Namespace: "payments", Instance: "kafka-1"},
 		}},
 		&fakeKafkaBroker{topicsByInstance: map[string][]string{
-			"kafka-1": {"maas.core-dev.orders", "maas.core-dev.ghost-topic", "__consumer_offsets"},
+			// core-dev.events lost; payments.tx present; core-dev.ghost-topic is a ghost
+			"kafka-1": {"maas.core-dev.orders", "maas.payments.tx", "maas.core-dev.ghost-topic", "__consumer_offsets"},
 		}},
 		&fakeRabbitInstances{instances: []model.RabbitInstance{{Id: "rabbit-1"}}},
 		&fakeRabbitVhosts{vhosts: []model.VHostRegistration{
-			{Vhost: "maas.core-dev", InstanceId: "rabbit-1"},
+			{Vhost: "maas.core-dev", Namespace: "core-dev", InstanceId: "rabbit-1"},
 		}},
 		&fakeRabbitHelper{vhosts: []model.VhostInfo{{Name: "maas.core-dev"}, {Name: "/"}}},
 	)
 
 	collector.Collect(ctx)
 
-	assert.Equal(t, 2.0, gauge(collector.registeredMetric, "Kafka", "kafka-1"))
-	assert.Equal(t, 1.0, gauge(collector.lostMetric, "Kafka", "kafka-1"))
-	assert.Equal(t, 1.0, gauge(collector.ghostMetric, "Kafka", "kafka-1"))
+	// kafka core-dev: 2 registered, 1 lost (events), 1 ghost (ghost-topic)
+	assert.Equal(t, 2.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "core-dev"))
+	assert.Equal(t, 1.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "core-dev"))
+	assert.Equal(t, 1.0, gaugeNs(collector.ghostMetric, "Kafka", "kafka-1", "core-dev"))
+	// kafka payments: 1 registered, in sync
+	assert.Equal(t, 1.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "payments"))
+	assert.Equal(t, 0.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "payments"))
+	// reachability is per broker, not per namespace
 	assert.Equal(t, 1.0, gauge(collector.availableMetric, "Kafka", "kafka-1"))
 
-	assert.Equal(t, 1.0, gauge(collector.registeredMetric, "RabbitMQ", "rabbit-1"))
-	assert.Equal(t, 0.0, gauge(collector.lostMetric, "RabbitMQ", "rabbit-1"))
-	assert.Equal(t, 0.0, gauge(collector.ghostMetric, "RabbitMQ", "rabbit-1"))
+	// rabbit core-dev: 1 registered, in sync
+	assert.Equal(t, 1.0, gaugeNs(collector.registeredMetric, "RabbitMQ", "rabbit-1", "core-dev"))
+	assert.Equal(t, 0.0, gaugeNs(collector.lostMetric, "RabbitMQ", "rabbit-1", "core-dev"))
 	assert.Equal(t, 1.0, gauge(collector.availableMetric, "RabbitMQ", "rabbit-1"))
 }
 
@@ -178,8 +204,8 @@ func TestCollectKeepsPreviousNumbersWhenBrokerIsUnreachable(t *testing.T) {
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
 		&fakeKafkaTopics{topics: []*model.TopicRegistration{
-			{Topic: "maas.core-dev.orders", Instance: "kafka-1"},
-			{Topic: "maas.core-dev.events", Instance: "kafka-1"},
+			{Topic: "maas.core-dev.orders", Namespace: "core-dev", Instance: "kafka-1"},
+			{Topic: "maas.core-dev.events", Namespace: "core-dev", Instance: "kafka-1"},
 		}},
 		broker,
 		&fakeRabbitInstances{},
@@ -188,13 +214,13 @@ func TestCollectKeepsPreviousNumbersWhenBrokerIsUnreachable(t *testing.T) {
 	)
 
 	collector.Collect(ctx)
-	assert.Equal(t, 1.0, gauge(collector.lostMetric, "Kafka", "kafka-1"))
+	assert.Equal(t, 1.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "core-dev"))
 
 	broker.errByInstance = map[string]error{"kafka-1": errors.New("connection refused")}
 	collector.Collect(ctx)
 
-	assert.Equal(t, 2.0, gauge(collector.registeredMetric, "Kafka", "kafka-1"))
-	assert.Equal(t, 1.0, gauge(collector.lostMetric, "Kafka", "kafka-1"), "stale numbers must survive an unreachable broker")
+	assert.Equal(t, 2.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "core-dev"))
+	assert.Equal(t, 1.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "core-dev"), "stale numbers must survive an unreachable broker")
 	assert.Equal(t, 0.0, gauge(collector.availableMetric, "Kafka", "kafka-1"))
 }
 
@@ -203,7 +229,7 @@ func TestCollectDropsMetricsOfRemovedInstances(t *testing.T) {
 	instances := &fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}}
 	collector := newTestCollector(
 		instances,
-		&fakeKafkaTopics{topics: []*model.TopicRegistration{{Topic: "maas.core-dev.orders", Instance: "kafka-1"}}},
+		&fakeKafkaTopics{topics: []*model.TopicRegistration{{Topic: "maas.core-dev.orders", Namespace: "core-dev", Instance: "kafka-1"}}},
 		&fakeKafkaBroker{topicsByInstance: map[string][]string{"kafka-1": {"maas.core-dev.orders"}}},
 		&fakeRabbitInstances{},
 		&fakeRabbitVhosts{},
@@ -236,6 +262,10 @@ func newTestCollector(
 
 func gauge(gaugeVec *prometheus.GaugeVec, brokerType string, instanceId string) float64 {
 	return testutil.ToFloat64(gaugeVec.WithLabelValues(brokerType, instanceId))
+}
+
+func gaugeNs(gaugeVec *prometheus.GaugeVec, brokerType, instanceId, namespace string) float64 {
+	return testutil.ToFloat64(gaugeVec.WithLabelValues(brokerType, instanceId, namespace))
 }
 
 func asSet(names []string) map[string]bool {

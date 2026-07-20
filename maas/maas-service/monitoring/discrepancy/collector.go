@@ -1,7 +1,8 @@
 // Package discrepancy exports prometheus metrics describing the difference between
 // entities registered in the maas database and entities actually existing on the brokers.
 //
-// For every registered broker instance three numbers are reported:
+// For every registered broker instance three numbers are reported, broken down by the
+// maas namespace (tenant/service scope) the entity belongs to:
 //   - registered: entities maas knows about in its own database
 //   - lost:       registered in maas, but missing on the broker
 //   - ghost:      present on the broker, but not registered in maas
@@ -29,6 +30,9 @@ import (
 const (
 	// entities created by maas are named "maas.<namespace>..."
 	maasEntityPrefix = "maas."
+
+	// entities whose namespace can not be determined are reported under this value
+	unknownNamespace = "unknown"
 
 	// same values as the maas_health_broker_status metric, so both can be filtered alike
 	brokerTypeKafka  = string(model.Kafka)
@@ -72,12 +76,17 @@ func DefaultRabbitHelperFactory(instance model.RabbitInstance) helper.RabbitHelp
 	return helper.NewRabbitHelperWithHttpHelper(instance, model.VHostRegistration{}, helper.NewHttpHelper())
 }
 
-// entityCounts is a discrepancy snapshot of a single broker instance
-type entityCounts struct {
+// nsCounts is a discrepancy snapshot for a single (instance, namespace) pair
+type nsCounts struct {
 	registered int
 	lost       int
 	ghost      int
-	available  bool
+}
+
+// instanceResult holds the per-namespace discrepancy of one broker instance plus its reachability
+type instanceResult struct {
+	byNamespace map[string]nsCounts
+	reachable   bool
 }
 
 type instanceKey struct {
@@ -96,9 +105,9 @@ type MetricCollector struct {
 
 	collectInterval time.Duration
 
-	// last successfully calculated numbers per instance. Kept so that a temporarily
-	// unreachable broker doesn't report all its entities as lost.
-	lastKnown map[instanceKey]entityCounts
+	// last successfully calculated per-namespace numbers per instance. Kept so that a
+	// temporarily unreachable broker doesn't report all its entities as lost.
+	lastKnown map[instanceKey]map[string]nsCounts
 
 	registeredMetric *prometheus.GaugeVec
 	lostMetric       *prometheus.GaugeVec
@@ -118,6 +127,8 @@ func NewMetricCollector(
 	if collectInterval <= 0 {
 		collectInterval = defaultCollectInterval
 	}
+	entityLabels := []string{"broker_type", "broker_id", "entity_namespace"}
+	brokerLabels := []string{"broker_type", "broker_id"}
 	return &MetricCollector{
 		kafkaInstances:  kafkaInstances,
 		kafkaTopics:     kafkaTopics,
@@ -126,26 +137,26 @@ func NewMetricCollector(
 		rabbitVhosts:    rabbitVhosts,
 		rabbitHelperOf:  rabbitHelperOf,
 		collectInterval: collectInterval,
-		lastKnown:       make(map[instanceKey]entityCounts),
+		lastKnown:       make(map[instanceKey]map[string]nsCounts),
 
 		registeredMetric: registerGaugeVec("registered_entities",
-			"number of entities registered in maas database"),
+			"number of entities registered in maas database", entityLabels),
 		lostMetric: registerGaugeVec("lost_entities",
-			"number of entities registered in maas database, but missing on the broker"),
+			"number of entities registered in maas database, but missing on the broker", entityLabels),
 		ghostMetric: registerGaugeVec("ghost_entities",
-			"number of maas named entities existing on the broker, but not registered in maas database"),
+			"number of maas named entities existing on the broker, but not registered in maas database", entityLabels),
 		availableMetric: registerGaugeVec("broker_reachable",
-			"1 if the last discrepancy calculation reached the broker, 0 if numbers are stale"),
+			"1 if the last discrepancy calculation reached the broker, 0 if numbers are stale", brokerLabels),
 	}
 }
 
-func registerGaugeVec(name string, help string) *prometheus.GaugeVec {
+func registerGaugeVec(name string, help string, labels []string) *prometheus.GaugeVec {
 	gaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "maas",
 		Subsystem: "discrepancy",
 		Name:      name,
 		Help:      help,
-	}, []string{"broker_type", "broker_id"})
+	}, labels)
 
 	if err := prometheus.Register(gaugeVec); err != nil {
 		var alreadyRegistered prometheus.AlreadyRegisteredError
@@ -177,28 +188,34 @@ func (c *MetricCollector) Start(ctx context.Context) {
 // the result to prometheus. Instances that failed to respond keep their previous numbers
 // and are marked as unreachable.
 func (c *MetricCollector) Collect(ctx context.Context) {
-	current := make(map[instanceKey]entityCounts)
+	current := make(map[instanceKey]instanceResult)
 
 	c.collectKafka(ctx, current)
 	c.collectRabbit(ctx, current)
 
-	// instances removed from maas must not leave stale series behind
+	// instances/namespaces removed from maas must not leave stale series behind
 	c.registeredMetric.Reset()
 	c.lostMetric.Reset()
 	c.ghostMetric.Reset()
 	c.availableMetric.Reset()
 
-	c.lastKnown = current
-	for key, counts := range current {
-		labels := prometheus.Labels{"broker_type": key.brokerType, "broker_id": key.instanceId}
-		c.registeredMetric.With(labels).Set(float64(counts.registered))
-		c.lostMetric.With(labels).Set(float64(counts.lost))
-		c.ghostMetric.With(labels).Set(float64(counts.ghost))
-		c.availableMetric.With(labels).Set(boolToFloat(counts.available))
+	c.lastKnown = make(map[instanceKey]map[string]nsCounts, len(current))
+	for key, res := range current {
+		c.lastKnown[key] = res.byNamespace
+		c.availableMetric.With(prometheus.Labels{
+			"broker_type": key.brokerType, "broker_id": key.instanceId,
+		}).Set(boolToFloat(res.reachable))
+
+		for ns, counts := range res.byNamespace {
+			labels := prometheus.Labels{"broker_type": key.brokerType, "broker_id": key.instanceId, "entity_namespace": ns}
+			c.registeredMetric.With(labels).Set(float64(counts.registered))
+			c.lostMetric.With(labels).Set(float64(counts.lost))
+			c.ghostMetric.With(labels).Set(float64(counts.ghost))
+		}
 	}
 }
 
-func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceKey]entityCounts) {
+func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceKey]instanceResult) {
 	instances, err := c.kafkaInstances.GetKafkaInstances(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "error getting list of kafka instances, kafka discrepancy metrics will not be updated: %v", err)
@@ -211,20 +228,18 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 		topicsInDb, err := c.kafkaTopics.SearchTopicsInDB(ctx, &model.TopicSearchRequest{Instance: instance.GetId()})
 		if err != nil {
 			log.ErrorC(ctx, "error getting topics of kafka instance '%v' from db, keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			result[key] = c.staleCounts(key)
+			result[key] = c.staleResult(key, nil)
 			continue
 		}
-		registered := make(map[string]bool, len(topicsInDb))
+		registeredByNs := make(map[string]map[string]bool)
 		for _, topic := range topicsInDb {
-			registered[topic.Topic] = true
+			addRegistered(registeredByNs, topic.Namespace, topic.Topic)
 		}
 
 		topicsOnBroker, err := c.kafkaBroker.GetListTopics(ctx, &instance)
 		if err != nil {
 			log.WarnC(ctx, "error getting list of topics from kafka instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			counts := c.staleCounts(key)
-			counts.registered = len(registered)
-			result[key] = counts
+			result[key] = c.staleResult(key, registeredByNs)
 			continue
 		}
 
@@ -233,11 +248,11 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			existing[name] = true
 		}
 
-		result[key] = compare(registered, existing)
+		result[key] = instanceResult{byNamespace: compareByNamespace(registeredByNs, existing), reachable: true}
 	}
 }
 
-func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instanceKey]entityCounts) {
+func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instanceKey]instanceResult) {
 	instances, err := c.rabbitInstances.GetRabbitInstances(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "error getting list of rabbit instances, rabbit discrepancy metrics will not be updated: %v", err)
@@ -249,24 +264,22 @@ func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instance
 		log.ErrorC(ctx, "error getting list of vhosts from db, rabbit discrepancy metrics will not be updated: %v", err)
 		return
 	}
-	registeredByInstance := make(map[string]map[string]bool)
+	registeredByInstance := make(map[string]map[string]map[string]bool)
 	for _, vhost := range vhostsInDb {
 		if registeredByInstance[vhost.InstanceId] == nil {
-			registeredByInstance[vhost.InstanceId] = make(map[string]bool)
+			registeredByInstance[vhost.InstanceId] = make(map[string]map[string]bool)
 		}
-		registeredByInstance[vhost.InstanceId][vhost.Vhost] = true
+		addRegistered(registeredByInstance[vhost.InstanceId], vhost.Namespace, vhost.Vhost)
 	}
 
 	for _, instance := range *instances {
 		key := instanceKey{brokerTypeRabbit, instance.GetId()}
-		registered := registeredByInstance[instance.GetId()]
+		registeredByNs := registeredByInstance[instance.GetId()]
 
 		vhostsOnBroker, err := c.rabbitHelperOf(instance).GetAllVhosts(ctx)
 		if err != nil {
 			log.WarnC(ctx, "error getting list of vhosts from rabbit instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			counts := c.staleCounts(key)
-			counts.registered = len(registered)
-			result[key] = counts
+			result[key] = c.staleResult(key, registeredByNs)
 			continue
 		}
 
@@ -275,33 +288,75 @@ func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instance
 			existing[vhost.Name] = true
 		}
 
-		result[key] = compare(registered, existing)
+		result[key] = instanceResult{byNamespace: compareByNamespace(registeredByNs, existing), reachable: true}
 	}
 }
 
-// compare calculates discrepancy between entities registered in maas and entities existing on a broker
-func compare(registered map[string]bool, existing map[string]bool) entityCounts {
-	counts := entityCounts{registered: len(registered), available: true}
-
-	for name := range registered {
-		if !existing[name] {
-			counts.lost++
-		}
+// addRegistered records an entity name under its namespace bucket
+func addRegistered(byNs map[string]map[string]bool, namespace, name string) {
+	if byNs[namespace] == nil {
+		byNs[namespace] = make(map[string]bool)
 	}
+	byNs[namespace][name] = true
+}
+
+// compareByNamespace calculates discrepancy between entities registered in maas and
+// entities existing on a broker, broken down by the maas namespace of each entity.
+func compareByNamespace(registeredByNs map[string]map[string]bool, existing map[string]bool) map[string]nsCounts {
+	result := make(map[string]nsCounts)
+
+	// registered + lost are attributed to the namespace stored in the maas database
+	registeredNames := make(map[string]bool)
+	for ns, names := range registeredByNs {
+		counts := nsCounts{registered: len(names)}
+		for name := range names {
+			registeredNames[name] = true
+			if !existing[name] {
+				counts.lost++
+			}
+		}
+		result[ns] = counts
+	}
+
+	// ghosts exist only on the broker, so their namespace is parsed from the maas.<ns>... name
 	for name := range existing {
-		if strings.HasPrefix(name, maasEntityPrefix) && !registered[name] {
+		if strings.HasPrefix(name, maasEntityPrefix) && !registeredNames[name] {
+			ns := namespaceFromEntityName(name)
+			counts := result[ns]
 			counts.ghost++
+			result[ns] = counts
 		}
 	}
-	return counts
+	return result
 }
 
-// staleCounts keeps discrepancy numbers of the previous successful calculation, so that
-// an unreachable broker doesn't look like every entity has been lost
-func (c *MetricCollector) staleCounts(key instanceKey) entityCounts {
-	counts := c.lastKnown[key]
-	counts.available = false
-	return counts
+// namespaceFromEntityName extracts the maas namespace from an entity named "maas.<namespace>[.<rest>]"
+func namespaceFromEntityName(name string) string {
+	rest := strings.TrimPrefix(name, maasEntityPrefix)
+	if i := strings.IndexByte(rest, '.'); i >= 0 {
+		rest = rest[:i]
+	}
+	if rest == "" {
+		return unknownNamespace
+	}
+	return rest
+}
+
+// staleResult keeps the per-namespace lost/ghost numbers of the previous successful
+// calculation (so an unreachable broker doesn't look like every entity has been lost)
+// while refreshing the registered counts from the current database view when available.
+func (c *MetricCollector) staleResult(key instanceKey, registeredByNs map[string]map[string]bool) instanceResult {
+	byNamespace := make(map[string]nsCounts)
+	for ns, counts := range c.lastKnown[key] {
+		// drop the stale registered count; it is re-derived below when the db view is known
+		byNamespace[ns] = nsCounts{lost: counts.lost, ghost: counts.ghost}
+	}
+	for ns, names := range registeredByNs {
+		counts := byNamespace[ns]
+		counts.registered = len(names)
+		byNamespace[ns] = counts
+	}
+	return instanceResult{byNamespace: byNamespace, reachable: false}
 }
 
 func boolToFloat(value bool) float64 {

@@ -90,7 +90,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "lost",
           "refId": "A"
@@ -156,7 +156,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "ghost",
           "refId": "A"
@@ -218,7 +218,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "registered",
           "refId": "A"
@@ -350,7 +350,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})",
+          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
           "legendFormat": "{{broker_type}} / {{broker_id}}",
           "refId": "A"
         }
@@ -428,7 +428,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})",
+          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
           "legendFormat": "{{broker_type}} / {{broker_id}}",
           "refId": "A"
         }
@@ -493,7 +493,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})",
+          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
           "legendFormat": "{{broker_type}} / {{broker_id}}",
           "refId": "A"
         }
@@ -586,6 +586,207 @@
       ],
       "title": "Broker Reachability",
       "type": "state-timeline"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 200,
+      "panels": [],
+      "title": "By Namespace (tenant/service)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Discrepancy broken down by the maas namespace (tenant/service) each entity belongs to. Lost = registered in MaaS but missing on the broker.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lost"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ghost"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 201,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Lost"
+          }
+        ]
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (entity_namespace, broker_type) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (entity_namespace, broker_type) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (entity_namespace, broker_type) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\"}))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "C"
+        }
+      ],
+      "title": "Discrepancy By Namespace",
+      "type": "table",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "entity_namespace",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "broker_type 2": true,
+              "broker_type 3": true
+            },
+            "renameByName": {
+              "entity_namespace": "Namespace",
+              "broker_type 1": "Broker",
+              "Value #A": "Registered",
+              "Value #B": "Lost",
+              "Value #C": "Ghost"
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "30s",
@@ -704,6 +905,31 @@
         "name": "broker_id",
         "options": [],
         "query": "label_values(maas_discrepancy_registered_entities{broker_type=~\"$broker_type\"}, broker_id)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(maas_discrepancy_registered_entities, entity_namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Entity Namespace",
+        "multi": true,
+        "name": "entity_namespace",
+        "options": [],
+        "query": "label_values(maas_discrepancy_registered_entities, entity_namespace)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
