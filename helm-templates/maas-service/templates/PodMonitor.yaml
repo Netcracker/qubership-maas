@@ -1,0 +1,28 @@
+{{ if .Values.MONITORING_ENABLED }}
+---
+kind: PodMonitor
+apiVersion: monitoring.coreos.com/v1
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}-pod-monitor'
+  labels:
+    k8s-app: '{{ .Values.SERVICE_NAME }}-pod-monitor'
+    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}-pod-monitor'
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: Cloud-Core
+    app.kubernetes.io/managed-by: saasDeployer
+    app.kubernetes.io/processed-by-operator: victoriametrics-operator
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}'
+spec:
+  podMetricsEndpoints:
+    - interval: 30s
+      port: web
+      scheme: http
+      path: "/prometheus"
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+      - '{{ .Values.NAMESPACE }}'
+  selector:
+    matchLabels:
+      name: '{{ .Values.SERVICE_NAME }}'
+{{ end }}

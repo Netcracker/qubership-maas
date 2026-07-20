@@ -1,0 +1,14 @@
+{{ if .Values.MONITORING_ENABLED }}
+---
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: maas-discrepancy-dashboard
+  labels:
+    app: grafana
+    app.kubernetes.io/name: "{{ .Values.SERVICE_NAME }}"
+    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+spec:
+  name: maas-discrepancy-dashboard.json
+  json: {{ .Files.Get "dashboards/maas-discrepancy-dashboard.json" | toJson | replace "#namespace#" .Values.NAMESPACE }}
+{{ end }}

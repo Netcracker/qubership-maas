@@ -212,6 +212,95 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 ---
 
+## Registry Discrepancy Dashboard
+
+**Dashboard Name:** MaaS Discrepancy Dashboard
+**UID:** `maas-discrepancy`
+**Location:** `helm-templates/maas-service/dashboards/maas-discrepancy-dashboard.json` (shipped by `templates/Dashboard.yaml`)
+**Collection Interval:** `discrepancy.metrics.interval`, default `5m`
+
+### Purpose
+
+MaaS keeps its own registry of topics and vhosts in PostgreSQL, while the entities themselves live on
+Kafka and RabbitMQ. Those two views can drift apart — someone deletes a topic directly on the broker,
+a vhost creation half-fails, a database is restored from an older backup. This dashboard answers one
+question: **does the MaaS registry still match reality on the brokers?**
+
+### Metrics
+
+All four share the labels `broker_type` (`Kafka` / `RabbitMQ`) and `broker_id` (the registered instance
+id).
+
+| Metric | Meaning |
+|---|---|
+| `maas_discrepancy_registered_entities` | Topics/vhosts registered in the MaaS database for that broker |
+| `maas_discrepancy_lost_entities` | Registered in MaaS, **missing on the broker** |
+| `maas_discrepancy_ghost_entities` | Named `maas.*` on the broker, **absent from the MaaS database** |
+| `maas_discrepancy_broker_reachable` | `1` if the last calculation reached the broker, `0` if its numbers are stale |
+
+### Lost vs Ghost
+
+These two are not symmetric, and they mean different things operationally.
+
+**Lost** is the one that hurts callers. MaaS believes a topic or vhost exists and will happily hand out
+its connection details, but nothing is there. Microservices get "unknown topic" or "vhost not found"
+errors at runtime, and MaaS itself will not self-heal — it deliberately refuses to recreate an entity
+behind the registry's back. Any non-zero value deserves investigation.
+
+**Ghost** is leaked state, not broken behaviour. Nothing is failing right now; the broker is just
+holding an entity nobody is tracking, consuming disk and partitions. It usually means a delete only
+half-completed, or a database was rolled back after entities were created.
+
+> **Ghost is deliberately under-reported.** Only entities whose name starts with `maas.` are counted,
+> because brokers are frequently shared — `__consumer_offsets`, the default `/` vhost, and other teams'
+> topics are not MaaS's business. Topics registered under a **custom name template** that does not
+> begin with `maas.` will therefore never be flagged as ghosts. The metric errs toward silence rather
+> than false alarms.
+
+### Trusting the numbers
+
+If a broker cannot be reached, MaaS does **not** report all of its entities as lost. It keeps the
+previous values and sets `maas_discrepancy_broker_reachable` to `0`.
+
+This matters when reading the dashboard: a lost/ghost count next to `broker_reachable = 0` is a
+**snapshot from the last successful check**, not the current state. Always confirm reachability before
+acting on a discrepancy. Without this, a thirty-second broker blip would look identical to a
+catastrophic data loss event.
+
+### Panels
+
+| Panel | Query | When to act |
+|---|---|---|
+| **Lost Entities** (stat) | `sum(maas_discrepancy_lost_entities)` | Red on any non-zero value. Identify the entity, then either recreate it on the broker or delete the stale registration through the MaaS API. |
+| **Ghost Entities** (stat) | `sum(maas_discrepancy_ghost_entities)` | Orange on any non-zero value. Not urgent. Clean up during maintenance to reclaim broker resources. |
+| **Registered Entities** (stat) | `sum(maas_discrepancy_registered_entities)` | Informational. A sudden drop means registrations were deleted — cross-check against a namespace cleanup. |
+| **Unreachable Brokers** (stat) | `count(maas_discrepancy_broker_reachable == 0)` | Non-zero means the numbers on this dashboard are stale. Fix connectivity first — see Row 5. |
+| **Registered / Lost / Ghost By Broker** (timeseries) | per `broker_type` / `broker_id` | Shows which specific broker drifted and when. A step change pinpoints the deploy or manual operation responsible. |
+| **Broker Reachability** (state-timeline) | `maas_discrepancy_broker_reachable` | Green = reachable, red = stale. Use it to decide whether a lost spike was real or just an unreachable broker. |
+
+### Diagnosing a non-zero value
+
+The dashboard reports counts, not names. To find *which* entities drifted, use the discrepancy REST API
+(see [rest_api.md](rest_api.md)), which returns each registered topic with an `ok` / `absent` status per
+namespace.
+
+Common causes, in rough order of likelihood:
+
+1. Someone operated on the broker directly instead of through the MaaS API.
+2. A namespace cleanup deleted registrations but the broker deletes failed partway.
+3. The MaaS database was restored from a backup older than the entities on the broker (produces ghosts).
+
+### Cost and configuration
+
+Each collection cycle issues **one `ListTopics` call per Kafka instance** and **one `GET /api/vhosts`
+per RabbitMQ instance** — a single metadata request each, served from the broker's memory. The cost is
+per-instance, not per-entity, so it does not grow as topics are added.
+
+Tune with `discrepancy.metrics.interval` (default `5m`). Values below roughly `1m` are not recommended
+on shared brokers: the calculation is a full registry-versus-broker comparison, not a cheap health ping.
+
+---
+
 ## OOB Alerts
 
 **No out-of-the-box alerts are shipped by the MaaS product team.** The product ships metrics and a dashboard only.
@@ -228,3 +317,11 @@ If alerting is required, it must be configured by the platform/operations team.
 | High 5xx Error Rate | `rate(http_requests_total{status_code=~"5.."}[5m]) > 0.1` | 5m | warning |
 | DB Connection Pool Saturation | `go_sql_stats_connections_in_use / go_sql_stats_connections_max_open > 0.9` | 5m | warning |
 | High Request Latency (P99) | `histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{status_code!~"5.."}[5m])) > 5` | 5m | warning |
+| Lost Entities Detected | `maas_discrepancy_lost_entities > 0 and maas_discrepancy_broker_reachable == 1` | 15m | warning |
+| Ghost Entities Detected | `maas_discrepancy_ghost_entities > 0 and maas_discrepancy_broker_reachable == 1` | 1h | info |
+| Discrepancy Data Stale | `maas_discrepancy_broker_reachable == 0` | 15m | info |
+
+> The `and maas_discrepancy_broker_reachable == 1` guard on the first two alerts is required. Without it,
+> an unreachable broker keeps its last known lost/ghost values and would page repeatedly for a
+> discrepancy that is merely unverifiable. `Broker Unreachable` above already covers the connectivity
+> failure itself.
