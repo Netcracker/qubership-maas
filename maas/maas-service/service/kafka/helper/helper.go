@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"strings"
-	"time"
 )
 
 var log = logging.GetLogger("kafka-helper")
@@ -26,7 +27,7 @@ var deleteMethodMetric = newMetricCounter("deleteTopic")
 var updateMethodMetric = newMetricCounter("updateTopic")
 var isTopicExistsMethodMetric = newMetricCounter("isTopicExists")
 var settingsMethodMetric = newMetricCounter("topicSettings")
-var listTopicsMethodMetric = newMetricCounter("listTopics")
+var getTopicNamesMethodMetric = newMetricCounter("getTopicNames")
 var bulkTopicSettingsMetric = newMetricCounter("bulkTopicSetting")
 
 func CreateKafkaHelper(ctx context.Context) Helper {
@@ -52,7 +53,7 @@ type Helper interface {
 	DeleteTopic(ctx context.Context, topic *model.TopicRegistration) error
 	UpdateTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
 	GetTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
-	GetListTopics(ctx context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error)
+	GetTopicNames(ctx context.Context, instance *model.KafkaInstance) ([]string, error)
 	DoesTopicExistOnKafka(ctx context.Context, instance *model.KafkaInstance, topicName string) (bool, error)
 	BulkGetTopicSettings(ctx context.Context, topics []*model.TopicRegistrationRespDto) error
 
@@ -488,20 +489,23 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 	return &result, nil
 }
 
-func (helper *HelperImpl) GetListTopics(ctx context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error) {
-	return measureTimeValue(listTopicsMethodMetric, func() (map[string]sarama.TopicDetail, error) {
-		admin, err := helper.createClusterAdmin(ctx, instance)
+// GetTopicNames returns the names of all topics existing on the kafka instance. It uses a low level
+// sarama client (Client.Topics()) which reads only the cluster metadata, avoiding the per-topic
+// DescribeConfigs round trip that ClusterAdmin.ListTopics() performs.
+func (helper *HelperImpl) GetTopicNames(ctx context.Context, instance *model.KafkaInstance) ([]string, error) {
+	return measureTimeValue(getTopicNamesMethodMetric, func() ([]string, error) {
+		client, err := helper.createClient(ctx, instance)
 		if err != nil {
 			log.ErrorC(ctx, "Failed to connect to kafka instance %s: %v", instance, err)
 			return nil, err
 		}
 		defer func() {
-			if err := admin.Close(); err != nil {
-				log.WarnC(ctx, "Failed to close kafka admin client for instance %s: %v", instance.Id, err)
+			if err := client.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka client for instance %s: %v", instance.Id, err)
 			}
 		}()
 
-		if topics, err := admin.ListTopics(); err == nil {
+		if topics, err := client.Topics(); err == nil {
 			return topics, nil
 		} else {
 			log.ErrorC(ctx, "Failed to get list of topics from kafka instance %s: %v", instance, err)

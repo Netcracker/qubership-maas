@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/rabbit_service/helper"
@@ -34,7 +33,6 @@ const (
 	// entities whose namespace can not be determined are reported under this value
 	unknownNamespace = "unknown"
 
-	// same values as the maas_health_broker_status metric, so both can be filtered alike
 	brokerTypeKafka  = string(model.Kafka)
 	brokerTypeRabbit = string(model.RabbitMQ)
 
@@ -57,7 +55,7 @@ type KafkaTopicProvider interface {
 }
 
 type KafkaBrokerLister interface {
-	GetListTopics(ctx context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error)
+	GetTopicNames(ctx context.Context, instance *model.KafkaInstance) ([]string, error)
 }
 
 type RabbitInstanceProvider interface {
@@ -190,8 +188,8 @@ func (c *MetricCollector) Start(ctx context.Context) {
 	}()
 }
 
-// Collect recalculates discrepancy for all registered broker instances and publishes
-// the result to prometheus. Instances that failed to respond keep their previous numbers
+// Collect recalculates discrepancy for all registered broker instances.
+// Instances that failed to respond keep their previous numbers
 // and are marked as unreachable.
 func (c *MetricCollector) Collect(ctx context.Context) {
 	current := make(map[instanceKey]instanceResult)
@@ -245,7 +243,7 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			addRegistered(registeredByScope, scopeKey{topic.Namespace, topicTenantId(topic)}, topic.Topic)
 		}
 
-		topicsOnBroker, err := c.kafkaBroker.GetListTopics(ctx, &instance)
+		topicsOnBroker, err := c.kafkaBroker.GetTopicNames(ctx, &instance)
 		if err != nil {
 			log.WarnC(ctx, "error getting list of topics from kafka instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
 			result[key] = c.staleResult(key, registeredByScope)
@@ -253,7 +251,7 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 		}
 
 		existing := make(map[string]bool, len(topicsOnBroker))
-		for name := range topicsOnBroker {
+		for _, name := range topicsOnBroker {
 			existing[name] = true
 		}
 

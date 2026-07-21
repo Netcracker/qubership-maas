@@ -906,7 +906,7 @@ func (h RabbitHelperImpl) GetVhostExchanges(ctx context.Context) ([]model.Exchan
 
 // GetAllVhosts lists all vhosts existing on the rabbit instance.
 func (h RabbitHelperImpl) GetAllVhosts(ctx context.Context) ([]model.VhostInfo, error) {
-	vhosts, err := h.GetAdminEntity(ctx, "vhosts", []model.VhostInfo{})
+	vhosts, err := h.GetAdminEntity(ctx, "vhosts?columns=name", []model.VhostInfo{})
 	if err != nil {
 		return nil, utils.LogError(log, ctx, "error during GetAdminEntity: %w", err)
 	}

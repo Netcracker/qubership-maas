@@ -48,3 +48,18 @@ func (mr *MockSaramaClientMockRecorder) NewClusterAdmin(addrs, conf interface{})
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewClusterAdmin", reflect.TypeOf((*MockSaramaClient)(nil).NewClusterAdmin), addrs, conf)
 }
+
+// NewClient mocks base method.
+func (m *MockSaramaClient) NewClient(addrs []string, conf *sarama.Config) (sarama.Client, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewClient", addrs, conf)
+	ret0, _ := ret[0].(sarama.Client)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewClient indicates an expected call of NewClient.
+func (mr *MockSaramaClientMockRecorder) NewClient(addrs, conf interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewClient", reflect.TypeOf((*MockSaramaClient)(nil).NewClient), addrs, conf)
+}

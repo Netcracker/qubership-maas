@@ -381,7 +381,8 @@ func TestRabbitVhostHelperImpl_GetAllVhosts(t *testing.T) {
 	assert.NoError(err)
 
 	httpHelper.EXPECT().
-		DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		// only the vhost names are requested (columns=name), not the full per-vhost stats
+		DoRequest(gomock.Any(), "GET", gomock.Eq("/vhosts?columns=name"), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&resty.Response{
 			RawResponse: &http.Response{
 				StatusCode: http.StatusOK,

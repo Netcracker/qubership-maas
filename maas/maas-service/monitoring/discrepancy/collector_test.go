@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/rabbit_service/helper"
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,15 +49,11 @@ type fakeKafkaBroker struct {
 	errByInstance    map[string]error
 }
 
-func (f *fakeKafkaBroker) GetListTopics(_ context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error) {
+func (f *fakeKafkaBroker) GetTopicNames(_ context.Context, instance *model.KafkaInstance) ([]string, error) {
 	if err, found := f.errByInstance[instance.GetId()]; found {
 		return nil, err
 	}
-	result := make(map[string]sarama.TopicDetail)
-	for _, topic := range f.topicsByInstance[instance.GetId()] {
-		result[topic] = sarama.TopicDetail{}
-	}
-	return result, nil
+	return f.topicsByInstance[instance.GetId()], nil
 }
 
 type fakeRabbitInstances struct {
