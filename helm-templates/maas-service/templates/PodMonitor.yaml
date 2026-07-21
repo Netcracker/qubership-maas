@@ -8,13 +8,17 @@ metadata:
     k8s-app: '{{ .Values.SERVICE_NAME }}-pod-monitor'
     app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}-pod-monitor'
     app.kubernetes.io/component: monitoring
-    app.kubernetes.io/part-of: Cloud-Core
+    app.kubernetes.io/part-of: maas
     app.kubernetes.io/managed-by: saasDeployer
     app.kubernetes.io/processed-by-operator: victoriametrics-operator
-    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
 spec:
   podMetricsEndpoints:
-    - interval: 30s
+    - interval: 600s
+      port: web
+      scheme: http
+      path: "/api/v2/monitoring/entity-request-audit"
+    - interval: 10s
       port: web
       scheme: http
       path: "/prometheus"
