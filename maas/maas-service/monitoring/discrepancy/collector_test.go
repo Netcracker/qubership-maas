@@ -111,14 +111,6 @@ func meta(partitions int32, replication int16) model.TopicMetadata {
 	return model.TopicMetadata{NumPartitions: partitions, ReplicationFactor: replication}
 }
 
-func TestTopicSettingsMismatch(t *testing.T) {
-	assert.False(t, topicSettingsMismatch(topicReg("t", "ns", "", "i", 3, 2), meta(3, 2)), "in sync")
-	assert.True(t, topicSettingsMismatch(topicReg("t", "ns", "", "i", 3, 2), meta(6, 2)), "partition drift")
-	assert.True(t, topicSettingsMismatch(topicReg("t", "ns", "", "i", 3, 2), meta(3, 1)), "replication drift")
-	// settings maas did not register (nil) are not compared
-	assert.False(t, topicSettingsMismatch(topicReg("t", "ns", "", "i", 0, 0), meta(6, 3)), "unregistered settings ignored")
-}
-
 func TestCollect(t *testing.T) {
 	ctx := context.Background()
 	collector := newTestCollector(

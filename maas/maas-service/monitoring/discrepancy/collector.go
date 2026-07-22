@@ -248,9 +248,10 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			scope := scopeKey{topic.Namespace, topicTenantId(topic)}
 			counts := byScope[scope]
 			counts.registered++
-			if meta, exists := onBroker[topic.Topic]; !exists {
+			switch topic.BrokerStatus(brokerMeta(onBroker, topic.Topic)) {
+			case model.StatusAbsent:
 				counts.lost++
-			} else if topicSettingsMismatch(topic, meta) {
+			case model.StatusMismatched:
 				counts.mismatched++
 			}
 			byScope[scope] = counts
@@ -259,17 +260,12 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 	}
 }
 
-// topicSettingsMismatch reports whether the topic's registered partition count or replication factor
-// differs from what actually exists on the broker. Settings that maas did not register (nil / default)
-// are not compared.
-func topicSettingsMismatch(topic *model.TopicRegistration, meta model.TopicMetadata) bool {
-	if !model.IsEmpty(topic.NumPartitions) && *topic.NumPartitions != meta.NumPartitions {
-		return true
+// brokerMeta returns topic's broker metadata, or nil if it is not on the broker
+func brokerMeta(onBroker map[string]model.TopicMetadata, name string) *model.TopicMetadata {
+	if meta, ok := onBroker[name]; ok {
+		return &meta
 	}
-	if !model.IsEmpty(topic.ReplicationFactor) && *topic.ReplicationFactor != meta.ReplicationFactor {
-		return true
-	}
-	return false
+	return nil
 }
 
 // registeredCountsOfTopics counts registered topics per scope (used to refresh the registered number

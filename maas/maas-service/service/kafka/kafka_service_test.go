@@ -325,22 +325,30 @@ func TestKafkaService_GetDiscrepancyReport(t *testing.T) {
 		Namespace:  "test-namespace",
 	}
 
+	registeredPartitions := int32(2)
+	topicRegThird := &model.TopicRegistration{
+		Classifier:    &model.Classifier{Name: "third", Namespace: "test-namespace", TenantId: "3"},
+		Topic:         "test-namespace.third",
+		Namespace:     "test-namespace",
+		TopicSettings: model.TopicSettings{NumPartitions: &registeredPartitions},
+	}
+
 	gomock.InOrder(
 		mockDao.EXPECT().
 			FindTopicsBySearchRequest(eqCtx, &model.TopicSearchRequest{Namespace: "test-namespace"}).
-			Return([]*model.TopicRegistration{topicRegFirst, topicRegSecond}, nil).
+			Return([]*model.TopicRegistration{topicRegFirst, topicRegSecond, topicRegThird}, nil).
 			Times(1),
 		kafkaInstanceServiceMock.EXPECT().
 			GetById(eqCtx, gomock.Any()).
 			Return(kafkaInstance, nil).
 			Times(1),
 		kafkaHelper.EXPECT().
-			DoesTopicExistOnKafka(gomock.Any(), gomock.Eq(kafkaInstance), "test-namespace.first").
-			Return(true, nil).
-			Times(1),
-		kafkaHelper.EXPECT().
-			DoesTopicExistOnKafka(gomock.Any(), gomock.Eq(kafkaInstance), "test-namespace.second").
-			Return(false, nil).
+			GetTopicsMetadata(gomock.Any(), gomock.Eq(kafkaInstance), gomock.Any()).
+			Return(map[string]model.TopicMetadata{
+				"test-namespace.first": {NumPartitions: 1, ReplicationFactor: 1}, // present -> ok
+				// "test-namespace.second" omitted             -> absent
+				"test-namespace.third": {NumPartitions: 3, ReplicationFactor: 1}, // 3 partitions vs registered 2 -> mismatched
+			}, nil).
 			Times(1),
 	)
 
@@ -362,6 +370,10 @@ func TestKafkaService_GetDiscrepancyReport(t *testing.T) {
 	assert.Equal(t, "test-namespace.second", report[1].Name)
 	assert.Equal(t, model.StatusAbsent, report[1].Status)
 	assert.Equal(t, model.Classifier{Name: "second", Namespace: "test-namespace", TenantId: "2"}, report[1].Classifier)
+
+	assert.Equal(t, "test-namespace.third", report[2].Name)
+	assert.Equal(t, model.StatusMismatched, report[2].Status)
+	assert.Equal(t, model.Classifier{Name: "third", Namespace: "test-namespace", TenantId: "3"}, report[2].Classifier)
 }
 
 func TestKafkaService_CreateTopicDefinition(t *testing.T) {
