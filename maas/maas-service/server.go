@@ -27,6 +27,7 @@ import (
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/keymanagement"
 	"github.com/netcracker/qubership-maas/monitoring"
+	"github.com/netcracker/qubership-maas/monitoring/discrepancy"
 	"github.com/netcracker/qubership-maas/postdeploy"
 	"github.com/netcracker/qubership-maas/router"
 	"github.com/netcracker/qubership-maas/service/auth"
@@ -120,6 +121,17 @@ func main() {
 		kafka.NewKafkaService(kafka.NewKafkaServiceDao(pg, bgDomainService.FindByNamespace), kafkaInstanceService, kafkaHelper, auditService, bgDomainService, eventBus, authService),
 		isProdMode,
 	)
+	discrepancyMetricCollector := discrepancy.NewMetricCollector(
+		kafkaInstanceService,
+		kafkaService,
+		kafkaHelper,
+		rabbitInstanceService,
+		rabbitService,
+		discrepancy.DefaultRabbitHelperFactory,
+		configloader.GetKoanf().Duration("discrepancy.metrics.interval"),
+	)
+	discrepancyMetricCollector.Start(ctx)
+
 	tenantService := tenant.NewTenantService(tenant.NewTenantServiceDaoImpl(pg), kafkaService)
 	configService := configurator_service.NewConfiguratorService(
 		kafkaInstanceService,

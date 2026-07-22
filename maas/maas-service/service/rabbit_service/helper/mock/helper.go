@@ -350,6 +350,21 @@ func (mr *MockRabbitHelperMockRecorder) GetAllExchanges(ctx interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllExchanges", reflect.TypeOf((*MockRabbitHelper)(nil).GetAllExchanges), ctx)
 }
 
+// GetAllVhosts mocks base method.
+func (m *MockRabbitHelper) GetAllVhosts(ctx context.Context) ([]model.VhostInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllVhosts", ctx)
+	ret0, _ := ret[0].([]model.VhostInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllVhosts indicates an expected call of GetAllVhosts.
+func (mr *MockRabbitHelperMockRecorder) GetAllVhosts(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllVhosts", reflect.TypeOf((*MockRabbitHelper)(nil).GetAllVhosts), ctx)
+}
+
 // GetBinding mocks base method.
 func (m *MockRabbitHelper) GetBinding(ctx context.Context, binding interface{}) (interface{}, error) {
 	m.ctrl.T.Helper()

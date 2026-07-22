@@ -16,8 +16,9 @@ const (
 )
 
 const (
-	StatusOk     = "ok"
-	StatusAbsent = "absent"
+	StatusOk         = "ok"
+	StatusAbsent     = "absent"
+	StatusMismatched = "mismatched"
 )
 
 type AuthType string
@@ -322,6 +323,33 @@ func (topic *TopicRegistration) ToResponseDto() *TopicRegistrationRespDto {
 		result.Credentials = map[KafkaRole][]KafkaCredentials{Client: clientCredentials}
 	}
 	return &result
+}
+
+// TopicMetadata is the subset of a topic's actual broker state used by the discrepancy checks
+// to compare against the registered settings.
+type TopicMetadata struct {
+	NumPartitions     int32
+	ReplicationFactor int16
+}
+
+// BrokerStatus classifies a registered topic against its actual broker metadata (nil meaning the
+// topic is not present on the broker). It is shared by the discrepancy metrics collector and the
+// discrepancy REST report so both agree on what "ok" / "absent" / "mismatched" means:
+//   - StatusAbsent:     registered in maas, but missing on the broker
+//   - StatusMismatched: present, but the broker partition count or replication factor differs from
+//     what maas registered (settings maas did not register - nil - are not compared)
+//   - StatusOk:         present and matching
+func (topic *TopicRegistration) BrokerStatus(meta *TopicMetadata) string {
+	if meta == nil {
+		return StatusAbsent
+	}
+	if !IsEmpty(topic.NumPartitions) && *topic.NumPartitions != meta.NumPartitions {
+		return StatusMismatched
+	}
+	if !IsEmpty(topic.ReplicationFactor) && *topic.ReplicationFactor != meta.ReplicationFactor {
+		return StatusMismatched
+	}
+	return StatusOk
 }
 
 type TopicSettings struct {

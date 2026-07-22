@@ -189,6 +189,11 @@ func (d RabbitEntityType) String() string {
 type Exchange map[string]interface{}
 type Queue map[string]interface{}
 
+// VhostInfo is a short representation of a vhost as it is reported by RabbitMQ management API
+type VhostInfo struct {
+	Name string `json:"name"`
+}
+
 type RabbitEntities struct {
 	//todo: rabbit entites should be refactored to specific type []map[string]interface{}
 	Exchanges []interface{} `json:"exchanges,omitempty"`

@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	sarama "github.com/IBM/sarama"
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/netcracker/qubership-maas/model"
 )
@@ -108,19 +107,19 @@ func (mr *MockHelperMockRecorder) DoesTopicExistOnKafka(ctx, instance, topicName
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoesTopicExistOnKafka", reflect.TypeOf((*MockHelper)(nil).DoesTopicExistOnKafka), ctx, instance, topicName)
 }
 
-// GetListTopics mocks base method.
-func (m *MockHelper) GetListTopics(ctx context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error) {
+// GetTopicsMetadata mocks base method.
+func (m *MockHelper) GetTopicsMetadata(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]model.TopicMetadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetListTopics", ctx, instance)
-	ret0, _ := ret[0].(map[string]sarama.TopicDetail)
+	ret := m.ctrl.Call(m, "GetTopicsMetadata", ctx, instance, topicNames)
+	ret0, _ := ret[0].(map[string]model.TopicMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetListTopics indicates an expected call of GetListTopics.
-func (mr *MockHelperMockRecorder) GetListTopics(ctx, instance interface{}) *gomock.Call {
+// GetTopicsMetadata indicates an expected call of GetTopicsMetadata.
+func (mr *MockHelperMockRecorder) GetTopicsMetadata(ctx, instance, topicNames interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListTopics", reflect.TypeOf((*MockHelper)(nil).GetListTopics), ctx, instance)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopicsMetadata", reflect.TypeOf((*MockHelper)(nil).GetTopicsMetadata), ctx, instance, topicNames)
 }
 
 // GetTopicSettings mocks base method.

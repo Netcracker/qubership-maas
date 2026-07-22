@@ -364,3 +364,59 @@ func rabbitHelperForHealthTest(t *testing.T, apiURL string) RabbitHelperImpl {
 		httpClient: utils.NewRestyClient(),
 	}
 }
+
+func TestRabbitVhostHelperImpl_GetAllVhosts(t *testing.T) {
+	assert := assert.New(t)
+	mockCtrl := gomock.NewController(t)
+	httpHelper := mock_helper.NewMockHttpHelper(mockCtrl)
+
+	rabbitHelper := NewRabbitHelperWithHttpHelper(
+		*new(model.RabbitInstance),
+		*new(model.VHostRegistration),
+		httpHelper,
+	)
+
+	body := gbytes.NewBuffer()
+	_, err := body.Write([]byte(`[{"name":"maas.core-dev.orders"},{"name":"/"}]`))
+	assert.NoError(err)
+
+	httpHelper.EXPECT().
+		// only the vhost names are requested (columns=name), not the full per-vhost stats
+		DoRequest(gomock.Any(), "GET", gomock.Eq("/vhosts?columns=name"), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&resty.Response{
+			RawResponse: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       body,
+			},
+		}, nil).
+		Times(1)
+
+	vhosts, err := rabbitHelper.GetAllVhosts(context.Background())
+	assert.NoError(err)
+	assert.Len(vhosts, 2)
+	assert.Equal("maas.core-dev.orders", vhosts[0].Name)
+	assert.Equal("/", vhosts[1].Name)
+}
+
+func TestRabbitVhostHelperImpl_GetAllVhostsNotFound(t *testing.T) {
+	assert := assert.New(t)
+	mockCtrl := gomock.NewController(t)
+	httpHelper := mock_helper.NewMockHttpHelper(mockCtrl)
+
+	rabbitHelper := NewRabbitHelperWithHttpHelper(
+		*new(model.RabbitInstance),
+		*new(model.VHostRegistration),
+		httpHelper,
+	)
+
+	httpHelper.EXPECT().
+		DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&resty.Response{
+			RawResponse: &http.Response{StatusCode: http.StatusNotFound},
+		}, nil).
+		Times(1)
+
+	vhosts, err := rabbitHelper.GetAllVhosts(context.Background())
+	assert.NoError(err)
+	assert.Nil(vhosts)
+}

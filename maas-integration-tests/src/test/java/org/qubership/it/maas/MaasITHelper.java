@@ -217,6 +217,24 @@ public class MaasITHelper {
         }
     }
 
+    /**
+     * Scrapes /prometheus and sums a maas_discrepancy_* gauge for the given broker type and
+     * entity namespace.
+     */
+    public long sumDiscrepancyMetric(String metric, String brokerType, String namespace) throws IOException {
+        Request request = createJsonRequest("prometheus", "", null, GET);
+        String body = doRequestWithStringResponse(request, 200);
+        long sum = 0;
+        for (String line : body.split("\n")) {
+            if (line.startsWith(metric + "{")
+                    && line.contains("broker_type=\"" + brokerType + "\"")
+                    && line.contains("entity_namespace=\"" + namespace + "\"")) {
+                sum += (long) Double.parseDouble(line.substring(line.lastIndexOf(' ') + 1).trim());
+            }
+        }
+        return sum;
+    }
+
     // TODO why so much code duplicate? look at the previous method
     public <T> T doRequest(Request request, Class<T> clazz, int... expectHttpCodes) throws IOException {
         var codes = Arrays.stream(expectHttpCodes).boxed().toList();

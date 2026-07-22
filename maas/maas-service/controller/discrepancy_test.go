@@ -56,16 +56,12 @@ func TestDiscrepancyController(t *testing.T) {
 		AnyTimes()
 
 	kafkaHelperMock.EXPECT().
-		DoesTopicExistOnKafka(gomock.Any(), gomock.Any(), gomock.Eq("first")).
-		Return(true, nil).
-		AnyTimes()
-	kafkaHelperMock.EXPECT().
-		DoesTopicExistOnKafka(gomock.Any(), gomock.Any(), gomock.Eq("second")).
-		Return(true, nil).
-		AnyTimes()
-	kafkaHelperMock.EXPECT().
-		DoesTopicExistOnKafka(gomock.Any(), gomock.Any(), gomock.Eq("third")).
-		Return(false, nil).
+		GetTopicsMetadata(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(map[string]model.TopicMetadata{
+			"first":  {NumPartitions: 1, ReplicationFactor: 1}, // present -> ok
+			"second": {NumPartitions: 1, ReplicationFactor: 1}, // present -> ok
+			// "third" omitted                                  -> absent
+		}, nil).
 		AnyTimes()
 
 	app.Get("/discrepancy/report/:namespace", NewDiscrepancyController(kafkaService).GetReport)

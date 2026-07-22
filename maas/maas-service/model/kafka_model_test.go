@@ -171,3 +171,22 @@ func TestTopicSettings_ReadOnlySettingsAreEqual(t *testing.T) {
 		})
 	}
 }
+
+func TestTopicRegistration_BrokerStatus(t *testing.T) {
+	partitions := func(n int32) *int32 { return &n }
+	replication := func(n int16) *int16 { return &n }
+
+	// not on the broker
+	assert.Equal(t, StatusAbsent, (&TopicRegistration{}).BrokerStatus(nil))
+
+	// present and matching
+	topic := &TopicRegistration{TopicSettings: TopicSettings{NumPartitions: partitions(3), ReplicationFactor: replication(2)}}
+	assert.Equal(t, StatusOk, topic.BrokerStatus(&TopicMetadata{NumPartitions: 3, ReplicationFactor: 2}))
+
+	// partition / replication drift
+	assert.Equal(t, StatusMismatched, topic.BrokerStatus(&TopicMetadata{NumPartitions: 6, ReplicationFactor: 2}))
+	assert.Equal(t, StatusMismatched, topic.BrokerStatus(&TopicMetadata{NumPartitions: 3, ReplicationFactor: 1}))
+
+	// settings maas did not register are not compared
+	assert.Equal(t, StatusOk, (&TopicRegistration{}).BrokerStatus(&TopicMetadata{NumPartitions: 6, ReplicationFactor: 3}))
+}

@@ -6,6 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/netcracker/qubership-maas/eventbus"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/monitoring"
@@ -16,9 +20,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/kafka/helper"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/validator"
-	"reflect"
-	"strings"
-	"time"
 )
 
 //go:generate mockgen -source=kafka_service.go -destination=kafka_service_mock.go -package kafka
@@ -1124,19 +1125,46 @@ func (srv *KafkaServiceImpl) GetDiscrepancyReport(ctx context.Context, namespace
 		return nil, err
 	}
 
-	discrepancyReport := make([]model.DiscrepancyReportItem, len(topicsInDb))
-	for i, topic := range topicsInDb {
-		discrepancyReport[i].Name = topic.Topic
-		discrepancyReport[i].Classifier = *topic.Classifier
+	// group topics by instance so the broker metadata is fetched in one call per instance
+	type instanceTopics struct {
+		instance *model.KafkaInstance
+		topics   []*model.TopicRegistration
+	}
+	byInstance := make(map[string]*instanceTopics)
+	for _, topic := range topicsInDb {
+		group := byInstance[topic.Instance]
+		if group == nil {
+			group = &instanceTopics{instance: topic.InstanceRef}
+			byInstance[topic.Instance] = group
+		}
+		group.topics = append(group.topics, topic)
+	}
 
-		topicExistOnKafka, err := srv.helper.DoesTopicExistOnKafka(ctx, topic.InstanceRef, topic.Topic)
+	statusByTopic := make(map[*model.TopicRegistration]string, len(topicsInDb))
+	for _, group := range byInstance {
+		topicNames := make([]string, 0, len(group.topics))
+		for _, topic := range group.topics {
+			topicNames = append(topicNames, topic.Topic)
+		}
+		metadata, err := srv.helper.GetTopicsMetadata(ctx, group.instance, topicNames)
 		if err != nil {
 			return nil, err
 		}
-		if topicExistOnKafka {
-			discrepancyReport[i].Status = model.StatusOk
-		} else {
-			discrepancyReport[i].Status = model.StatusAbsent
+		for _, topic := range group.topics {
+			var meta *model.TopicMetadata
+			if m, ok := metadata[topic.Topic]; ok {
+				meta = &m
+			}
+			statusByTopic[topic] = topic.BrokerStatus(meta)
+		}
+	}
+
+	discrepancyReport := make([]model.DiscrepancyReportItem, len(topicsInDb))
+	for i, topic := range topicsInDb {
+		discrepancyReport[i] = model.DiscrepancyReportItem{
+			Name:       topic.Topic,
+			Classifier: *topic.Classifier,
+			Status:     statusByTopic[topic],
 		}
 	}
 	return filterItems(discrepancyReport, filter), nil
