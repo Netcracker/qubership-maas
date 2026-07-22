@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/IBM/sarama"
@@ -23,31 +22,17 @@ const (
 var ErrNoCACert = errors.New("kafka: CA certificate must be configured for SSL connection to kafka")
 
 func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *model.KafkaInstance) (sarama.ClusterAdmin, error) {
-	return createConnection(helper, ctx, instance, helper.client.NewClusterAdmin)
-}
-
-// createClient opens a low level sarama client. It is used when only cluster metadata is needed
-// (e.g. the list of topic names via Client.Topics()) without the extra DescribeConfigs round trip
-// that ClusterAdmin.ListTopics() performs for every topic.
-func (helper *HelperImpl) createClient(ctx context.Context, instance *model.KafkaInstance) (sarama.Client, error) {
-	return createConnection(helper, ctx, instance, helper.client.NewClient)
-}
-
-// createConnection builds the sarama config for the instance and opens a connection with the given
-// factory (NewClusterAdmin or NewClient).
-func createConnection[T any](helper *HelperImpl, ctx context.Context, instance *model.KafkaInstance, factory func([]string, *sarama.Config) (T, error)) (T, error) {
-	var zero T
 	config, err := helper.buildConfig(ctx, instance)
 	if err != nil {
-		return zero, err
+		return nil, err
 	}
 	addresses := instance.Addresses[instance.MaasProtocol]
-	conn, err := factory(addresses, config)
+	admin, err := helper.client.NewClusterAdmin(addresses, config)
 	if err != nil {
-		log.ErrorC(ctx, "Failed to create kafka %s for %+v: %v", reflect.TypeFor[T](), addresses, err)
-		return zero, err
+		log.ErrorC(ctx, "Failed to create kafka admin client for %+v: %v", addresses, err)
+		return nil, err
 	}
-	return conn, nil
+	return admin, nil
 }
 
 func (helper *HelperImpl) buildConfig(ctx context.Context, instance *model.KafkaInstance) (*sarama.Config, error) {

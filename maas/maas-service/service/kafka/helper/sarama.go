@@ -11,15 +11,10 @@ import (
 // which allows DI and mocking for unit tests.
 type SaramaClient interface {
 	NewClusterAdmin(addrs []string, conf *sarama.Config) (sarama.ClusterAdmin, error)
-	NewClient(addrs []string, conf *sarama.Config) (sarama.Client, error)
 }
 
 type SaramaClientImpl struct{}
 
 func (client *SaramaClientImpl) NewClusterAdmin(addrs []string, conf *sarama.Config) (sarama.ClusterAdmin, error) {
 	return sarama.NewClusterAdmin(addrs, conf)
-}
-
-func (client *SaramaClientImpl) NewClient(addrs []string, conf *sarama.Config) (sarama.Client, error) {
-	return sarama.NewClient(addrs, conf)
 }

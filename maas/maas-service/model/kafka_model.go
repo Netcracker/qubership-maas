@@ -324,6 +324,13 @@ func (topic *TopicRegistration) ToResponseDto() *TopicRegistrationRespDto {
 	return &result
 }
 
+// TopicMetadata is the subset of a topic's actual broker state used by the discrepancy collector
+// to compare against the registered settings.
+type TopicMetadata struct {
+	NumPartitions     int32
+	ReplicationFactor int16
+}
+
 type TopicSettings struct {
 	NumPartitions     *int32             `json:"numPartitions,omitempty" example:"1"`
 	MinNumPartitions  *int32             `json:"minNumPartitions,omitempty" example:"1"`

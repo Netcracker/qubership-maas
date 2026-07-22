@@ -1,17 +1,17 @@
 package org.qubership.it.maas.kafka;
 
 import org.qubership.it.maas.AbstractMaasWithInitsIT;
+import org.qubership.it.maas.entity.kafka.KafkaTopicRequest;
 import org.qubership.it.maas.entity.kafka.KafkaTopicResponse;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpStatus;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.NewPartitions;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -32,7 +32,7 @@ class DiscrepancyMonitoringIT extends AbstractMaasWithInitsIT {
     private static final String KAFKA = "Kafka";
     private static final String REGISTERED = "maas_discrepancy_registered_entities";
     private static final String LOST = "maas_discrepancy_lost_entities";
-    private static final String GHOST = "maas_discrepancy_ghost_entities";
+    private static final String MISMATCHED = "maas_discrepancy_mismatched_entities";
 
     // the collector runs every 2s in the IT env; poll long enough to cross a couple of cycles
     private static final RetryPolicy<Object> METRIC_RETRY = new RetryPolicy<>()
@@ -41,44 +41,42 @@ class DiscrepancyMonitoringIT extends AbstractMaasWithInitsIT {
             .withDelay(Duration.ofSeconds(2));
 
     @Test
-    void registeredLostAndGhostAreReported() throws Exception {
+    void registeredLostAndMismatchedAreReported() throws Exception {
         assumeTrue(getKafkaInstances().length > 0, "no kafka instances, skipping");
         String suffix = UUID.randomUUID().toString().substring(0, 8);
 
-        Map<String, Object> classifier1 = createSimpleClassifier("disc-mon-1-" + suffix);
-        Map<String, Object> classifier2 = createSimpleClassifier("disc-mon-2-" + suffix);
-        KafkaTopicResponse topic1 = createKafkaTopic(HttpStatus.SC_CREATED, classifier1);
-        createKafkaTopic(HttpStatus.SC_CREATED, classifier2);
+        KafkaTopicResponse lostTopic = createKafkaTopic(HttpStatus.SC_CREATED, KafkaTopicRequest.builder()
+                .classifier(createSimpleClassifier("disc-mon-lost-" + suffix)).numPartitions(1).build());
+        KafkaTopicResponse mismatchTopic = createKafkaTopic(HttpStatus.SC_CREATED, KafkaTopicRequest.builder()
+                .classifier(createSimpleClassifier("disc-mon-mismatch-" + suffix)).numPartitions(2).build());
 
-        // both registered topics are reflected, nothing lost yet
+        // both registered and in sync
         Failsafe.with(METRIC_RETRY).run(() -> {
             assertTrue(helper.sumDiscrepancyMetric(REGISTERED, KAFKA, TEST_NAMESPACE) >= 2,
                     "expected at least 2 registered entities in namespace " + TEST_NAMESPACE);
             assertEquals(0, helper.sumDiscrepancyMetric(LOST, KAFKA, TEST_NAMESPACE), "no lost entities expected initially");
+            assertEquals(0, helper.sumDiscrepancyMetric(MISMATCHED, KAFKA, TEST_NAMESPACE), "no mismatched entities expected initially");
         });
 
         Properties kafkaProp = preparePropertiesAndPortForwardKafka();
         assumeTrue(kafkaProp != null, "no default kafka or unsupported auth mechanism, skipping");
 
         // delete a registered topic directly on the broker -> it must be reported as "lost"
-        deleteKafkaTopic(kafkaProp, topic1.getName());
+        deleteKafkaTopic(kafkaProp, lostTopic.getName());
         Failsafe.with(METRIC_RETRY).run(() ->
                 assertTrue(helper.sumDiscrepancyMetric(LOST, KAFKA, TEST_NAMESPACE) >= 1,
-                        "expected >=1 lost entity after broker-side delete of " + topic1.getName()));
+                        "expected >=1 lost entity after broker-side delete of " + lostTopic.getName()));
 
-        // create a maas.* topic directly on the broker that maas does not know about -> "ghost"
-        String ghostTopic = "maas." + TEST_NAMESPACE + ".ghost-" + suffix;
-        createTopicOnBroker(kafkaProp, ghostTopic);
+        // change the partition count of a registered topic on the broker -> "mismatched"
+        increasePartitionsOnBroker(kafkaProp, mismatchTopic.getName(), 3);
         Failsafe.with(METRIC_RETRY).run(() ->
-                assertTrue(helper.sumDiscrepancyMetric(GHOST, KAFKA, TEST_NAMESPACE) >= 1,
-                        "expected >=1 ghost entity after creating " + ghostTopic + " on the broker"));
-
-        deleteKafkaTopic(kafkaProp, ghostTopic);
+                assertTrue(helper.sumDiscrepancyMetric(MISMATCHED, KAFKA, TEST_NAMESPACE) >= 1,
+                        "expected >=1 mismatched entity after repartitioning " + mismatchTopic.getName()));
     }
 
-    private void createTopicOnBroker(Properties props, String topicName) throws Exception {
+    private void increasePartitionsOnBroker(Properties props, String topicName, int newPartitionCount) throws Exception {
         try (AdminClient adminClient = AdminClient.create(props)) {
-            adminClient.createTopics(List.of(new NewTopic(topicName, 1, (short) 1))).all().get();
+            adminClient.createPartitions(Map.of(topicName, NewPartitions.increaseTo(newPartitionCount))).all().get();
         }
     }
 }

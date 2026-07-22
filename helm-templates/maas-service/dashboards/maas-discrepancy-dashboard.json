@@ -28,9 +28,9 @@
         "x": 0,
         "y": 0
       },
-      "id": 100,
+      "id": 1,
       "panels": [],
-      "title": "Registry Discrepancy",
+      "title": "Kafka",
       "type": "row"
     },
     {
@@ -38,7 +38,69 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Entities registered in the MaaS database, but missing on the broker. Anything above zero means MaaS hands out connections to topics/vhosts that do not exist.",
+      "description": "Entities registered in the MaaS database.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "instant": true,
+          "legendFormat": "Registered",
+          "refId": "A"
+        }
+      ],
+      "title": "Registered",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Registered in MaaS, missing on the broker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -65,10 +127,10 @@
       "gridPos": {
         "h": 4,
         "w": 6,
-        "x": 0,
+        "x": 6,
         "y": 1
       },
-      "id": 1,
+      "id": 3,
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -90,13 +152,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
-          "legendFormat": "lost",
+          "legendFormat": "Lost",
           "refId": "A"
         }
       ],
-      "title": "Lost Entities",
+      "title": "Lost",
       "type": "stat"
     },
     {
@@ -104,7 +166,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Entities named maas.* that exist on the broker but are not registered in the MaaS database. Only maas.* names are counted, so foreign topics/vhosts on a shared broker are ignored.",
+      "description": "Registered and present, but broker partitions/replication differ.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -131,10 +193,10 @@
       "gridPos": {
         "h": 4,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 1
       },
-      "id": 2,
+      "id": 4,
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -156,13 +218,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_mismatched_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
-          "legendFormat": "ghost",
+          "legendFormat": "Mismatched",
           "refId": "A"
         }
       ],
-      "title": "Ghost Entities",
+      "title": "Mismatched",
       "type": "stat"
     },
     {
@@ -170,69 +232,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Total entities registered in the MaaS database for the selected brokers.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
-          "instant": true,
-          "legendFormat": "registered",
-          "refId": "A"
-        }
-      ],
-      "title": "Registered Entities",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "description": "Brokers that could not be reached during the last discrepancy calculation. While a broker is unreachable its lost/ghost numbers are held at their previous values and must not be trusted as current.",
+      "description": "Brokers whose numbers are stale.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -262,10 +262,10 @@
         "x": 18,
         "y": 1
       },
-      "id": 4,
+      "id": 5,
       "options": {
         "colorMode": "background",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -284,13 +284,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "count(max without (instance, pod) (maas_discrepancy_broker_reachable{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"}) == 0) OR on() vector(0)",
+          "expr": "count(max without (instance, pod) (maas_discrepancy_broker_reachable{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\"}) == 0) OR on() vector(0)",
           "instant": true,
-          "legendFormat": "unreachable",
+          "legendFormat": "Unreachable",
           "refId": "A"
         }
       ],
-      "title": "Unreachable Brokers",
+      "title": "Unreachable",
       "type": "stat"
     },
     {
@@ -298,72 +298,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Entities registered in the MaaS database, per broker.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "decimals": 0,
-          "mappings": [],
-          "min": 0,
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
-          "legendFormat": "{{broker_type}} / {{broker_id}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Registered Entities By Broker",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "description": "Registered in MaaS, missing on the broker.",
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -382,19 +317,6 @@
           "decimals": 0,
           "mappings": [],
           "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          },
           "unit": "short"
         },
         "overrides": []
@@ -402,7 +324,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
+        "x": 0,
         "y": 5
       },
       "id": 6,
@@ -428,12 +350,12 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
-          "legendFormat": "{{broker_type}} / {{broker_id}}",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}",
           "refId": "A"
         }
       ],
-      "title": "Lost Entities By Broker",
+      "title": "Registered By Broker",
       "type": "timeseries"
     },
     {
@@ -441,7 +363,85 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Named maas.* on the broker, absent from the MaaS database.",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Lost By Broker",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -470,7 +470,7 @@
         "x": 0,
         "y": 13
       },
-      "id": 7,
+      "id": 8,
       "options": {
         "legend": {
           "calcs": [
@@ -493,12 +493,12 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_type, broker_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
-          "legendFormat": "{{broker_type}} / {{broker_id}}",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_mismatched_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}",
           "refId": "A"
         }
       ],
-      "title": "Ghost Entities By Broker",
+      "title": "Mismatched By Broker",
       "type": "timeseries"
     },
     {
@@ -552,12 +552,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
         "y": 13
       },
-      "id": 8,
+      "id": 9,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -579,8 +579,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "max without (instance, pod) (maas_discrepancy_broker_reachable{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\"})",
-          "legendFormat": "{{broker_type}} / {{broker_id}}",
+          "expr": "max without (instance, pod) (maas_discrepancy_broker_reachable{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\"})",
+          "legendFormat": "{{broker_id}}",
           "refId": "A"
         }
       ],
@@ -588,24 +588,11 @@
       "type": "state-timeline"
     },
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 21
-      },
-      "id": 200,
-      "panels": [],
-      "title": "Breakdown by Namespace & Tenant",
-      "type": "row"
-    },
-    {
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Discrepancy broken down by the maas namespace and tenant each entity belongs to, per broker. Lost = registered in MaaS but missing on the broker.",
+      "description": "Discrepancy per namespace and tenant.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -663,7 +650,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Ghost"
+              "options": "Mismatched"
             },
             "properties": [
               {
@@ -693,12 +680,12 @@
         ]
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 21
       },
-      "id": 201,
+      "id": 10,
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -725,7 +712,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (entity_namespace, tenant_id, broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -737,7 +724,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (entity_namespace, tenant_id, broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -749,14 +736,14 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (entity_namespace, broker_type, broker_id, tenant_id) (max without (instance, pod) (maas_discrepancy_ghost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=~\"$broker_type\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (entity_namespace, tenant_id, broker_id) (max without (instance, pod) (maas_discrepancy_mismatched_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
           "refId": "C"
         }
       ],
-      "title": "Discrepancy by Namespace & Tenant",
+      "title": "By Namespace & Tenant",
       "type": "table",
       "transformations": [
         {
@@ -772,20 +759,599 @@
             "indexByName": {
               "entity_namespace": 0,
               "tenant_id": 1,
-              "broker_type": 2,
-              "broker_id": 3,
-              "Value #A": 4,
-              "Value #B": 5,
-              "Value #C": 6
+              "broker_id": 2,
+              "Value #A": 3,
+              "Value #B": 4,
+              "Value #C": 5
             },
             "renameByName": {
               "entity_namespace": "Namespace",
               "tenant_id": "Tenant",
-              "broker_type": "Broker Type",
               "broker_id": "Broker",
               "Value #A": "Registered",
               "Value #B": "Lost",
-              "Value #C": "Ghost"
+              "Value #C": "Mismatched"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "id": 11,
+      "panels": [],
+      "title": "RabbitMQ",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Entities registered in the MaaS database.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 30
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "instant": true,
+          "legendFormat": "Registered",
+          "refId": "A"
+        }
+      ],
+      "title": "Registered",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Registered in MaaS, missing on the broker.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 30
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "instant": true,
+          "legendFormat": "Lost",
+          "refId": "A"
+        }
+      ],
+      "title": "Lost",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Brokers whose numbers are stale.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 30
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "count(max without (instance, pod) (maas_discrepancy_broker_reachable{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\"}) == 0) OR on() vector(0)",
+          "instant": true,
+          "legendFormat": "Unreachable",
+          "refId": "A"
+        }
+      ],
+      "title": "Unreachable",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Registered By Broker",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Lost By Broker",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "1 while the last calculation reached the broker, 0 while its numbers are stale.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "stale"
+                }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "reachable"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, pod) (maas_discrepancy_broker_reachable{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\"})",
+          "legendFormat": "{{broker_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Broker Reachability",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Discrepancy per namespace and tenant.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lost"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 18,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Lost"
+          }
+        ]
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (entity_namespace, tenant_id, broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (entity_namespace, tenant_id, broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "B"
+        }
+      ],
+      "title": "By Namespace & Tenant",
+      "type": "table",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "entity_namespace": 0,
+              "tenant_id": 1,
+              "broker_id": 2,
+              "Value #A": 3,
+              "Value #B": 4
+            },
+            "renameByName": {
+              "entity_namespace": "Namespace",
+              "tenant_id": "Tenant",
+              "broker_id": "Broker",
+              "Value #A": "Registered",
+              "Value #B": "Lost"
             }
           }
         }
@@ -875,39 +1441,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(maas_discrepancy_registered_entities, broker_type)",
-        "hide": 0,
-        "includeAll": true,
-        "label": "Broker Type",
-        "multi": true,
-        "name": "broker_type",
-        "options": [],
-        "query": "label_values(maas_discrepancy_registered_entities, broker_type)",
-        "refresh": 2,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "definition": "label_values(maas_discrepancy_registered_entities{broker_type=~\"$broker_type\"}, broker_id)",
+        "definition": "label_values(maas_discrepancy_registered_entities, broker_id)",
         "hide": 0,
         "includeAll": true,
         "label": "Broker",
         "multi": true,
         "name": "broker_id",
         "options": [],
-        "query": "label_values(maas_discrepancy_registered_entities{broker_type=~\"$broker_type\"}, broker_id)",
+        "query": "label_values(maas_discrepancy_registered_entities, broker_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,

@@ -27,7 +27,7 @@ var deleteMethodMetric = newMetricCounter("deleteTopic")
 var updateMethodMetric = newMetricCounter("updateTopic")
 var isTopicExistsMethodMetric = newMetricCounter("isTopicExists")
 var settingsMethodMetric = newMetricCounter("topicSettings")
-var getTopicNamesMethodMetric = newMetricCounter("getTopicNames")
+var getTopicsMetadataMethodMetric = newMetricCounter("getTopicsMetadata")
 var bulkTopicSettingsMetric = newMetricCounter("bulkTopicSetting")
 
 func CreateKafkaHelper(ctx context.Context) Helper {
@@ -53,7 +53,7 @@ type Helper interface {
 	DeleteTopic(ctx context.Context, topic *model.TopicRegistration) error
 	UpdateTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
 	GetTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
-	GetTopicNames(ctx context.Context, instance *model.KafkaInstance) ([]string, error)
+	GetTopicsMetadata(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]model.TopicMetadata, error)
 	DoesTopicExistOnKafka(ctx context.Context, instance *model.KafkaInstance, topicName string) (bool, error)
 	BulkGetTopicSettings(ctx context.Context, topics []*model.TopicRegistrationRespDto) error
 
@@ -489,28 +489,46 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 	return &result, nil
 }
 
-// GetTopicNames returns the names of all topics existing on the kafka instance. It uses a low level
-// sarama client (Client.Topics()) which reads only the cluster metadata, avoiding the per-topic
-// DescribeConfigs round trip that ClusterAdmin.ListTopics() performs.
-func (helper *HelperImpl) GetTopicNames(ctx context.Context, instance *model.KafkaInstance) ([]string, error) {
-	return measureTimeValue(getTopicNamesMethodMetric, func() ([]string, error) {
-		client, err := helper.createClient(ctx, instance)
+// GetTopicsMetadata returns the actual partition count and replication factor of the requested topics
+// that exist on the broker.
+func (helper *HelperImpl) GetTopicsMetadata(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]model.TopicMetadata, error) {
+	return measureTimeValue(getTopicsMetadataMethodMetric, func() (map[string]model.TopicMetadata, error) {
+		result := make(map[string]model.TopicMetadata, len(topicNames))
+		if len(topicNames) == 0 {
+			return result, nil
+		}
+
+		admin, err := helper.createClusterAdmin(ctx, instance)
 		if err != nil {
 			log.ErrorC(ctx, "Failed to connect to kafka instance %s: %v", instance, err)
 			return nil, err
 		}
 		defer func() {
-			if err := client.Close(); err != nil {
-				log.WarnC(ctx, "Failed to close kafka client for instance %s: %v", instance.Id, err)
+			if err := admin.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka admin client for instance %s: %v", instance.Id, err)
 			}
 		}()
 
-		if topics, err := client.Topics(); err == nil {
-			return topics, nil
-		} else {
-			log.ErrorC(ctx, "Failed to get list of topics from kafka instance %s: %v", instance, err)
+		metadata, err := admin.DescribeTopics(topicNames)
+		if err != nil {
+			log.ErrorC(ctx, "Failed to describe topics on kafka instance %s: %v", instance, err)
 			return nil, err
 		}
+		for _, m := range metadata {
+			switch {
+			case errors.Is(m.Err, sarama.ErrNoError):
+				var replicationFactor int16
+				if len(m.Partitions) > 0 {
+					replicationFactor = int16(len(m.Partitions[0].Replicas))
+				}
+				result[m.Name] = model.TopicMetadata{NumPartitions: int32(len(m.Partitions)), ReplicationFactor: replicationFactor}
+			case errors.Is(m.Err, sarama.ErrUnknownTopicOrPartition):
+				// registered in maas but missing on the broke
+			default:
+				return nil, utils.LogError(log, ctx, "kafka: failed to describe topic %s: %w", m.Name, m.Err)
+			}
+		}
+		return result, nil
 	})
 }
 

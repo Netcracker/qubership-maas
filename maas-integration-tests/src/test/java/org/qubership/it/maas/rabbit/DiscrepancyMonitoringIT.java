@@ -6,10 +6,8 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Credentials;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.Test;
@@ -25,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Integration test for the registry-vs-broker discrepancy metrics on the RabbitMQ side.
  * The maas container runs with DISCREPANCY_METRICS_INTERVAL=2s (see AbstractMaasWithInitsIT).
+ * Vhosts have no comparable configuration, so only registered/lost are checked for rabbit.
  */
 @Slf4j
 class DiscrepancyMonitoringIT extends AbstractMaasWithInitsIT {
@@ -32,8 +31,6 @@ class DiscrepancyMonitoringIT extends AbstractMaasWithInitsIT {
     private static final String RABBIT = "RabbitMQ";
     private static final String REGISTERED = "maas_discrepancy_registered_entities";
     private static final String LOST = "maas_discrepancy_lost_entities";
-    private static final String GHOST = "maas_discrepancy_ghost_entities";
-    private static final MediaType JSON = MediaType.parse("application/json");
 
     private static final RetryPolicy<Object> METRIC_RETRY = new RetryPolicy<>()
             .handle(AssertionError.class, Exception.class)
@@ -43,7 +40,7 @@ class DiscrepancyMonitoringIT extends AbstractMaasWithInitsIT {
     private final OkHttpClient rabbitClient = new OkHttpClient();
 
     @Test
-    void registeredLostAndGhostAreReportedForRabbit() throws Exception {
+    void registeredAndLostAreReportedForRabbit() throws Exception {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
 
         VirtualHostResponse vhost1 = createVirtualHost(HttpStatus.SC_CREATED,
@@ -64,37 +61,20 @@ class DiscrepancyMonitoringIT extends AbstractMaasWithInitsIT {
         Failsafe.with(METRIC_RETRY).run(() ->
                 assertTrue(helper.sumDiscrepancyMetric(LOST, RABBIT, TEST_NAMESPACE) >= 1,
                         "expected >=1 lost vhost after broker-side delete of " + vhostName));
-
-        // create a maas.* vhost directly on the broker that maas does not know about -> "ghost"
-        String ghostVhost = "maas." + TEST_NAMESPACE + ".ghost-" + suffix;
-        createVhostOnBroker(ghostVhost);
-        Failsafe.with(METRIC_RETRY).run(() ->
-                assertTrue(helper.sumDiscrepancyMetric(GHOST, RABBIT, TEST_NAMESPACE) >= 1,
-                        "expected >=1 ghost vhost after creating " + ghostVhost + " on the broker"));
-
-        deleteVhostOnBroker(ghostVhost);
-    }
-
-    private void createVhostOnBroker(String vhost) throws IOException {
-        rabbitManagement("PUT", vhost, RequestBody.create("{}", JSON));
-    }
-
-    private void deleteVhostOnBroker(String vhost) throws IOException {
-        rabbitManagement("DELETE", vhost, null);
     }
 
     // vhosts are created on the default (first registered) rabbit instance = RABBITMQ_CONTAINER_1
-    private void rabbitManagement(String method, String vhost, RequestBody body) throws IOException {
+    private void deleteVhostOnBroker(String vhost) throws IOException {
         String url = RABBITMQ_CONTAINER_1.getHttpUrl() + "/api/vhosts/" + vhost;
         Request request = new Request.Builder()
                 .url(url)
                 .header("Authorization", Credentials.basic(
                         RABBITMQ_CONTAINER_1.getAdminUsername(), RABBITMQ_CONTAINER_1.getAdminPassword()))
-                .method(method, body)
+                .delete()
                 .build();
         try (Response response = rabbitClient.newCall(request).execute()) {
             assertTrue(response.isSuccessful(),
-                    method + " vhost " + vhost + " on broker failed with code " + response.code());
+                    "DELETE vhost " + vhost + " on broker failed with code " + response.code());
         }
     }
 }

@@ -235,78 +235,76 @@ id).
 |---|---|
 | `maas_discrepancy_registered_entities` | Topics/vhosts registered in the MaaS database for that broker |
 | `maas_discrepancy_lost_entities` | Registered in MaaS, **missing on the broker** |
-| `maas_discrepancy_ghost_entities` | Named `maas.*` on the broker, **absent from the MaaS database** |
+| `maas_discrepancy_mismatched_entities` | Registered and present, but the broker **configuration differs** from what MaaS registered (Kafka only) |
 | `maas_discrepancy_broker_reachable` | `1` if the last calculation reached the broker, `0` if its numbers are stale |
 
-The `registered`/`lost`/`ghost` metrics additionally carry **`entity_namespace`** and **`tenant_id`**
+The `registered`/`lost`/`mismatched` metrics additionally carry **`entity_namespace`** and **`tenant_id`**
 labels — the MaaS namespace and tenant the topic/vhost belongs to — so discrepancy can be attributed to a
-specific namespace or tenant. For lost/registered both come from the database record (classifier); for ghost the
-namespace is parsed from the `maas.<namespace>.…` name (`unknown` if it cannot be determined) and the tenant
-is left empty, since it can not be recovered from the name. Non-tenant entities have an empty `tenant_id`.
-`broker_reachable` is a per-broker property and carries neither label. `entity_namespace` is deliberately
-**not** called `namespace`: Prometheus reserves that for the scrape target's Kubernetes namespace.
+specific namespace or tenant. Both come from the database record (classifier). Non-tenant entities have an
+empty `tenant_id`. `broker_reachable` is a per-broker property and carries neither label. `entity_namespace`
+is deliberately **not** called `namespace`: Prometheus reserves that for the scrape target's Kubernetes
+namespace.
 
-### Lost vs Ghost
-
-These two are not symmetric, and they mean different things operationally.
+### Lost vs Mismatched
 
 **Lost** is the one that hurts callers. MaaS believes a topic or vhost exists and will happily hand out
 its connection details, but nothing is there. Microservices get "unknown topic" or "vhost not found"
 errors at runtime, and MaaS itself will not self-heal — it deliberately refuses to recreate an entity
 behind the registry's back. Any non-zero value deserves investigation.
 
-**Ghost** is leaked state, not broken behaviour. Nothing is failing right now; the broker is just
-holding an entity nobody is tracking, consuming disk and partitions. It usually means a delete only
-half-completed, or a database was rolled back after entities were created.
-
-> **Ghost is deliberately under-reported.** Only entities whose name starts with `maas.` are counted,
-> because brokers are frequently shared — `__consumer_offsets`, the default `/` vhost, and other teams'
-> topics are not MaaS's business. Topics registered under a **custom name template** that does not
-> begin with `maas.` will therefore never be flagged as ghosts. The metric errs toward silence rather
-> than false alarms.
+**Mismatched** means the entity exists on the broker, but its configuration drifted from what MaaS
+registered. This is **Kafka only**: the topic's partition count or replication factor on the broker no
+longer matches the registered topic (someone repartitioned it directly, or a create half-applied). The
+comparison is intentionally limited to partitions and replication. RabbitMQ vhosts have no comparable
+configuration, so `mismatched` is always `0` for them.
 
 ### Trusting the numbers
 
 If a broker cannot be reached, MaaS does **not** report all of its entities as lost. It keeps the
 previous values and sets `maas_discrepancy_broker_reachable` to `0`.
 
-This matters when reading the dashboard: a lost/ghost count next to `broker_reachable = 0` is a
+This matters when reading the dashboard: a lost/mismatched count next to `broker_reachable = 0` is a
 **snapshot from the last successful check**, not the current state. Always confirm reachability before
 acting on a discrepancy. Without this, a thirty-second broker blip would look identical to a
 catastrophic data loss event.
 
 ### Panels
 
+The dashboard has a **Kafka** row and a **RabbitMQ** row, each with its own stat tiles, per-broker
+timeseries, a reachability state-timeline, and a By Namespace & Tenant table. The Kafka row additionally
+has a **Mismatched** stat/timeseries; the RabbitMQ row does not (vhosts have no comparable configuration).
+
 | Panel | Query | When to act |
 |---|---|---|
-| **Lost Entities** (stat) | `sum(maas_discrepancy_lost_entities)` | Red on any non-zero value. Identify the entity, then either recreate it on the broker or delete the stale registration through the MaaS API. |
-| **Ghost Entities** (stat) | `sum(maas_discrepancy_ghost_entities)` | Orange on any non-zero value. Not urgent. Clean up during maintenance to reclaim broker resources. |
-| **Registered Entities** (stat) | `sum(maas_discrepancy_registered_entities)` | Informational. A sudden drop means registrations were deleted — cross-check against a namespace cleanup. |
-| **Unreachable Brokers** (stat) | `count(maas_discrepancy_broker_reachable == 0)` | Non-zero means the numbers on this dashboard are stale. Fix connectivity first — see Row 5. |
-| **Registered / Lost / Ghost By Broker** (timeseries) | per `broker_type` / `broker_id` | Shows which specific broker drifted and when. A step change pinpoints the deploy or manual operation responsible. |
-| **Broker Reachability** (state-timeline) | `maas_discrepancy_broker_reachable` | Green = reachable, red = stale. Use it to decide whether a lost spike was real or just an unreachable broker. |
-| **Discrepancy by Namespace & Tenant** (table) | grouped by `entity_namespace` / `tenant_id` / broker | Pinpoints which namespace and tenant drifted, per broker. Sorted by Lost descending. |
+| **Lost** (stat) | `sum(maas_discrepancy_lost_entities{broker_type=…})` | Red on any non-zero value. Recreate the entity on the broker, or delete the stale registration through the MaaS API. |
+| **Mismatched** (stat, Kafka only) | `sum(maas_discrepancy_mismatched_entities{broker_type="Kafka"})` | Orange on any non-zero value. A topic's partitions/replication drifted from the registration — reconcile the topic. |
+| **Registered** (stat) | `sum(maas_discrepancy_registered_entities{broker_type=…})` | Informational. A sudden drop means registrations were deleted — cross-check against a namespace cleanup. |
+| **Unreachable** (stat) | `count(maas_discrepancy_broker_reachable{broker_type=…} == 0)` | Non-zero means the numbers for that broker are stale. Fix connectivity first. |
+| **… By Broker** (timeseries) | per `broker_id` | Shows which specific broker drifted and when. A step change pinpoints the deploy or manual operation responsible. |
+| **Broker Reachability** (state-timeline) | `maas_discrepancy_broker_reachable{broker_type=…}` | Green = reachable, red = stale. Use it to decide whether a lost spike was real or just an unreachable broker. |
+| **By Namespace & Tenant** (table) | grouped by `entity_namespace` / `tenant_id` / `broker_id` | Pinpoints which namespace and tenant drifted. Sorted by Lost descending. |
 
 ### Diagnosing a non-zero value
 
-The dashboard reports counts, not names. First narrow it down with the **Discrepancy by Namespace & Tenant**
-table (the `entity_namespace` and `tenant_id` labels tell you which namespace/tenant drifted), then use the discrepancy
-REST API (see [rest_api.md](rest_api.md)) to get the exact topics with an `ok` / `absent` status.
+The dashboard reports counts, not names. First narrow it down with the **By Namespace & Tenant** table
+(the `entity_namespace` and `tenant_id` labels tell you which namespace/tenant drifted), then use the
+discrepancy REST API (see [rest_api.md](rest_api.md)) to get the exact topics with an `ok` / `absent` status.
 
 Common causes, in rough order of likelihood:
 
 1. Someone operated on the broker directly instead of through the MaaS API.
 2. A namespace cleanup deleted registrations but the broker deletes failed partway.
-3. The MaaS database was restored from a backup older than the entities on the broker (produces ghosts).
+3. A topic was repartitioned or its replication changed on the broker (mismatched).
 
 ### Cost and configuration
 
-Each collection cycle issues **one `ListTopics` call per Kafka instance** and **one `GET /api/vhosts`
-per RabbitMQ instance** — a single metadata request each, served from the broker's memory. The cost is
-per-instance, not per-entity, so it does not grow as topics are added.
+Each collection cycle issues **one `DescribeTopics` (Metadata) call per Kafka instance** — scoped to the
+registered topics, with no `DescribeConfigs` — and **one `GET /api/vhosts?columns=name`** per RabbitMQ
+instance. A single metadata request each, served from the broker's memory. The cost is per-instance, not
+per-entity, so it does not grow as topics are added.
 
 Tune with `discrepancy.metrics.interval` (default `5m`). Values below roughly `1m` are not recommended
-on shared brokers: the calculation is a full registry-versus-broker comparison, not a cheap health ping.
+on shared brokers.
 
 ---
 
@@ -321,14 +319,14 @@ the platform's VictoriaMetrics operator picks the rule up the same way it does t
 | Alert | Fires when | `for:` | Severity |
 |---|---|---|---|
 | `MaaSLostEntities` | `lost_entities > 0` on a reachable broker | 15m | warning |
-| `MaaSGhostEntities` | `ghost_entities > 0` on a reachable broker | 1h | info |
+| `MaaSMismatchedEntities` | `mismatched_entities > 0` on a reachable broker (Kafka) | 30m | warning |
 | `MaaSDiscrepancyDataStale` | `broker_reachable == 0` | 15m | info |
 
 Each rule aggregates with `max without (instance, pod)` so replicas don't multiply the value, carries the
 `entity_namespace` label into its annotations (so the alert names the affected tenant), and — for lost and
-ghost — is guarded by `and … broker_reachable == 1`. That guard is essential: an unreachable broker keeps
-its last known lost/ghost values, and without the guard would page repeatedly for a discrepancy that is
-merely unverifiable. `MaaSDiscrepancyDataStale` covers the unreachable case on its own.
+mismatched — is guarded by `and … broker_reachable == 1`. That guard is essential: an unreachable broker
+keeps its last known lost/mismatched values, and without the guard would page repeatedly for a discrepancy
+that is merely unverifiable. `MaaSDiscrepancyDataStale` covers the unreachable case on its own.
 
 ### Recommended: service-health alerts (not shipped)
 
