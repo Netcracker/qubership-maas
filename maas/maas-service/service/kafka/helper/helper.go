@@ -27,7 +27,7 @@ var deleteMethodMetric = newMetricCounter("deleteTopic")
 var updateMethodMetric = newMetricCounter("updateTopic")
 var isTopicExistsMethodMetric = newMetricCounter("isTopicExists")
 var settingsMethodMetric = newMetricCounter("topicSettings")
-var getTopicsMetadataMethodMetric = newMetricCounter("getTopicsMetadata")
+var getExistingTopicsMethodMetric = newMetricCounter("getExistingTopics")
 var bulkTopicSettingsMetric = newMetricCounter("bulkTopicSetting")
 
 func CreateKafkaHelper(ctx context.Context) Helper {
@@ -53,7 +53,7 @@ type Helper interface {
 	DeleteTopic(ctx context.Context, topic *model.TopicRegistration) error
 	UpdateTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
 	GetTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
-	GetTopicsMetadata(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]model.TopicMetadata, error)
+	GetExistingTopics(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]bool, error)
 	DoesTopicExistOnKafka(ctx context.Context, instance *model.KafkaInstance, topicName string) (bool, error)
 	BulkGetTopicSettings(ctx context.Context, topics []*model.TopicRegistrationRespDto) error
 
@@ -489,11 +489,11 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 	return &result, nil
 }
 
-// GetTopicsMetadata returns the actual partition count and replication factor of the requested topics
-// that exist on the broker.
-func (helper *HelperImpl) GetTopicsMetadata(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]model.TopicMetadata, error) {
-	return measureTimeValue(getTopicsMetadataMethodMetric, func() (map[string]model.TopicMetadata, error) {
-		result := make(map[string]model.TopicMetadata, len(topicNames))
+// GetExistingTopics returns, for the requested topic names, the set of those that actually exist on
+// the broker (value true). Names missing from the map are not present on the broker.
+func (helper *HelperImpl) GetExistingTopics(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]bool, error) {
+	return measureTimeValue(getExistingTopicsMethodMetric, func() (map[string]bool, error) {
+		result := make(map[string]bool, len(topicNames))
 		if len(topicNames) == 0 {
 			return result, nil
 		}
@@ -517,13 +517,9 @@ func (helper *HelperImpl) GetTopicsMetadata(ctx context.Context, instance *model
 		for _, m := range metadata {
 			switch {
 			case errors.Is(m.Err, sarama.ErrNoError):
-				var replicationFactor int16
-				if len(m.Partitions) > 0 {
-					replicationFactor = int16(len(m.Partitions[0].Replicas))
-				}
-				result[m.Name] = model.TopicMetadata{NumPartitions: int32(len(m.Partitions)), ReplicationFactor: replicationFactor}
+				result[m.Name] = true
 			case errors.Is(m.Err, sarama.ErrUnknownTopicOrPartition):
-				// registered in maas but missing on the broke
+				// registered in maas but missing on the broker
 			default:
 				return nil, utils.LogError(log, ctx, "kafka: failed to describe topic %s: %w", m.Name, m.Err)
 			}

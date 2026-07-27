@@ -2555,9 +2555,9 @@ Allows to get discrepancy between Kafka topics from MaaS database and Kafka
 * **Request body:**
   None
 * **Query params:**
-  `status` - values can be either `ok` or `absent`. 
+  `status` - optional filter; values can be `ok` or `absent`. When omitted, all topics are returned.
   * `ok` - existing kafka topic we have valid registration record in MaaS
-  * `absent` - MaaS has registration record in its database, but real topic is absent or missed in kafka 
+  * `absent` - MaaS has registration record in its database, but real topic is absent or missed in kafka
 
 * **Success Response:**  
   `200`  

@@ -16,13 +16,10 @@ spec:
     - name: maas-discrepancy
       rules:
         # registered in the maas registry, but missing on the broker - callers get
-        # "unknown topic" / "vhost not found" at runtime. The reachable==1 guard prevents
-        # paging on stale numbers while a broker is temporarily unreachable.
+        # "unknown topic" / "vhost not found" at runtime. An unreadable instance emits no
+        # metrics at all (the series simply disappears), so there are no stale numbers to guard against.
         - alert: MaaSLostEntities
-          expr: >-
-            max without (instance, pod) (maas_discrepancy_lost_entities) > 0
-            and on (broker_type, broker_id)
-            max without (instance, pod) (maas_discrepancy_broker_reachable) == 1
+          expr: max without (instance, pod) (maas_discrepancy_lost_entities) > 0
           for: 15m
           labels:
             severity: warning
@@ -32,31 +29,4 @@ spec:
               {{`{{ $value }}`}} {{`{{ $labels.broker_type }}`}} entit(y/ies) in namespace
               '{{`{{ $labels.entity_namespace }}`}}' are registered in MaaS (broker {{`{{ $labels.broker_id }}`}})
               but do not exist on the broker. Operations on them will fail.
-        # registered and present on the broker, but the broker configuration (kafka topic
-        # partitions / replication factor) differs from what maas registered.
-        - alert: MaaSMismatchedEntities
-          expr: >-
-            max without (instance, pod) (maas_discrepancy_mismatched_entities) > 0
-            and on (broker_type, broker_id)
-            max without (instance, pod) (maas_discrepancy_broker_reachable) == 1
-          for: 30m
-          labels:
-            severity: warning
-          annotations:
-            summary: "MaaS registry configuration differs from the broker"
-            description: >-
-              {{`{{ $value }}`}} {{`{{ $labels.broker_type }}`}} entit(y/ies) in namespace
-              '{{`{{ $labels.entity_namespace }}`}}' on broker {{`{{ $labels.broker_id }}`}} have a broker
-              configuration (partitions/replication) that differs from what MaaS registered.
-        # the discrepancy numbers for a broker are stale because MaaS could not reach it
-        - alert: MaaSDiscrepancyDataStale
-          expr: max without (instance, pod) (maas_discrepancy_broker_reachable) == 0
-          for: 15m
-          labels:
-            severity: info
-          annotations:
-            summary: "MaaS discrepancy data is stale"
-            description: >-
-              MaaS could not reach {{`{{ $labels.broker_type }}`}} broker {{`{{ $labels.broker_id }}`}}
-              during the last discrepancy calculation; its lost/mismatched numbers are stale.
 {{ end }}

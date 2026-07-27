@@ -5,10 +5,10 @@
 // maas namespace and tenant the entity belongs to:
 //   - registered:  entities maas knows about in its own database
 //   - lost:        registered in maas, but missing on the broker
-//   - mismatched:  registered in maas and present on the broker, but the broker configuration
-//     differs from what maas registered. Kafka only - the number of partitions or the replication
-//     factor on the broker does not match the registered topic. RabbitMQ vhosts have no comparable
-//     configuration, so the mismatched metric is always zero for them.
+//
+// If the data for an instance cannot be read - either from the maas database or from the broker -
+// the instance is skipped for the current cycle, the error is logged, and no metrics are emitted
+// for it (there is no stale carry-over of previous numbers).
 package discrepancy
 
 import (
@@ -44,10 +44,9 @@ type KafkaTopicProvider interface {
 	SearchTopicsInDB(ctx context.Context, searchReq *model.TopicSearchRequest) ([]*model.TopicRegistration, error)
 }
 
-// KafkaBrokerLister returns the actual metadata (partitions, replication) of the given topics that
-// exist on the broker.
+// KafkaBrokerLister returns, for the given topic names, the set that actually exist on the broker.
 type KafkaBrokerLister interface {
-	GetTopicsMetadata(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]model.TopicMetadata, error)
+	GetExistingTopics(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]bool, error)
 }
 
 type RabbitInstanceProvider interface {
@@ -76,13 +75,6 @@ type scopeKey struct {
 type nsCounts struct {
 	registered int
 	lost       int
-	mismatched int
-}
-
-// instanceResult holds the per-scope discrepancy of one broker instance plus its reachability
-type instanceResult struct {
-	byScope   map[scopeKey]nsCounts
-	reachable bool
 }
 
 type instanceKey struct {
@@ -101,14 +93,8 @@ type MetricCollector struct {
 
 	collectInterval time.Duration
 
-	// last successfully calculated per-scope numbers per instance. Kept so that a
-	// temporarily unreachable broker doesn't report all its entities as lost.
-	lastKnown map[instanceKey]map[scopeKey]nsCounts
-
 	registeredMetric *prometheus.GaugeVec
 	lostMetric       *prometheus.GaugeVec
-	mismatchedMetric *prometheus.GaugeVec
-	availableMetric  *prometheus.GaugeVec
 }
 
 func NewMetricCollector(
@@ -124,7 +110,6 @@ func NewMetricCollector(
 		collectInterval = defaultCollectInterval
 	}
 	entityLabels := []string{"broker_type", "broker_id", "entity_namespace", "tenant_id"}
-	brokerLabels := []string{"broker_type", "broker_id"}
 	return &MetricCollector{
 		kafkaInstances:  kafkaInstances,
 		kafkaTopics:     kafkaTopics,
@@ -133,16 +118,11 @@ func NewMetricCollector(
 		rabbitVhosts:    rabbitVhosts,
 		rabbitHelperOf:  rabbitHelperOf,
 		collectInterval: collectInterval,
-		lastKnown:       make(map[instanceKey]map[scopeKey]nsCounts),
 
 		registeredMetric: registerGaugeVec("registered_entities",
 			"number of entities registered in maas database", entityLabels),
 		lostMetric: registerGaugeVec("lost_entities",
 			"number of entities registered in maas database, but missing on the broker", entityLabels),
-		mismatchedMetric: registerGaugeVec("mismatched_entities",
-			"number of entities whose broker configuration differs from what maas registered (kafka only)", entityLabels),
-		availableMetric: registerGaugeVec("broker_reachable",
-			"1 if the last discrepancy calculation reached the broker, 0 if numbers are stale", brokerLabels),
 	}
 }
 
@@ -181,40 +161,29 @@ func (c *MetricCollector) Start(ctx context.Context) {
 }
 
 // Collect recalculates discrepancy for all registered broker instances.
-// Instances that failed to respond keep their previous numbers
-// and are marked as unreachable.
 func (c *MetricCollector) Collect(ctx context.Context) {
-	current := make(map[instanceKey]instanceResult)
+	current := make(map[instanceKey]map[scopeKey]nsCounts)
 
 	c.collectKafka(ctx, current)
 	c.collectRabbit(ctx, current)
 
-	// instances/namespaces removed from maas must not leave stale series behind
+	// instances/namespaces removed from maas (or unreadable this cycle) must not leave stale series behind
 	c.registeredMetric.Reset()
 	c.lostMetric.Reset()
-	c.mismatchedMetric.Reset()
-	c.availableMetric.Reset()
 
-	c.lastKnown = make(map[instanceKey]map[scopeKey]nsCounts, len(current))
-	for key, res := range current {
-		c.lastKnown[key] = res.byScope
-		c.availableMetric.With(prometheus.Labels{
-			"broker_type": key.brokerType, "broker_id": key.instanceId,
-		}).Set(boolToFloat(res.reachable))
-
-		for scope, counts := range res.byScope {
+	for key, byScope := range current {
+		for scope, counts := range byScope {
 			labels := prometheus.Labels{
 				"broker_type": key.brokerType, "broker_id": key.instanceId,
 				"entity_namespace": scope.namespace, "tenant_id": scope.tenantId,
 			}
 			c.registeredMetric.With(labels).Set(float64(counts.registered))
 			c.lostMetric.With(labels).Set(float64(counts.lost))
-			c.mismatchedMetric.With(labels).Set(float64(counts.mismatched))
 		}
 	}
 }
 
-func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceKey]instanceResult) {
+func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceKey]map[scopeKey]nsCounts) {
 	instances, err := c.kafkaInstances.GetKafkaInstances(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "error getting list of kafka instances, kafka discrepancy metrics will not be updated: %v", err)
@@ -226,8 +195,7 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 
 		topicsInDb, err := c.kafkaTopics.SearchTopicsInDB(ctx, &model.TopicSearchRequest{Instance: instance.GetId()})
 		if err != nil {
-			log.ErrorC(ctx, "error getting topics of kafka instance '%v' from db, keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			result[key] = c.staleResult(key, nil)
+			log.ErrorC(ctx, "error getting topics of kafka instance '%v' from db, skipping its discrepancy metrics this cycle: %v", instance.GetId(), err)
 			continue
 		}
 
@@ -236,10 +204,9 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			topicNames = append(topicNames, topic.Topic)
 		}
 
-		onBroker, err := c.kafkaBroker.GetTopicsMetadata(ctx, &instance, topicNames)
+		onBroker, err := c.kafkaBroker.GetExistingTopics(ctx, &instance, topicNames)
 		if err != nil {
-			log.WarnC(ctx, "error getting topic metadata from kafka instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			result[key] = c.staleResult(key, registeredCountsOfTopics(topicsInDb))
+			log.ErrorC(ctx, "error getting topics from kafka instance '%v', skipping its discrepancy metrics this cycle: %v", instance.GetId(), err)
 			continue
 		}
 
@@ -248,34 +215,13 @@ func (c *MetricCollector) collectKafka(ctx context.Context, result map[instanceK
 			scope := scopeKey{topic.Namespace, topicTenantId(topic)}
 			counts := byScope[scope]
 			counts.registered++
-			switch topic.BrokerStatus(brokerMeta(onBroker, topic.Topic)) {
-			case model.StatusAbsent:
+			if !onBroker[topic.Topic] {
 				counts.lost++
-			case model.StatusMismatched:
-				counts.mismatched++
 			}
 			byScope[scope] = counts
 		}
-		result[key] = instanceResult{byScope: byScope, reachable: true}
+		result[key] = byScope
 	}
-}
-
-// brokerMeta returns topic's broker metadata, or nil if it is not on the broker
-func brokerMeta(onBroker map[string]model.TopicMetadata, name string) *model.TopicMetadata {
-	if meta, ok := onBroker[name]; ok {
-		return &meta
-	}
-	return nil
-}
-
-// registeredCountsOfTopics counts registered topics per scope (used to refresh the registered number
-// while keeping the previous lost/mismatched numbers when the broker is unreachable)
-func registeredCountsOfTopics(topics []*model.TopicRegistration) map[scopeKey]int {
-	counts := make(map[scopeKey]int)
-	for _, topic := range topics {
-		counts[scopeKey{topic.Namespace, topicTenantId(topic)}]++
-	}
-	return counts
 }
 
 // topicTenantId returns the tenant id from the topic classifier, empty for non-tenant topics
@@ -286,7 +232,7 @@ func topicTenantId(topic *model.TopicRegistration) string {
 	return topic.Classifier.TenantId
 }
 
-func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instanceKey]instanceResult) {
+func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instanceKey]map[scopeKey]nsCounts) {
 	instances, err := c.rabbitInstances.GetRabbitInstances(ctx)
 	if err != nil {
 		log.ErrorC(ctx, "error getting list of rabbit instances, rabbit discrepancy metrics will not be updated: %v", err)
@@ -309,8 +255,7 @@ func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instance
 
 		vhostsOnBroker, err := c.rabbitHelperOf(instance).GetAllVhosts(ctx)
 		if err != nil {
-			log.WarnC(ctx, "error getting list of vhosts from rabbit instance '%v', keeping previous discrepancy numbers: %v", instance.GetId(), err)
-			result[key] = c.staleResult(key, registeredCountsOfVhosts(registered))
+			log.ErrorC(ctx, "error getting list of vhosts from rabbit instance '%v', skipping its discrepancy metrics this cycle: %v", instance.GetId(), err)
 			continue
 		}
 
@@ -330,17 +275,8 @@ func (c *MetricCollector) collectRabbit(ctx context.Context, result map[instance
 			}
 			byScope[scope] = counts
 		}
-		result[key] = instanceResult{byScope: byScope, reachable: true}
+		result[key] = byScope
 	}
-}
-
-// registeredCountsOfVhosts counts registered vhosts per scope
-func registeredCountsOfVhosts(vhosts []model.VHostRegistration) map[scopeKey]int {
-	counts := make(map[scopeKey]int)
-	for _, vhost := range vhosts {
-		counts[scopeKey{vhost.Namespace, vhostTenantId(vhost)}]++
-	}
-	return counts
 }
 
 // vhostTenantId returns the tenant id from the vhost classifier, empty for non-tenant vhosts
@@ -350,28 +286,4 @@ func vhostTenantId(vhost model.VHostRegistration) string {
 		return ""
 	}
 	return classifier.TenantId
-}
-
-// staleResult keeps the per-scope lost/mismatched numbers of the previous successful calculation
-// (so an unreachable broker doesn't look like every entity has been lost) while refreshing the
-// registered counts from the current database view when available.
-func (c *MetricCollector) staleResult(key instanceKey, registeredCounts map[scopeKey]int) instanceResult {
-	byScope := make(map[scopeKey]nsCounts)
-	for scope, counts := range c.lastKnown[key] {
-		// drop the stale registered count; it is re-derived below when the db view is known
-		byScope[scope] = nsCounts{lost: counts.lost, mismatched: counts.mismatched}
-	}
-	for scope, n := range registeredCounts {
-		counts := byScope[scope]
-		counts.registered = n
-		byScope[scope] = counts
-	}
-	return instanceResult{byScope: byScope, reachable: false}
-}
-
-func boolToFloat(value bool) float64 {
-	if value {
-		return 1
-	}
-	return 0
 }

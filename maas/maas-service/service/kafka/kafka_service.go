@@ -1125,7 +1125,7 @@ func (srv *KafkaServiceImpl) GetDiscrepancyReport(ctx context.Context, namespace
 		return nil, err
 	}
 
-	// group topics by instance so the broker metadata is fetched in one call per instance
+	// group topics by instance so the broker is queried in one call per instance
 	type instanceTopics struct {
 		instance *model.KafkaInstance
 		topics   []*model.TopicRegistration
@@ -1146,16 +1146,16 @@ func (srv *KafkaServiceImpl) GetDiscrepancyReport(ctx context.Context, namespace
 		for _, topic := range group.topics {
 			topicNames = append(topicNames, topic.Topic)
 		}
-		metadata, err := srv.helper.GetTopicsMetadata(ctx, group.instance, topicNames)
+		existing, err := srv.helper.GetExistingTopics(ctx, group.instance, topicNames)
 		if err != nil {
 			return nil, err
 		}
 		for _, topic := range group.topics {
-			var meta *model.TopicMetadata
-			if m, ok := metadata[topic.Topic]; ok {
-				meta = &m
+			if existing[topic.Topic] {
+				statusByTopic[topic] = model.StatusOk
+			} else {
+				statusByTopic[topic] = model.StatusAbsent
 			}
-			statusByTopic[topic] = topic.BrokerStatus(meta)
 		}
 	}
 

@@ -45,20 +45,20 @@ func (f *fakeKafkaTopics) SearchTopicsInDB(_ context.Context, searchReq *model.T
 }
 
 type fakeKafkaBroker struct {
-	// metadata of topics that exist on the broker, per instance
-	metaByInstance map[string]map[string]model.TopicMetadata
-	errByInstance  map[string]error
+	// topics that exist on the broker, per instance
+	existsByInstance map[string]map[string]bool
+	errByInstance    map[string]error
 }
 
-func (f *fakeKafkaBroker) GetTopicsMetadata(_ context.Context, instance *model.KafkaInstance, names []string) (map[string]model.TopicMetadata, error) {
+func (f *fakeKafkaBroker) GetExistingTopics(_ context.Context, instance *model.KafkaInstance, names []string) (map[string]bool, error) {
 	if err, found := f.errByInstance[instance.GetId()]; found {
 		return nil, err
 	}
-	all := f.metaByInstance[instance.GetId()]
-	result := make(map[string]model.TopicMetadata)
+	all := f.existsByInstance[instance.GetId()]
+	result := make(map[string]bool)
 	for _, name := range names {
-		if meta, ok := all[name]; ok {
-			result[name] = meta // topics absent from the broker are omitted (treated as lost)
+		if all[name] {
+			result[name] = true // topics absent from the broker are omitted (treated as lost)
 		}
 	}
 	return result, nil
@@ -92,23 +92,13 @@ func (f *fakeRabbitHelper) GetAllVhosts(_ context.Context) ([]model.VhostInfo, e
 	return f.vhosts, f.err
 }
 
-// topicReg builds a registered topic with the given expected partitions/replication
-func topicReg(name, namespace, tenant, instance string, partitions int32, replication int16) *model.TopicRegistration {
+// topicReg builds a registered topic in the given namespace/tenant on the given instance
+func topicReg(name, namespace, tenant, instance string) *model.TopicRegistration {
 	topic := &model.TopicRegistration{Topic: name, Namespace: namespace, Instance: instance}
 	if tenant != "" {
 		topic.Classifier = &model.Classifier{Namespace: namespace, TenantId: tenant}
 	}
-	if partitions > 0 {
-		topic.NumPartitions = &partitions
-	}
-	if replication > 0 {
-		topic.ReplicationFactor = &replication
-	}
 	return topic
-}
-
-func meta(partitions int32, replication int16) model.TopicMetadata {
-	return model.TopicMetadata{NumPartitions: partitions, ReplicationFactor: replication}
 }
 
 func TestCollect(t *testing.T) {
@@ -116,16 +106,14 @@ func TestCollect(t *testing.T) {
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
 		&fakeKafkaTopics{topics: []*model.TopicRegistration{
-			topicReg("maas.core-dev.orders", "core-dev", "", "kafka-1", 3, 1),  // ok
-			topicReg("maas.core-dev.events", "core-dev", "", "kafka-1", 1, 1),  // lost (not on broker)
-			topicReg("maas.core-dev.resized", "core-dev", "", "kafka-1", 3, 1), // mismatched (6 partitions on broker)
-			topicReg("maas.payments.tx", "payments", "", "kafka-1", 1, 1),      // ok
+			topicReg("maas.core-dev.orders", "core-dev", "", "kafka-1"), // ok
+			topicReg("maas.core-dev.events", "core-dev", "", "kafka-1"), // lost (not on broker)
+			topicReg("maas.payments.tx", "payments", "", "kafka-1"),     // ok
 		}},
-		&fakeKafkaBroker{metaByInstance: map[string]map[string]model.TopicMetadata{
+		&fakeKafkaBroker{existsByInstance: map[string]map[string]bool{
 			"kafka-1": {
-				"maas.core-dev.orders":  meta(3, 1),
-				"maas.core-dev.resized": meta(6, 1),
-				"maas.payments.tx":      meta(1, 1),
+				"maas.core-dev.orders": true,
+				"maas.payments.tx":     true,
 			},
 		}},
 		&fakeRabbitInstances{instances: []model.RabbitInstance{{Id: "rabbit-1"}}},
@@ -138,33 +126,29 @@ func TestCollect(t *testing.T) {
 
 	collector.Collect(ctx)
 
-	// kafka core-dev: 3 registered, 1 lost (events), 1 mismatched (resized)
-	assert.Equal(t, 3.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "core-dev"))
+	// kafka core-dev: 2 registered, 1 lost (events)
+	assert.Equal(t, 2.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "core-dev"))
 	assert.Equal(t, 1.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "core-dev"))
-	assert.Equal(t, 1.0, gaugeNs(collector.mismatchedMetric, "Kafka", "kafka-1", "core-dev"))
 	// kafka payments: 1 registered, in sync
 	assert.Equal(t, 1.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "payments"))
 	assert.Equal(t, 0.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "payments"))
-	assert.Equal(t, 1.0, gauge(collector.availableMetric, "Kafka", "kafka-1"))
 
-	// rabbit core-dev: 2 registered, 1 lost (gone), mismatched not applicable (always 0)
+	// rabbit core-dev: 2 registered, 1 lost (gone)
 	assert.Equal(t, 2.0, gaugeNs(collector.registeredMetric, "RabbitMQ", "rabbit-1", "core-dev"))
 	assert.Equal(t, 1.0, gaugeNs(collector.lostMetric, "RabbitMQ", "rabbit-1", "core-dev"))
-	assert.Equal(t, 0.0, gaugeNs(collector.mismatchedMetric, "RabbitMQ", "rabbit-1", "core-dev"))
-	assert.Equal(t, 1.0, gauge(collector.availableMetric, "RabbitMQ", "rabbit-1"))
 }
 
-// an unreachable broker must not be reported as if all its entities disappeared
-func TestCollectKeepsPreviousNumbersWhenBrokerIsUnreachable(t *testing.T) {
+// an unreachable broker must not leave misleading numbers behind: the instance is skipped entirely
+func TestCollectSkipsInstanceWhenBrokerIsUnreachable(t *testing.T) {
 	ctx := context.Background()
-	broker := &fakeKafkaBroker{metaByInstance: map[string]map[string]model.TopicMetadata{
-		"kafka-1": {"maas.core-dev.orders": meta(1, 1)},
+	broker := &fakeKafkaBroker{existsByInstance: map[string]map[string]bool{
+		"kafka-1": {"maas.core-dev.orders": true},
 	}}
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
 		&fakeKafkaTopics{topics: []*model.TopicRegistration{
-			topicReg("maas.core-dev.orders", "core-dev", "", "kafka-1", 1, 1),
-			topicReg("maas.core-dev.events", "core-dev", "", "kafka-1", 1, 1), // lost
+			topicReg("maas.core-dev.orders", "core-dev", "", "kafka-1"),
+			topicReg("maas.core-dev.events", "core-dev", "", "kafka-1"), // lost
 		}},
 		broker,
 		&fakeRabbitInstances{},
@@ -178,9 +162,9 @@ func TestCollectKeepsPreviousNumbersWhenBrokerIsUnreachable(t *testing.T) {
 	broker.errByInstance = map[string]error{"kafka-1": errors.New("connection refused")}
 	collector.Collect(ctx)
 
-	assert.Equal(t, 2.0, gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "core-dev"))
-	assert.Equal(t, 1.0, gaugeNs(collector.lostMetric, "Kafka", "kafka-1", "core-dev"), "stale numbers must survive an unreachable broker")
-	assert.Equal(t, 0.0, gauge(collector.availableMetric, "Kafka", "kafka-1"))
+	// broker unreadable -> no metrics for the instance this cycle (not stale, not zeroed-in-place)
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.registeredMetric))
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.lostMetric))
 }
 
 func TestCollectDropsMetricsOfRemovedInstances(t *testing.T) {
@@ -188,8 +172,8 @@ func TestCollectDropsMetricsOfRemovedInstances(t *testing.T) {
 	instances := &fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}}
 	collector := newTestCollector(
 		instances,
-		&fakeKafkaTopics{topics: []*model.TopicRegistration{topicReg("maas.core-dev.orders", "core-dev", "", "kafka-1", 1, 1)}},
-		&fakeKafkaBroker{metaByInstance: map[string]map[string]model.TopicMetadata{"kafka-1": {"maas.core-dev.orders": meta(1, 1)}}},
+		&fakeKafkaTopics{topics: []*model.TopicRegistration{topicReg("maas.core-dev.orders", "core-dev", "", "kafka-1")}},
+		&fakeKafkaBroker{existsByInstance: map[string]map[string]bool{"kafka-1": {"maas.core-dev.orders": true}}},
 		&fakeRabbitInstances{},
 		&fakeRabbitVhosts{},
 		&fakeRabbitHelper{},
@@ -208,10 +192,10 @@ func TestCollectTenantScoped(t *testing.T) {
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
 		&fakeKafkaTopics{topics: []*model.TopicRegistration{
-			topicReg("maas.core-dev.t1.orders", "core-dev", "t1", "kafka-1", 1, 1),
+			topicReg("maas.core-dev.t1.orders", "core-dev", "t1", "kafka-1"),
 		}},
-		&fakeKafkaBroker{metaByInstance: map[string]map[string]model.TopicMetadata{
-			"kafka-1": {"maas.core-dev.t1.orders": meta(1, 1)},
+		&fakeKafkaBroker{existsByInstance: map[string]map[string]bool{
+			"kafka-1": {"maas.core-dev.t1.orders": true},
 		}},
 		&fakeRabbitInstances{instances: []model.RabbitInstance{{Id: "rabbit-1"}}},
 		&fakeRabbitVhosts{vhosts: []model.VHostRegistration{
@@ -241,10 +225,9 @@ func TestCollectSkipsWhenInstanceListingFails(t *testing.T) {
 	collector.Collect(ctx)
 
 	assert.Equal(t, 0, testutil.CollectAndCount(collector.registeredMetric))
-	assert.Equal(t, 0, testutil.CollectAndCount(collector.availableMetric))
 }
 
-func TestCollectKafkaDbErrorMarksStale(t *testing.T) {
+func TestCollectKafkaDbErrorSkipsInstance(t *testing.T) {
 	ctx := context.Background()
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
@@ -257,7 +240,8 @@ func TestCollectKafkaDbErrorMarksStale(t *testing.T) {
 
 	collector.Collect(ctx)
 
-	assert.Equal(t, 0.0, gauge(collector.availableMetric, "Kafka", "kafka-1"))
+	// db unreadable -> no metrics for the instance
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.registeredMetric))
 }
 
 func TestCollectRabbitVhostDbErrorSkips(t *testing.T) {
@@ -274,10 +258,10 @@ func TestCollectRabbitVhostDbErrorSkips(t *testing.T) {
 	collector.Collect(ctx)
 
 	// vhost db read failed before any instance was processed
-	assert.Equal(t, 0, testutil.CollectAndCount(collector.availableMetric))
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.registeredMetric))
 }
 
-func TestCollectRabbitBrokerErrorMarksStale(t *testing.T) {
+func TestCollectRabbitBrokerErrorSkipsInstance(t *testing.T) {
 	ctx := context.Background()
 	collector := newTestCollector(
 		&fakeKafkaInstances{},
@@ -292,8 +276,8 @@ func TestCollectRabbitBrokerErrorMarksStale(t *testing.T) {
 
 	collector.Collect(ctx)
 
-	assert.Equal(t, 1.0, gaugeScope(collector.registeredMetric, "RabbitMQ", "rabbit-1", "core-dev", ""))
-	assert.Equal(t, 0.0, gauge(collector.availableMetric, "RabbitMQ", "rabbit-1"))
+	// broker unreadable -> instance skipped, no metrics emitted
+	assert.Equal(t, 0, testutil.CollectAndCount(collector.registeredMetric))
 }
 
 func TestDefaultRabbitHelperFactory(t *testing.T) {
@@ -306,15 +290,15 @@ func TestStart(t *testing.T) {
 	defer cancel()
 	collector := newTestCollector(
 		&fakeKafkaInstances{instances: []model.KafkaInstance{{Id: "kafka-1"}}},
-		&fakeKafkaTopics{topics: []*model.TopicRegistration{topicReg("maas.core-dev.a", "core-dev", "", "kafka-1", 1, 1)}},
-		&fakeKafkaBroker{metaByInstance: map[string]map[string]model.TopicMetadata{"kafka-1": {"maas.core-dev.a": meta(1, 1)}}},
+		&fakeKafkaTopics{topics: []*model.TopicRegistration{topicReg("maas.core-dev.a", "core-dev", "", "kafka-1")}},
+		&fakeKafkaBroker{existsByInstance: map[string]map[string]bool{"kafka-1": {"maas.core-dev.a": true}}},
 		&fakeRabbitInstances{},
 		&fakeRabbitVhosts{},
 		&fakeRabbitHelper{},
 	)
 	collector.Start(ctx)
 	assert.Eventually(t, func() bool {
-		return gauge(collector.availableMetric, "Kafka", "kafka-1") == 1.0
+		return gaugeNs(collector.registeredMetric, "Kafka", "kafka-1", "core-dev") == 1.0
 	}, time.Second, 10*time.Millisecond)
 }
 
@@ -332,10 +316,6 @@ func newTestCollector(
 		func(_ model.RabbitInstance) helper.RabbitHelper { return rabbitHelper },
 		0,
 	)
-}
-
-func gauge(gaugeVec *prometheus.GaugeVec, brokerType string, instanceId string) float64 {
-	return testutil.ToFloat64(gaugeVec.WithLabelValues(brokerType, instanceId))
 }
 
 func gaugeNs(gaugeVec *prometheus.GaugeVec, brokerType, instanceId, namespace string) float64 {

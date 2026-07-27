@@ -56,11 +56,11 @@ func TestDiscrepancyController(t *testing.T) {
 		AnyTimes()
 
 	kafkaHelperMock.EXPECT().
-		GetTopicsMetadata(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(map[string]model.TopicMetadata{
-			"first":  {NumPartitions: 1, ReplicationFactor: 1}, // present -> ok
-			"second": {NumPartitions: 1, ReplicationFactor: 1}, // present -> ok
-			// "third" omitted                                  -> absent
+		GetExistingTopics(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(map[string]bool{
+			"first":  true, // present -> ok
+			"second": true, // present -> ok
+			// "third" omitted -> absent
 		}, nil).
 		AnyTimes()
 
