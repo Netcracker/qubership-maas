@@ -137,7 +137,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		resp, err = app.Test(req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 
 		// pass a nil authorizeWithTokenFunc to SecurityMiddleware to turn off k8s m2m
 		app.Get("/anonymous-without-k8s-m2m", SecurityMiddleware([]model.RoleName{model.AnonymousRole, testRoleName}, authService.IsAccessGrantedWithBasic, nil), func(ctx fiber.Ctx) error {
@@ -149,7 +149,7 @@ func TestSecurityMiddleware_Anonymous(t *testing.T) {
 		resp, err = app.Test(req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 }
 
