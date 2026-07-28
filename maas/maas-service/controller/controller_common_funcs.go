@@ -99,13 +99,13 @@ func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWith
 			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
 		case "bearer":
 			if authorizeWithToken == nil {
-				return utils.LogError(log, userCtx, "kubernetes m2m authentication is not enabled, use basic or set KUBERNETES_M2M_ENABLED=true: %w", msg.AuthError)
+				return utils.LogError(log, userCtx, "kubernetes m2m authentication is not enabled, use basic or set KUBERNETES_M2M_ENABLED=true: %w", msg.UnauthorizedError)
 			}
 
 			var err error
 			account, err = authorizeWithToken(userCtx, creds, roles)
 			if err != nil {
-				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+				return utils.LogError(log, userCtx, "request authorization failure: %v: %w", err, msg.UnauthorizedError)
 			}
 
 			ctx.Request().Header.Add(HeaderXMicroservice, account.Username)
@@ -325,6 +325,8 @@ func TmfErrorHandler(ctx fiber.Ctx, err error) error {
 		code = http.StatusForbidden
 	case errors.Is(err, msg.Gone):
 		code = http.StatusGone
+	case errors.Is(err, msg.UnauthorizedError):
+		code = http.StatusUnauthorized
 	case errors.Is(err, dao.DatabaseIsNotActiveError):
 		code = http.StatusMethodNotAllowed
 	case errors.Is(err, dao.DatabaseIsReadonlyError):
