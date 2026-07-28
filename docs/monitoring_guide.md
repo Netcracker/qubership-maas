@@ -264,14 +264,15 @@ reached the broker. A brief broker blip shows up as a gap in the timeseries, nev
 ### Panels
 
 The dashboard has a **Kafka Topics** row and a **RabbitMQ VHosts** row, each with the same panels: stat
-tiles and per-broker timeseries. Each row has its own **Broker** filter (`Kafka Broker` / `RabbitMQ Broker`)
-plus the shared Namespace / Tenant filters.
+tiles, per-broker timeseries and a broker-availability state-timeline. The **Broker**, **Namespace** and
+**Tenant** filters are shared across both rows (each row is already scoped to its broker type).
 
 | Panel | Query | When to act |
 |---|---|---|
 | **Lost** (stat) | `sum(maas_discrepancy_lost_entities{broker_type=…})` | Red on any non-zero value. Recreate the entity on the broker, or delete the stale registration through the MaaS API. |
 | **Registered** (stat) | `sum(maas_discrepancy_registered_entities{broker_type=…})` | Informational. A sudden drop means registrations were deleted — or the instance became unreadable and its series vanished. Cross-check against a namespace cleanup. |
-| **… By Broker** (timeseries) | per `broker_id` | Shows which specific broker drifted and when. A step change pinpoints the deploy or manual operation responsible; a gap means the instance was unreadable that cycle. |
+| **Topics/VHosts By Broker** (stacked timeseries) | `present` = registered − lost, and `lost`, per `broker_id` | Green = present (on the broker), red = lost; the stack height is the registered total. A red band appearing, or a gap, pinpoints when and on which broker entities went missing. |
+| **Broker Availability** (state-timeline) | `maas_health_broker_status{broker_type=…}` | MaaS broker health: green = ok, orange = warning, red = problem (unreachable). A red band explains why discrepancy series went stale that cycle. |
 
 ### Diagnosing a non-zero value
 

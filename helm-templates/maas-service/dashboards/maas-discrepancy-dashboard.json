@@ -38,7 +38,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Entities registered in the MaaS database.",
+      "description": "Registered and present on the broker (registered - lost).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -64,7 +64,7 @@
         "x": 0,
         "y": 1
       },
-      "id": 2,
+      "id": 22,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -86,13 +86,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "expr": "(sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))) OR on() vector(0)",
           "instant": true,
-          "legendFormat": "Registered",
+          "legendFormat": "Present",
           "refId": "A"
         }
       ],
-      "title": "Registered",
+      "title": "Present",
       "type": "stat"
     },
     {
@@ -152,7 +152,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "Lost",
           "refId": "A"
@@ -166,7 +166,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "",
+      "description": "Present (registered and on the broker) vs lost, per broker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -175,23 +175,58 @@
           "custom": {
             "axisPlacement": "auto",
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 30,
             "lineInterpolation": "stepAfter",
             "lineWidth": 2,
             "pointSize": 5,
             "showPoints": "never",
-            "spanNulls": true
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
           },
           "decimals": 0,
           "mappings": [],
           "min": 0,
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*present"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*lost"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 5
       },
@@ -218,12 +253,22 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
-          "legendFormat": "{{broker_id}}",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}: present",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}: lost",
+          "refId": "B"
         }
       ],
-      "title": "Registered By Broker",
+      "title": "Topics By Broker",
       "type": "timeseries"
     },
     {
@@ -231,62 +276,78 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "",
+      "description": "MaaS broker health check: ok / warning / problem (unreachable).",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "text"
           },
-          "custom": {
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "decimals": 0,
-          "mappings": [],
-          "min": 0,
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "text",
+                  "index": 0,
+                  "text": "unknown"
+                }
               }
-            ]
-          }
+            },
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "ok"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "20": {
+                  "color": "orange",
+                  "index": 2,
+                  "text": "warning"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "30": {
+                  "color": "red",
+                  "index": 3,
+                  "text": "problem"
+                }
+              }
+            }
+          ],
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 5
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 13
       },
-      "id": 7,
+      "id": 20,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
         "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "targets": [
@@ -296,13 +357,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "max without (instance, pod) (maas_health_broker_status{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\"})",
           "legendFormat": "{{broker_id}}",
           "refId": "A"
         }
       ],
-      "title": "Lost By Broker",
-      "type": "timeseries"
+      "title": "Broker Availability",
+      "type": "state-timeline"
     },
     {
       "collapsed": false,
@@ -310,7 +371,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 19
       },
       "id": 11,
       "panels": [],
@@ -322,7 +383,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Entities registered in the MaaS database.",
+      "description": "Registered and present on the broker (registered - lost).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -346,9 +407,9 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 20
       },
-      "id": 12,
+      "id": 23,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -370,13 +431,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "expr": "(sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))) OR on() vector(0)",
           "instant": true,
-          "legendFormat": "Registered",
+          "legendFormat": "Present",
           "refId": "A"
         }
       ],
-      "title": "Registered",
+      "title": "Present",
       "type": "stat"
     },
     {
@@ -412,7 +473,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 20
       },
       "id": 13,
       "options": {
@@ -436,7 +497,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
           "instant": true,
           "legendFormat": "Lost",
           "refId": "A"
@@ -450,7 +511,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "",
+      "description": "Present (registered and on the broker) vs lost, per broker.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -459,25 +520,60 @@
           "custom": {
             "axisPlacement": "auto",
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 30,
             "lineInterpolation": "stepAfter",
             "lineWidth": 2,
             "pointSize": 5,
             "showPoints": "never",
-            "spanNulls": true
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
           },
           "decimals": 0,
           "mappings": [],
           "min": 0,
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*present"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*lost"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
-        "y": 18
+        "y": 24
       },
       "id": 15,
       "options": {
@@ -502,12 +598,22 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
-          "legendFormat": "{{broker_id}}",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}: present",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "legendFormat": "{{broker_id}}: lost",
+          "refId": "B"
         }
       ],
-      "title": "Registered By Broker",
+      "title": "VHosts By Broker",
       "type": "timeseries"
     },
     {
@@ -515,62 +621,78 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "",
+      "description": "MaaS broker health check: ok / warning / problem (unreachable).",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "text"
           },
-          "custom": {
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "lineInterpolation": "stepAfter",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "decimals": 0,
-          "mappings": [],
-          "min": 0,
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "text",
+                  "index": 0,
+                  "text": "unknown"
+                }
               }
-            ]
-          }
+            },
+            {
+              "type": "value",
+              "options": {
+                "10": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "ok"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "20": {
+                  "color": "orange",
+                  "index": 2,
+                  "text": "warning"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "30": {
+                  "color": "red",
+                  "index": 3,
+                  "text": "problem"
+                }
+              }
+            }
+          ],
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 18
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 32
       },
-      "id": 16,
+      "id": 21,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
         "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "targets": [
@@ -580,13 +702,13 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "max without (instance, pod) (maas_health_broker_status{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\"})",
           "legendFormat": "{{broker_id}}",
           "refId": "A"
         }
       ],
-      "title": "Lost By Broker",
-      "type": "timeseries"
+      "title": "Broker Availability",
+      "type": "state-timeline"
     }
   ],
   "refresh": "30s",
@@ -672,39 +794,14 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(maas_discrepancy_registered_entities{broker_type=\"Kafka\"}, broker_id)",
+        "definition": "label_values(maas_discrepancy_registered_entities, broker_id)",
         "hide": 0,
         "includeAll": true,
-        "label": "Kafka Broker",
+        "label": "Broker",
         "multi": true,
-        "name": "kafka_broker",
+        "name": "broker_id",
         "options": [],
-        "query": "label_values(maas_discrepancy_registered_entities{broker_type=\"Kafka\"}, broker_id)",
-        "refresh": 2,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "definition": "label_values(maas_discrepancy_registered_entities{broker_type=\"RabbitMQ\"}, broker_id)",
-        "hide": 0,
-        "includeAll": true,
-        "label": "RabbitMQ Broker",
-        "multi": true,
-        "name": "rabbit_broker",
-        "options": [],
-        "query": "label_values(maas_discrepancy_registered_entities{broker_type=\"RabbitMQ\"}, broker_id)",
+        "query": "label_values(maas_discrepancy_registered_entities, broker_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
