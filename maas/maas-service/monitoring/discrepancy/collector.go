@@ -58,7 +58,6 @@ type RabbitVhostProvider interface {
 }
 
 // RabbitHelperFactory produces an instance scoped rabbit helper. Only instance level
-// calls (GetAllVhosts) are allowed on the result, it is not bound to any vhost.
 type RabbitHelperFactory func(instance model.RabbitInstance) helper.RabbitHelper
 
 func DefaultRabbitHelperFactory(instance model.RabbitInstance) helper.RabbitHelper {

@@ -226,9 +226,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
-        "y": 5
+        "y": 11
       },
       "id": 6,
       "options": {
@@ -253,7 +253,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_id}}: present",
           "refId": "A"
         },
@@ -263,13 +263,15 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$kafka_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_id}}: lost",
           "refId": "B"
         }
       ],
-      "title": "Topics By Broker",
-      "type": "timeseries"
+      "title": "Topics: $kafka_broker",
+      "type": "timeseries",
+      "repeat": "kafka_broker",
+      "repeatDirection": "h"
     },
     {
       "datasource": {
@@ -333,7 +335,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 5
       },
       "id": 20,
       "options": {
@@ -571,9 +573,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
-        "y": 24
+        "y": 30
       },
       "id": 15,
       "options": {
@@ -598,7 +600,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) - sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_id}}: present",
           "refId": "A"
         },
@@ -608,13 +610,15 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
+          "expr": "sum by (broker_id) (max without (instance, pod) (maas_discrepancy_lost_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$rabbit_broker\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"}))",
           "legendFormat": "{{broker_id}}: lost",
           "refId": "B"
         }
       ],
-      "title": "VHosts By Broker",
-      "type": "timeseries"
+      "title": "VHosts: $rabbit_broker",
+      "type": "timeseries",
+      "repeat": "rabbit_broker",
+      "repeatDirection": "h"
     },
     {
       "datasource": {
@@ -678,7 +682,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 24
       },
       "id": 21,
       "options": {
@@ -805,6 +809,54 @@
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(maas_discrepancy_registered_entities{broker_type=\"Kafka\"}, broker_id)",
+        "hide": 2,
+        "includeAll": true,
+        "multi": true,
+        "name": "kafka_broker",
+        "options": [],
+        "query": "label_values(maas_discrepancy_registered_entities{broker_type=\"Kafka\"}, broker_id)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(maas_discrepancy_registered_entities{broker_type=\"RabbitMQ\"}, broker_id)",
+        "hide": 2,
+        "includeAll": true,
+        "multi": true,
+        "name": "rabbit_broker",
+        "options": [],
+        "query": "label_values(maas_discrepancy_registered_entities{broker_type=\"RabbitMQ\"}, broker_id)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
         "sort": 1,
         "type": "query"
       },
