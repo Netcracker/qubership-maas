@@ -108,7 +108,7 @@ spec:
 		resp, err := app.Test(req)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 }
 

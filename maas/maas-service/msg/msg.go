@@ -13,6 +13,8 @@ var (
 	Conflict = errors.New("conflict error") // 409
 	//nolint:staticcheck // ST1012: legacy exported names used across the project
 	Gone = errors.New("entity gone") // 410
+	//nolint:staticcheck // ST1012: legacy exported names used across the project
+	UnauthorizedError = errors.New("unauthorized error") // 401
 )
 
 const InvalidClassifierFormat = "invalid classifier '%v': %w"
