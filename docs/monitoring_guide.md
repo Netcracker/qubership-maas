@@ -11,6 +11,7 @@
 ### Purpose
 
 Single-pane-of-glass for the health and performance of a MaaS service pod. Covers:
+
 - Service availability and DR state
 - CPU and memory resource consumption
 - Go runtime internals (goroutines, GC, heap)
@@ -24,14 +25,14 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 ## Template Variables (Dropdowns)
 
-| Variable           | What it selects |
-|--------------------|---|
-| `datasource`       | The Prometheus / VictoriaMetrics data source |
-| `namespace`        | Kubernetes namespace |
-| `service_name`     | Container name (default: `maas-service`) |
-| `pod_name`         | Specific pod replica |
-| `samplin`          | Interval used in `rate()` calculations |
-| `kafka_instances`  | Multi-select: which Kafka broker(s) to display |
+| Variable | What it selects |
+| --- | --- |
+| `datasource` | The Prometheus / VictoriaMetrics data source |
+| `namespace` | Kubernetes namespace |
+| `service_name` | Container name (default: `maas-service`) |
+| `pod_name` | Specific pod replica |
+| `samplin` | Interval used in `rate()` calculations |
+| `kafka_instances` | Multi-select: which Kafka broker(s) to display |
 | `rabbit_instances` | Multi-select: which RabbitMQ broker(s) to display |
 
 ---
@@ -41,7 +42,7 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 > **When to use:** First row to check during any incident. Gives an instant health snapshot.
 
 | Panel | Metric | Values & Colors | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Health** | `kube_pod_container_status_running` | `1` = OK (green), `0` = FATAL (red), no data = N/A (orange) | Is the pod running right now? |
 | **Uptime** | `time() - process_start_time_seconds` | Duration in seconds | How long the pod has been up. A very low value means a recent restart. |
 | **DR Mode** | `maas_db_dr_mode` | `0` = Active (green), `1` = Standby (blue), `2` = Disabled (orange) | Current DR role. Standby pods do not serve traffic. |
@@ -197,7 +198,7 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 - One stat tile is shown per registered Kafka instance.
 
 | Value | Color | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | `0` | Blue | UNKNOWN — health check hasn't completed yet |
 | `10` | Green | OK — broker is reachable |
 | `20` | Orange | WARNING |
@@ -219,7 +220,7 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 **Location:** `helm-templates/maas-service/dashboards/maas-discrepancy-dashboard.json` (shipped by `templates/Dashboard.yaml`)
 **Collection Interval:** `discrepancy.metrics.interval`, default `5m`
 
-### Purpose
+### What it shows
 
 MaaS keeps its own registry of topics and vhosts in PostgreSQL, while the entities themselves live on
 Kafka and RabbitMQ. Those two views can drift apart — someone deletes a topic directly on the broker,
@@ -232,7 +233,7 @@ All three share the labels `broker_type` (`Kafka` / `RabbitMQ`) and `broker_id` 
 id).
 
 | Metric | Meaning |
-|---|---|
+| --- | --- |
 | `maas_discrepancy_registered_entities` | Topics/vhosts registered in the MaaS database for that broker |
 | `maas_discrepancy_lost_entities` | Registered in MaaS, **missing on the broker** |
 
@@ -268,7 +269,7 @@ tiles, per-broker timeseries and a broker-availability state-timeline. The **Bro
 **Tenant** filters are shared across both rows (each row is already scoped to its broker type).
 
 | Panel | Query | When to act |
-|---|---|---|
+| --- | --- | --- |
 | **Lost** (stat) | `sum(maas_discrepancy_lost_entities{broker_type=…})` | Red on any non-zero value. Recreate the entity on the broker, or delete the stale registration through the MaaS API. |
 | **Registered** (stat) | `sum(maas_discrepancy_registered_entities{broker_type=…})` | Informational. A sudden drop means registrations were deleted — or the instance became unreadable and its series vanished. Cross-check against a namespace cleanup. |
 | **Topics/VHosts By Broker** (stacked timeseries) | `present` = registered − lost, and `lost`, per `broker_id` | Green = present (on the broker), red = lost; the stack height is the registered total. A red band appearing, or a gap, pinpoints when and on which broker entities went missing. |
@@ -308,7 +309,7 @@ When `MONITORING_ENABLED=true`, the chart ships a `PrometheusRule`
 the platform's VictoriaMetrics operator picks the rule up the same way it does the `PodMonitor`.
 
 | Alert | Fires when | `for:` | Severity |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `MaaSLostEntities` | `lost_entities > 0` | 15m | warning |
 
 The rule aggregates with `max without (instance, pod)` so replicas don't multiply the value, and carries
@@ -321,7 +322,7 @@ disappears rather than going stale — there is nothing to page on until a real 
 These are **not** shipped — configure them per the platform/operations team's alerting stack.
 
 | Alert Name | PromQL Expression | Suggested `for:` | Severity |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | MaaS Pod Down | `kube_pod_container_status_running{container="maas-service"} == 0` | immediate | critical |
 | Master DB Unavailable | `maas_health_is_master_db_alive == 0` | 1m | critical |
 | Broker Unreachable | `maas_health_broker_status < 10` | 2m | critical |
