@@ -93,6 +93,20 @@ func (helper HelperImpl) CheckHealth(ctx context.Context, kafkaInstance *model.K
 		log.WarnC(ctx, "Kafka instance %+v health check returned error: %v", kafkaInstance, err)
 		return err
 	}
+
+	if credentialsList, found := kafkaInstance.Credentials[model.Client]; found && len(credentialsList) > 0 {
+		client, err := helper.createClient(ctx, kafkaInstance)
+		if err != nil {
+			log.WarnC(ctx, "Failed to create kafka client for %+v: %v", kafkaInstance, err)
+			return err
+		}
+		defer func() {
+			if err := client.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka client for %+v: %v", kafkaInstance, err)
+			}
+		}()
+	}
+
 	log.DebugC(ctx, "Kafka instance %+v is healthy", kafkaInstance)
 	return nil
 }

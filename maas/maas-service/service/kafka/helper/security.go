@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/IBM/sarama"
@@ -22,11 +23,10 @@ const (
 var ErrNoCACert = errors.New("kafka: CA certificate must be configured for SSL connection to kafka")
 
 func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *model.KafkaInstance) (sarama.ClusterAdmin, error) {
-	config, err := helper.buildConfig(ctx, instance)
+	config, addresses, err := helper.buildSaramaConfig(ctx, instance, model.Admin)
 	if err != nil {
 		return nil, err
 	}
-	addresses := instance.Addresses[instance.MaasProtocol]
 	admin, err := helper.client.NewClusterAdmin(addresses, config)
 	if err != nil {
 		log.ErrorC(ctx, "Failed to create kafka admin client for %+v: %v", addresses, err)
@@ -35,10 +35,24 @@ func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *mode
 	return admin, nil
 }
 
-func (helper *HelperImpl) buildConfig(ctx context.Context, instance *model.KafkaInstance) (*sarama.Config, error) {
+func (helper *HelperImpl) createClient(ctx context.Context, instance *model.KafkaInstance) (io.Closer, error) {
+	config, addresses, err := helper.buildSaramaConfig(ctx, instance, model.Client)
+	if err != nil {
+		return nil, err
+	}
+	client, err := helper.client.NewClient(addresses, config)
+	if err != nil {
+		log.ErrorC(ctx, "Failed to create kafka client for %+v: %v", addresses, err)
+		return nil, err
+	}
+	return client, nil
+}
+
+func (helper *HelperImpl) buildSaramaConfig(ctx context.Context, instance *model.KafkaInstance, role model.KafkaRole) (*sarama.Config, []string, error) {
 	config := sarama.NewConfig()
 
 	config.Admin.Timeout = helper.KafkaClientTimeout
+	config.Metadata.Timeout = helper.KafkaClientTimeout
 	config.ClientID = "maas"
 	config.Version = sarama.V2_8_0_0
 
@@ -52,53 +66,58 @@ func (helper *HelperImpl) buildConfig(ctx context.Context, instance *model.Kafka
 		}
 	}
 
-	if credentialsList, found := instance.Credentials[model.Admin]; found && len(credentialsList) > 0 {
-		credentials := credentialsList[0]
-		authType := credentials.GetAuthType()
-		switch authType {
-		case model.SslCertAuth:
-			if !useTls {
-				log.DebugC(ctx, "Admin SSL authorization is skipped due to using PLAINTEXT protocol")
-			} else if err := fillSslClientCert(ctx, config, credentials); err != nil {
-				return nil, err
-			}
-		case model.PlainAuth:
-			if err := fillPlainSaslAuth(ctx, config, credentials); err != nil {
-				return nil, err
-			}
-		case model.SslCertPlusPlain:
-			if useTls {
-				if err := fillSslClientCert(ctx, config, credentials); err != nil {
-					return nil, err
-				}
-			} else {
-				log.DebugC(ctx, "Admin SSL authorization is skipped due to using PLAINTEXT protocol")
-			}
-			if err := fillPlainSaslAuth(ctx, config, credentials); err != nil {
-				return nil, err
-			}
-		case model.SCRAMAuth:
-			if err := fillSaslSCRAMAuth(ctx, config, credentials); err != nil {
-				return nil, err
-			}
-		case model.SslCertPlusSCRAM:
-			if useTls {
-				if err := fillSslClientCert(ctx, config, credentials); err != nil {
-					return nil, err
-				}
-			} else {
-				log.DebugC(ctx, "Admin SSL authorization is skipped due to using PLAINTEXT protocol")
-			}
-			if err := fillSaslSCRAMAuth(ctx, config, credentials); err != nil {
-				return nil, err
-			}
-		default:
-			errMsg := fmt.Sprintf("kafka: %s auth is not supported by this MaaS release", credentials.GetAuthType())
-			return nil, errors.New(errMsg)
+	if credentialsList, found := instance.Credentials[role]; found && len(credentialsList) > 0 {
+		if err := fillAuth(ctx, config, credentialsList[0], useTls, role); err != nil {
+			return nil, nil, err
 		}
 	}
 
-	return config, nil
+	return config, instance.Addresses[instance.MaasProtocol], nil
+}
+
+func fillAuth(ctx context.Context, config *sarama.Config, credentials model.KafkaCredentials, useTls bool, role model.KafkaRole) error {
+	authType := credentials.GetAuthType()
+	switch authType {
+	case model.SslCertAuth:
+		if !useTls {
+			log.DebugC(ctx, "%s SSL authorization is skipped due to using PLAINTEXT protocol", role)
+		} else if err := fillSslClientCert(ctx, config, credentials); err != nil {
+			return err
+		}
+	case model.PlainAuth:
+		if err := fillPlainSaslAuth(ctx, config, credentials); err != nil {
+			return err
+		}
+	case model.SslCertPlusPlain:
+		if useTls {
+			if err := fillSslClientCert(ctx, config, credentials); err != nil {
+				return err
+			}
+		} else {
+			log.DebugC(ctx, "%s SSL authorization is skipped due to using PLAINTEXT protocol", role)
+		}
+		if err := fillPlainSaslAuth(ctx, config, credentials); err != nil {
+			return err
+		}
+	case model.SCRAMAuth:
+		if err := fillSaslSCRAMAuth(ctx, config, credentials); err != nil {
+			return err
+		}
+	case model.SslCertPlusSCRAM:
+		if useTls {
+			if err := fillSslClientCert(ctx, config, credentials); err != nil {
+				return err
+			}
+		} else {
+			log.DebugC(ctx, "%s SSL authorization is skipped due to using PLAINTEXT protocol", role)
+		}
+		if err := fillSaslSCRAMAuth(ctx, config, credentials); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("kafka: %s auth is not supported by this MaaS release", credentials.GetAuthType())
+	}
+	return nil
 }
 
 func fillSslClientCert(ctx context.Context, config *sarama.Config, credentials model.KafkaCredentials) error {
@@ -108,7 +127,7 @@ func fillSslClientCert(ctx context.Context, config *sarama.Config, credentials m
 	clientKey := formatPrivateKey(auth.ClientKey)
 	cert, err := tls.X509KeyPair(clientCert, clientKey)
 	if err != nil {
-		log.ErrorC(ctx, "Admin SSL authorization has failed: %v", err)
+		log.ErrorC(ctx, "SSL authorization has failed: %v", err)
 		return err
 	}
 	config.Net.TLS.Config.Certificates = []tls.Certificate{cert}
@@ -119,7 +138,7 @@ func fillPlainSaslAuth(ctx context.Context, config *sarama.Config, credentials m
 	auth := credentials.GetBasicAuth()
 	pass, err := resolvePassword(auth.Password)
 	if err != nil {
-		log.ErrorC(ctx, "Failed to resolve admin password for kafka instance: %v", err)
+		log.ErrorC(ctx, "Failed to resolve password for kafka instance: %v", err)
 		return err
 	}
 	config.Net.SASL.Enable = true
@@ -133,7 +152,7 @@ func fillSaslSCRAMAuth(ctx context.Context, config *sarama.Config, credentials m
 	auth := credentials.GetBasicAuth()
 	pass, err := resolvePassword(auth.Password)
 	if err != nil {
-		log.ErrorC(ctx, "Failed to resolve admin password for kafka instance: %v", err)
+		log.ErrorC(ctx, "Failed to resolve password for kafka instance: %v", err)
 		return err
 	}
 	config.Net.SASL.Enable = true
