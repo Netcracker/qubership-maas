@@ -13,9 +13,8 @@ func (r RegistrationRequest) ToCompositeRegistration() *composite.CompositeRegis
 }
 
 type RegistrationResponse struct {
-	Id          string   `json:"id"`
-	Namespaces  []string `json:"namespaces"`
-	ModifyIndex *uint64  `json:"modifyIndex"`
+	Id         string   `json:"id"`
+	Namespaces []string `json:"namespaces"`
 }
 
 func NewRegistrationResponse(r *composite.CompositeRegistration) *RegistrationResponse {
