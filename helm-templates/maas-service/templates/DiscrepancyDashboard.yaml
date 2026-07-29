@@ -5,10 +5,11 @@ kind: GrafanaDashboard
 metadata:
   name: maas-discrepancy-dashboard
   labels:
-    app: grafana
     app.kubernetes.io/name: "{{ .Values.SERVICE_NAME }}"
-    app.kubernetes.io/processed-by-operator: grafana-operator
-    deployment.netcracker.com/sessionId: {{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}
+    app.kubernetes.io/part-of: 'maas'
+    app.kubernetes.io/managed-by: 'saasDeployer'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID }}'
+    app.kubernetes.io/component: monitoring
 spec:
   instanceSelector:
     matchLabels:
