@@ -285,8 +285,7 @@ status.
 Common causes, in rough order of likelihood:
 
 1. Someone operated on the broker directly instead of through the MaaS API.
-2. A namespace cleanup deleted registrations but the broker deletes failed partway.
-3. A database was restored from an older backup, so it references entities already gone from the broker.
+2. A database was restored from an older backup, so it references entities already gone from the broker.
 
 ### Cost and configuration
 
