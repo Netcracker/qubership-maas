@@ -3,6 +3,11 @@ package cr
 import (
 	"context"
 	"encoding/json"
+	"math/rand"
+	"slices"
+	"testing"
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
@@ -11,10 +16,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/kafka"
 	mock_rabbit_service "github.com/netcracker/qubership-maas/service/rabbit_service/mock"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func TestCustomResourceProcessorService_Create_Topic(t *testing.T) {

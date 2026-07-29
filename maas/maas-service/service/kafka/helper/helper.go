@@ -471,11 +471,7 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 		result.ReplicationFactor = &replicationFactor
 	}
 
-	topicResource := sarama.ConfigResource{
-		Type: sarama.TopicResource,
-		Name: topic,
-	}
-	configs, err := admin.DescribeConfig(topicResource)
+	configs, err := describeTopicConfig(admin, topic)
 	if err != nil {
 		log.ErrorC(ctx, "Failed to obtain kafka topic %s configs from kafka. Error: %v", topic, err)
 		return nil, err
@@ -580,6 +576,26 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 	if err != nil {
 		return utils.LogError(log, ctx, "error describe topics: %v: %w", topicNames, err)
 	}
+
+	resources := make([]*sarama.ConfigResource, 0, len(topicNames))
+	for _, name := range topicNames {
+		resources = append(resources, &sarama.ConfigResource{
+			Type: sarama.TopicResource,
+			Name: name,
+		})
+	}
+	configResults, err := admin.DescribeConfigs(resources, sarama.DescribeConfigsOptions{})
+	if err != nil {
+		return utils.LogError(log, ctx, "error getting topics config for: %v: %w", topicNames, err)
+	}
+	configsByName := make(map[string][]sarama.ConfigEntry, len(configResults))
+	for _, result := range configResults {
+		if result.ErrorCode != 0 {
+			return utils.LogError(log, ctx, "error getting topic's config for: %v: %w", result.Name, &sarama.DescribeConfigError{Err: result.ErrorCode, ErrMsg: result.ErrorMsg})
+		}
+		configsByName[result.Name] = result.Configs
+	}
+
 	for _, topicMetadata := range metadata {
 		if !errors.Is(topicMetadata.Err, sarama.ErrNoError) {
 			return utils.LogError(log, ctx, "kafka: failed to get topic's %s metadata: %w", topicMetadata.Name, topicMetadata.Err)
@@ -597,14 +613,7 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 			topic.ActualSettings.ReplicationFactor = &replicationFactor
 		}
 
-		topicResource := sarama.ConfigResource{
-			Type: sarama.TopicResource,
-			Name: topic.Name,
-		}
-		configs, err := admin.DescribeConfig(topicResource)
-		if err != nil {
-			return utils.LogError(log, ctx, "error getting topic's config for: %v: %w", topic.Name, err)
-		}
+		configs := configsByName[topic.Name]
 		topic.ActualSettings.Configs = make(map[string]*string, len(configs))
 		for _, configEntry := range configs {
 			configValue := configEntry.Value
@@ -617,6 +626,26 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 func IsInstanceAvailable(kafkaInstance *model.KafkaInstance) error {
 	healthChecker := NewInstanceHealthChecker(*kafkaInstance, NewHelperImpl(10*time.Second))
 	return healthChecker.IsAvailable()
+}
+
+func describeTopicConfig(admin sarama.ClusterAdmin, topic string) ([]sarama.ConfigEntry, error) {
+	results, err := admin.DescribeConfigs([]*sarama.ConfigResource{{
+		Type: sarama.TopicResource,
+		Name: topic,
+	}}, sarama.DescribeConfigsOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range results {
+		if result.Name != topic {
+			continue
+		}
+		if result.ErrorCode != 0 {
+			return nil, &sarama.DescribeConfigError{Err: result.ErrorCode, ErrMsg: result.ErrorMsg}
+		}
+		return result.Configs, nil
+	}
+	return nil, nil
 }
 
 func buildTopicDetail(topic *model.TopicRegistration) *sarama.TopicDetail {
