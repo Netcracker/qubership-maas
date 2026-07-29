@@ -2,7 +2,6 @@ package schema
 
 import (
 	"github.com/go-pg/migrations/v8"
-	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-maas/encryption"
 	"github.com/netcracker/qubership-maas/utils"
 )
@@ -30,8 +29,7 @@ func init() {
 			return err
 		}
 
-		cipherKey := configloader.GetKoanf().MustString("db.cipher.key")
-		encryptor := encryption.NewAes(cipherKey)
+		encryptor := encryption.NewAes(migrationCipherKey)
 
 		for _, c := range creds {
 			encryptedCred, err := encryptor.Encrypt(c.Password)

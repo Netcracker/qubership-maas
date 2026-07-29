@@ -43,7 +43,7 @@ func (d *DaoImpl) GetAllEntityRequestsStat(ctx context.Context) (*[]EntityReques
 }
 
 func (d *DaoImpl) AddEntityRequestStat(ctx context.Context, entityRequest *EntityRequestStat) error {
-	log.InfoC(ctx, "Adding entity request...")
+	log.InfoC(ctx, "Adding entity request for entity with name: '%s'", entityRequest.Name)
 	if err := d.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
 		result := cnn.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "namespace"}, {Name: "microservice"}, {Name: "entity_type"}, {Name: "name"}},
@@ -96,7 +96,7 @@ func (d *DaoImpl) GetMonitoringTopics(ctx context.Context) (*[]MonitoringTopic, 
 	if err := d.UsingDb(ctx, func(cnn *gorm.DB) error {
 		return cnn.Raw(
 			`SELECT  t.namespace, t.topic, t.instance as "instance_id", addresses as "broker_host"
-					FROM kafka_topics t 
+					FROM kafka_topics t
 					LEFT JOIN kafka_instances i on t.instance = i.id
 					`).Scan(&topics).Error
 	}); err != nil {

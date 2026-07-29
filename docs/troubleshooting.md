@@ -3,18 +3,22 @@
 - [MaaS troubleshooting guide](#maas-troubleshooting-guide)
   - [Why MaaS responds with Forbidden (403) error code with correct credentials](#why-maas-responds-with-forbidden-403-error-code-with-correct-credentials)
   - [Why Cloud-Core deployment fails with validation of MaaS](#why-cloud-core-deployment-fails-with-validation-of-maas)
-    - [How to check instance is registered:](#how-to-check-instance-is-registered)
+    - [How to check instance is registered](#how-to-check-instance-is-registered)
     - [How to register instance](#how-to-register-instance)
   - [Why Kafka instance could be unhealthy](#why-kafka-instance-could-be-unhealthy)
     - [Amazon case](#amazon-case)
-  - [Why maas-agent responds with Bad Gateway (502) status](#why-maas-agent-responds-with-bad-gateway-502-status)
-  - [Where to find MaaS libs examples](#where-to-find-maas-libs-examples)
-  - [My instance has crashed and I want to change it to new instance](#change-instance-after-crush)
-  - [Kafka fails with timeout](#kafka-timeout)
+  - [Change instance after crash](#change-instance-after-crash)
+  - [Kafka broker operations timeout](#kafka-broker-operations-timeout)
+  - [Recover Kafka topics and Rabbit vhosts](#recover-kafka-topics-and-rabbit-vhosts)
+    - [Single topic recovery](#single-topic-recovery)
+    - [Multiple topics recovery (namespace level)](#multiple-topics-recovery-namespace-level)
+    - [Rabbit vhost recovery (namespace level)](#rabbit-vhost-recovery-namespace-level)
+  - [Entity exists in MaaS registry but missing in Kafka or RabbitMQ](#entity-exists-in-maas-registry-but-missing-in-kafka-or-rabbitmq)
 
 ## Why MaaS responds with Forbidden (403) error code with correct credentials
-Case 1: it is MaaS clean install or rolling update error - script failing doesn't fail whole job 
-Before 3.0.0 version any sh script in deployment (openshift) folder didn't have proper error handling behavior and in case of failing of sh script, e.g. creating account manager, whole Jenkins job wouldn't fail. So if you have some problems with accounts, database or secrets check if there is any error in Jenkins job. Sometimes container could have not been created inside pod and that leads to fail of scripts. In that case just run the job again.
+Case 1: it is MaaS clean install or rolling update error - script failing doesn't fail whole job
+Before 3.0.0 version any sh script in deployment (openshift) folder didn't have proper error handling behavior and in case of failing of sh script, e.g. creating account manager, whole Jenkins job wouldn't fail.
+So if you have some problems with accounts, database or secrets check if there is any error in Jenkins job. Sometimes container could have not been created inside pod and that leads to fail of scripts. In that case just run the job again.
 
 Case 2: inappropriate role usage. Different requests require creds with different roles (agent or manager), they are mentioned in [rest_api.md](rest_api.md) file. See security model of MaaS for more info: ../README.md#security-model
 
@@ -26,12 +30,12 @@ Due to the fact, that MaaS is usually installed by Cloud Ops and then used by di
 
 There is a validation.sh script for Cloud Core, checking that at least one instance is registered either for Rabbit or Kafka. In that case, error in deployer will look like this:
 
-```
+```text
 MAAS_ROUTE_HEALTH={"postgres":{"status":"UP"},"status":"UP"}
 There are no one registered broker!
 ```
 
-### How to check instance is registered:
+### How to check instance is registered
 The easiest way is to send GET request to `/health` endpoint of MaaS.
 In case if only Kafka is registered the response should look like:
 ```json
@@ -51,14 +55,14 @@ Parameters of request depend on the broker configuration, see the description be
 
 ## Why Kafka instance could be unhealthy
 
-Reason: Kafka instance was not registered correctly. The error could look like ` Failed to create kafka admin client for [localhost:9092]: kafka: client has run out of available brokers to talk to (Is your cluster reachable?)`
-Kafka has many different ways to both authenticate users and use encryption. MaaS supports the most of such configurations, they are described here:    
+Reason: Kafka instance was not registered correctly. The error could look like `Failed to create kafka admin client for [localhost:9092]: kafka: client has run out of available brokers to talk to (Is your cluster reachable?)`
+Kafka has many different ways to both authenticate users and use encryption. MaaS supports the most of such configurations, they are described here:
 
 [rest_api.md#kafka-auth-dto](rest_api.md#kafka-auth-dto)
 
 ### Amazon case
 
-Amazon's Kafka (Amazon MSK) is fully supported by MaaS, but it could have its special namings and certificates. In case if Kafka is used without authentication, then typical configuration for instance is : 
+Amazon's Kafka (Amazon MSK) is fully supported by MaaS, but it could have its special namings and certificates. In case if Kafka is used without authentication, then typical configuration for instance is:
 
 ```json
 {
@@ -97,4 +101,23 @@ If you created topics or vhosts via MaaS then information about these entities i
 
 ### Rabbit vhost recovery (namespace level)
 [Rabbit namespace recovery](./rest_api.md#Rabbit-namespace-recovery)
+
+## Entity exists in MaaS registry but missing in Kafka or RabbitMQ
+
+Scenario: topic or vhost is present in MaaS registry, but this entity is absent in the real broker (Kafka/RabbitMQ).
+
+You have 2 options:
+
+1. Recover entities from MaaS registry to broker:
+   - for one topic use [Single topic recovery](#single-topic-recovery);
+   - for all namespace topics use [Multiple topics recovery (namespace level)](#multiple-topics-recovery-namespace-level);
+   - for Rabbit namespace vhosts use [Rabbit vhost recovery (namespace level)](#rabbit-vhost-recovery-namespace-level).
+
+2. If these entities are no longer needed or were created by mistake:
+   - delete namespace declarations:
+     - Kafka (delete all topics in namespace): [Delete Kafka topic](./rest_api.md#delete-kafka-topic)
+     - RabbitMQ (delete all vhosts in namespace): [Delete virtual host](./rest_api.md#delete-virtual-host)
+   - then remove instance registration:
+     - Kafka: [Remove Kafka instance registration](./rest_api.md#remove-kafka-instance-registration)
+     - RabbitMQ: [Remove Rabbit instance registration](./rest_api.md#remove-rabbit-instance-registration)
 

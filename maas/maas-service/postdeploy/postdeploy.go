@@ -2,16 +2,12 @@ package postdeploy
 
 import (
 	"context"
-	"fmt"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/instance"
-	"os"
 )
 
 var log logging.Logger
-
-var EtcMaaSRoot = "/etc/maas"
 
 func init() {
 	log = logging.GetLogger("postdeploy")
@@ -41,25 +37,4 @@ func RunPostdeployScripts(ctx context.Context, auth AuthService, rabbit instance
 	}
 
 	return nil
-}
-
-func readFile(ctx context.Context, path string, processor func(body []byte) error) error {
-	log.InfoC(ctx, "Check file: `%v'", path)
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		log.InfoC(ctx, "File `%s` is not exists, skip postdeploy action", path)
-		return nil
-	}
-	log.InfoC(ctx, "Load file: `%v'", path)
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("error reading `%s': %w", path, err)
-	}
-
-	if len(contents) == 0 {
-		log.InfoC(ctx, "File `%s' has empty body, skip processing", path)
-		return nil
-	}
-
-	return processor(contents)
 }

@@ -231,7 +231,7 @@ func (k KafkaInstancesDaoImpl) InsertInstanceDesignatorKafka(ctx context.Context
 
 	domainEntity, err := k.bg.FindByNamespace(ctx, instanceDesignator.Namespace)
 	if err != nil {
-		log.ErrorC(ctx, "can not get namespace domain for '%s'; use designator's instance : %w")
+		log.ErrorC(ctx, "can not get namespace domain for '%s'; use designator's instance: %v", instanceDesignator.Namespace, err)
 	}
 	if domainEntity != nil {
 		if instanceDesignator.Namespace == domainEntity.Peer {
@@ -262,7 +262,7 @@ func (k KafkaInstancesDaoImpl) InsertInstanceDesignatorKafka(ctx context.Context
 						Err:     dao.InstanceDesignatorUniqueIndexErr,
 						Message: fmt.Sprintf("Instance designator should be unique for namespace '%v', existing designator: '%+v'", instanceDesignator.Namespace, existingDesig),
 					}
-					log.ErrorC(ctx, e.Error())
+					log.ErrorC(ctx, "%s", e.Error())
 					return err
 				}
 				if k.base.IsForeignKeyIntegrityViolation(e) {
@@ -279,7 +279,7 @@ func (k KafkaInstancesDaoImpl) InsertInstanceDesignatorKafka(ctx context.Context
 								Message: fmt.Sprintf("instance designator should be linked to already existing instance, check your default instance '%v'", *instanceDesignator.DefaultInstanceId),
 							}
 						}
-						log.ErrorC(ctx, e.Error())
+						log.ErrorC(ctx, "%s", e.Error())
 						return err
 					} else {
 						log.PanicC(ctx, "Unexpected error type")

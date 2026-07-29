@@ -134,7 +134,8 @@ func (bgd *BGDomainDaoImpl) UpdateController(ctx context.Context, origin, contro
 		} else if domain == nil {
 			return fmt.Errorf("can't update controller namespace for non existing domain: %v: %w", origin, msg.BadRequest)
 		} else {
-			if domain.Controller.String == "" {
+			switch domain.Controller.String {
+			case "":
 				// need migration
 				res := cnn.Model(domain).Where(`lower(?) in (lower("origin_namespace"), lower("peer_namespace"))`, origin).UpdateColumn("controller_namespace", controller)
 				if res.Error != nil {
@@ -144,10 +145,10 @@ func (bgd *BGDomainDaoImpl) UpdateController(ctx context.Context, origin, contro
 					return fmt.Errorf("unexpected error update controller namespace value for domain: no rows updated")
 				}
 				return nil
-			} else if domain.Controller.String == controller {
+			case controller:
 				// already updated in expected value
 				return nil
-			} else {
+			default:
 				return fmt.Errorf("controller namespace already set and it differs from expected: %v, expected: %v : %w", domain.Controller.String, controller, msg.BadRequest)
 			}
 		}

@@ -14,7 +14,7 @@ import (
 
 func TestAccounts_NoOp(t *testing.T) {
 	ctx := context.Background()
-	createManagerAccount(ctx, nil)
+	assert.NoError(t, createManagerAccount(ctx, nil))
 }
 
 func TestAccounts_ManagerCreateAndUpdate(t *testing.T) {
@@ -47,7 +47,7 @@ func TestAccounts_ManagerCreateAndUpdate(t *testing.T) {
 	)
 
 	// change root folder to temp with mock content
-	EtcMaaSRoot = filepath.Join(os.TempDir())
+	utils.MaasSecretsDir = filepath.Join(os.TempDir())
 	withAccountFile(t, "manager-username", "scott", func() {
 		withAccountFile(t, "manager-password", "tiger", func() {
 			err := createManagerAccount(ctx, authService)
@@ -92,7 +92,7 @@ func TestAccounts_DeployerClientCreateAndUpdate(t *testing.T) {
 	)
 
 	// change root folder to temp with mock content
-	EtcMaaSRoot = filepath.Join(os.TempDir())
+	utils.MaasSecretsDir = filepath.Join(os.TempDir())
 	withAccountFile(t, "deployer-username", "scott", func() {
 		withAccountFile(t, "deployer-password", "tiger", func() {
 			err := createDeployerAccount(ctx, authService)
@@ -106,18 +106,22 @@ func TestAccounts_DeployerClientCreateAndUpdate(t *testing.T) {
 }
 
 func withAccountFile(t *testing.T, name string, content string, callback func()) {
-	accountsDir := filepath.Join(EtcMaaSRoot, "maas-accounts")
+	accountsDir := filepath.Join(utils.MaasSecretsDir, "maas-accounts")
 	if _, err := os.Stat(accountsDir); err != nil && os.IsNotExist(err) {
 		err = os.Mkdir(accountsDir, 0755)
 		assert.NoError(t, err)
 	}
 	path := filepath.Join(accountsDir, name)
-	_ = os.Remove(path)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		assert.NoError(t, err)
+	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
 	assert.NoError(t, err)
 	_, err = io.WriteString(file, content)
 	assert.NoError(t, err)
-	defer os.Remove(path)
+	defer func() {
+		assert.NoError(t, os.Remove(path))
+	}()
 
 	callback()
 

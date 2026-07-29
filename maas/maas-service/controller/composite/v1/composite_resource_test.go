@@ -7,8 +7,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
@@ -35,7 +36,7 @@ func TestRegistrationController_Create(t *testing.T) {
 }
 `))
 
-	resp, err := app.Test(reqNoBaseline, 100)
+	resp, err := app.Test(reqNoBaseline, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -53,7 +54,7 @@ func TestRegistrationController_Create(t *testing.T) {
 }
 `))
 
-	resp, err = app.Test(reqNamespaceToLong, 100)
+	resp, err = app.Test(reqNamespaceToLong, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -69,7 +70,7 @@ func TestRegistrationController_Create(t *testing.T) {
 			}
 		`))
 
-	resp, err = app.Test(req, 100)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
@@ -91,7 +92,7 @@ func TestRegistrationController_DeleteById(t *testing.T) {
 
 	registrationService.EXPECT().Destroy(gomock.Any(), "test-baseline")
 
-	resp, err := app.Test(req, 100)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
@@ -101,7 +102,7 @@ func TestRegistrationController_DeleteById(t *testing.T) {
 
 	registrationService.EXPECT().Destroy(gomock.Any(), "test-baseline").Return(msg.NotFound)
 
-	resp, err = app.Test(req, 100)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
@@ -118,7 +119,7 @@ func TestRegistrationController_GetAll(t *testing.T) {
 	req := httptest.NewRequest("GET", "/test", nil)
 	registrationService.EXPECT().List(gomock.Any()).Return([]composite.CompositeRegistration{}, nil).Times(1)
 	{
-		resp, err := app.Test(req, 100)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		responseBody, err := io.ReadAll(resp.Body)
@@ -133,7 +134,7 @@ func TestRegistrationController_GetAll(t *testing.T) {
 		}}, nil).Times(1)
 
 	{
-		resp, err := app.Test(req, 100)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		responseBody, err := io.ReadAll(resp.Body)
@@ -164,7 +165,7 @@ func TestRegistrationController_GetById(t *testing.T) {
 	registrationService.EXPECT().GetByBaseline(gomock.Any(), gomock.Eq("a")).Return(
 		&composite.CompositeRegistration{Id: "a", Namespaces: []string{"a", "b"}}, nil)
 
-	resp, err := app.Test(req, 100)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -180,7 +181,7 @@ func TestRegistrationController_GetById(t *testing.T) {
 	registrationService.EXPECT().GetByBaseline(gomock.Any(), "non-existing").Return(nil, nil)
 	req2 := httptest.NewRequest("GET", "/test/non-existing", nil)
 
-	resp, err = app.Test(req2, 100)
+	resp, err = app.Test(req2, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 

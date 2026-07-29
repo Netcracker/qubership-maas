@@ -12,13 +12,14 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-resty/resty/v2"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders/xrequestid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
@@ -26,8 +27,13 @@ import (
 )
 
 var log = logging.GetLogger("utils")
+var authHeaderRegex = regexp.MustCompile(`^(?i)(Basic|Bearer)\s+(\S+)$`)
 
 const RequestIdPropertyName = "requestId"
+
+type requestIDContextKeyType string
+
+const requestIDContextKey requestIDContextKeyType = RequestIdPropertyName
 
 type WaitGroupWithTimeout struct {
 	sync.WaitGroup
@@ -51,24 +57,24 @@ func (wg *WaitGroupWithTimeout) Wait(timeout time.Duration) bool {
 }
 
 func CreateContextFromString(rId string) context.Context {
-	return context.WithValue(context.Background(), RequestIdPropertyName, rId)
+	return context.WithValue(context.Background(), requestIDContextKey, rId)
 }
-func GetBasicAuth(fiberCtx *fiber.Ctx) (string, SecretString, error) {
-	var basicAuthPrefix = []byte("Basic ")
+func GetBasicAuth(fiberCtx fiber.Ctx) (string, SecretString, error) {
 	var username string
 	var password SecretString
-	auth := fiberCtx.Request().Header.Peek(fiber.HeaderAuthorization)
+	auth := string(fiberCtx.Request().Header.Peek(fiber.HeaderAuthorization))
 
 	if len(auth) == 0 {
 		return "", "", fmt.Errorf("header `%v' is empty: %w", fiber.HeaderAuthorization, msg.AuthError)
 	}
 
-	if !bytes.HasPrefix(auth, basicAuthPrefix) {
+	scheme, creds, ok := ParseAuthHeader(auth)
+	if !ok || !strings.EqualFold(scheme, "basic") {
 		return "", "", fmt.Errorf("not a basic auth, should have prefix 'Basic': %w", msg.AuthError)
 	}
 
 	// Check credentials
-	payload, err := base64.StdEncoding.DecodeString(string(auth[len(basicAuthPrefix):]))
+	payload, err := base64.StdEncoding.DecodeString(creds)
 	if err != nil {
 		return "", "", fmt.Errorf("error during decoding auth string")
 	}
@@ -84,6 +90,15 @@ func GetBasicAuth(fiberCtx *fiber.Ctx) (string, SecretString, error) {
 	}
 
 	return username, password, nil
+}
+
+func ParseAuthHeader(authHeader string) (scheme string, creds string, ok bool) {
+	groups := authHeaderRegex.FindStringSubmatch(authHeader)
+	if groups == nil || len(groups) != 3 {
+		return
+	}
+	scheme, creds = groups[1], groups[2]
+	return scheme, creds, slices.Contains([]string{"basic", "bearer"}, strings.ToLower(scheme))
 }
 
 func CompactUuid() string {
@@ -273,45 +288,76 @@ func NarrowInputToOutputStrict(input interface{}, output interface{}) error {
 	return d.Decode(output)
 }
 
-func FormatterUtil(ai interface{}, state fmt.State, verb int32) {
-	if verb == 's' || verb == 'q' {
-		switch ai.(type) {
-		case fmt.Stringer:
-			fmt.Fprint(state, ai.(fmt.Stringer).String())
-			return
-		default:
-			// override rune and use formatting code below
-			verb = 'v'
+func FormatterUtil(ai interface{}, state fmt.State, verb rune) {
+	write := func(args ...interface{}) bool {
+		if _, err := fmt.Fprint(state, args...); err != nil {
+			return false
 		}
+		return true
+	}
+	writef := func(format string, args ...interface{}) bool {
+		if _, err := fmt.Fprintf(state, format, args...); err != nil {
+			return false
+		}
+		return true
+	}
+
+	if verb == 's' || verb == 'q' {
+		if v, ok := ai.(fmt.Stringer); ok {
+			if !write(v.String()) {
+				return
+			}
+			return
+		}
+		// override rune and use formatting code below
+		verb = 'v'
 	}
 	switch verb {
 	case 'v':
 		if state.Flag('#') {
 			// Emit type before
-			fmt.Fprintf(state, "%T", ai)
+			if !writef("%T", ai) {
+				return
+			}
 		}
-		fmt.Fprint(state, "{")
+		if !write("{") {
+			return
+		}
 		tpe := reflect.TypeOf(ai)
 		val := reflect.ValueOf(ai)
 		for i := 0; i < val.NumField(); i++ {
 			if state.Flag('#') || state.Flag('+') {
-				fmt.Fprintf(state, "%s:", tpe.Field(i).Name)
+				if !writef("%s:", tpe.Field(i).Name) {
+					return
+				}
 			}
 
 			if tpe.Field(i).Tag.Get("fmt") == "obfuscate" {
-				fmt.Fprint(state, "***")
+				if !write("***") {
+					return
+				}
 			} else {
-				fmt.Fprint(state, val.Field(i))
+				if !write(val.Field(i)) {
+					return
+				}
 			}
 
 			if i < val.NumField()-1 {
-				fmt.Fprint(state, " ") // field values separator
+				if !write(" ") { // field values separator
+					return
+				}
 			}
 		}
-		fmt.Fprint(state, "}")
+		if !write("}") {
+			return
+		}
 	default:
-		fmt.Fprintf(state, "Unsupported format: ")
-		fmt.Fprint(state, string(verb))
+		if !writef("Unsupported format: ") {
+			return
+		}
+		if !write(string(verb)) {
+			return
+		}
 	}
 }
 
@@ -426,7 +472,7 @@ func CancelableSleep(ctx context.Context, amount time.Duration) bool {
 
 func LogError(log logging.Logger, ctx context.Context, format string, args ...any) error {
 	s := fmt.Errorf(format, args...)
-	log.ErrorC(ctx, s.Error())
+	log.ErrorC(ctx, "%s", s.Error())
 	return s
 }
 
@@ -446,7 +492,7 @@ func MatchPattern(ctx context.Context, pattern string, value any) bool {
 	}
 	match, err := path.Match(pattern, v)
 	if err != nil {
-		log.ErrorC(ctx, "can not match '%s' with '%s': %w", value, pattern, err)
+		log.ErrorC(ctx, "can not match '%s' with '%s': %v", value, pattern, err)
 		return false
 	}
 	return match

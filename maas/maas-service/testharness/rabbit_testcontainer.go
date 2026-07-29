@@ -7,11 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/testcontainers/testcontainers-go/wait"
-
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type TestRabbit struct {
@@ -42,10 +40,7 @@ func newTestRabbit(t *testing.T) *TestRabbit {
 	req := testcontainers.ContainerRequest{
 		Image:        "rabbitmq:3.13.6-management",
 		ExposedPorts: []string{"15672/tcp", "5672/tcp"},
-		HostConfigModifier: func(config *container.HostConfig) {
-			config.AutoRemove = true
-		},
-		WaitingFor: wait.ForLog(".*startup complete.*").AsRegexp().WithOccurrence(1).WithStartupTimeout(5 * time.Minute),
+		WaitingFor:   wait.ForLog(".*startup complete.*").AsRegexp().WithOccurrence(1).WithStartupTimeout(5 * time.Minute),
 	}
 	rabbit, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
@@ -72,7 +67,7 @@ func newTestRabbit(t *testing.T) *TestRabbit {
 		defer cancel()
 		p, err := rabbit.MappedPort(ctx, "15672")
 		require.NoError(t, err)
-		tdb.apiPort = p.Int()
+		tdb.apiPort = int(p.Num())
 	}
 
 	{ // get port
@@ -80,7 +75,7 @@ func newTestRabbit(t *testing.T) *TestRabbit {
 		defer cancel()
 		p, err := rabbit.MappedPort(ctx, "5672")
 		require.NoError(t, err)
-		tdb.amqpPort = p.Int()
+		tdb.amqpPort = int(p.Num())
 	}
 
 	t.Logf("Rabbit test container endpoint: %+v\n", tdb)
@@ -105,9 +100,10 @@ func (db *TestRabbit) Close(t *testing.T) {
 		if err == nil {
 			return
 		}
-		// If container is already being removed, that's okay
-		if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") {
-			t.Logf("Container already being removed, continuing...")
+		// Container already gone — either AutoRemove fired or another cleanup path ran first
+		if strings.Contains(err.Error(), "removal of container") && strings.Contains(err.Error(), "is already in progress") ||
+			strings.Contains(err.Error(), "No such container") {
+			t.Logf("Container already removed, continuing...")
 			return
 		}
 		if i < 2 {

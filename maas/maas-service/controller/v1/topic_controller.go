@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/service/auth"
@@ -31,7 +31,7 @@ func NewTopicController(service kafka.KafkaService, authService auth.AuthService
 // @Failure 409 {object}	map[string]string
 // @Failure 410 {object}	map[string]string
 // @Router /api/v1/kafka/topic [post]
-func (c *TopicController) GetOrCreateTopic(fiberCtx *fiber.Ctx, topicRegistrationReqDto *model.TopicRegistrationReqDto) error {
+func (c *TopicController) GetOrCreateTopic(fiberCtx fiber.Ctx, topicRegistrationReqDto *model.TopicRegistrationReqDto) error {
 	return c.TopicController.GetOrCreateTopic(fiberCtx, topicRegistrationReqDto, func(dto *model.TopicRegistrationRespDto) {
 		if dto != nil && dto.RequestedSettings != nil {
 			dto.RequestedSettings.MinNumPartitions = nil
@@ -51,7 +51,7 @@ func (c *TopicController) GetOrCreateTopic(fiberCtx *fiber.Ctx, topicRegistratio
 // @Failure 500 {object}	map[string]string
 // @Failure 400 {object}	map[string]string
 // @Router /api/v1/kafka/topic/search [post]
-func (c *TopicController) SearchTopics(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) SearchTopics(fiberCtx fiber.Ctx) error {
 	return c.TopicController.SearchTopics(fiberCtx, func(dtos []*model.TopicRegistrationRespDto) {
 		for _, dto := range dtos {
 			if dto != nil && dto.RequestedSettings != nil {
@@ -75,7 +75,7 @@ func (c *TopicController) SearchTopics(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}	map[string]string
 // @Failure 403 {object}	map[string]string
 // @Router /api/v1/kafka/topic/get-by-classifier [post]
-func (c *TopicController) GetTopicByClassifier(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) GetTopicByClassifier(fiberCtx fiber.Ctx) error {
 	return c.TopicController.GetTopicByClassifier(fiberCtx, func(dto *model.TopicRegistrationRespDto) {
 		if dto != nil && dto.RequestedSettings != nil {
 			dto.RequestedSettings.MinNumPartitions = nil

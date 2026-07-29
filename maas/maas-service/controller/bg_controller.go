@@ -2,14 +2,15 @@ package controller
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/service/bg_service"
 	"github.com/netcracker/qubership-maas/utils"
-	"net/http"
 )
 
 var bLog logging.Logger
@@ -39,9 +40,9 @@ func NewBgController(s bg_service.BgService, a auth.AuthService) *BgController {
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v1/bg-status [post]
-func (c *BgController) ApplyBgStatus(fiberCtx *fiber.Ctx) error {
+func (c *BgController) ApplyBgStatus(fiberCtx fiber.Ctx) error {
 
-	ctx := fiberCtx.UserContext()
+	ctx := fiberCtx.Context()
 	namespace := model.RequestContextOf(ctx).Namespace
 
 	var cpMessageDto model.CpMessageDto
@@ -75,8 +76,8 @@ func (c *BgController) ApplyBgStatus(fiberCtx *fiber.Ctx) error {
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v1/bg-status [get]
-func (c *BgController) GetBgStatusByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *BgController) GetBgStatusByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	bLog.InfoC(ctx, "Received request to get bg status by namespace ctx: %+v", model.RequestContextOf(ctx))
 	namespace := model.RequestContextOf(ctx).Namespace
 	bgStatus, err := c.bgService.GetBgStatusByNamespace(ctx, namespace)

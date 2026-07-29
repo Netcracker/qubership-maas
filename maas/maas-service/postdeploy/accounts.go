@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/utils"
-	"path/filepath"
 )
 
 //go:generate mockgen -source=accounts.go -destination=accounts_mock.go -package=postdeploy
@@ -16,10 +15,10 @@ type AuthService interface {
 }
 
 func createAccounts(ctx context.Context, account string, auth AuthService, finalizer func(username, password string) error) error {
-	usernamePath := filepath.Join(EtcMaaSRoot, "maas-accounts", account+"-username")
-	passwordPath := filepath.Join(EtcMaaSRoot, "maas-accounts", account+"-password")
-	return readFile(ctx, usernamePath, func(usernameBytes []byte) error {
-		return readFile(ctx, passwordPath, func(passwordBytes []byte) error {
+	usernamePath := utils.PathMaasAccount(account, "username")
+	passwordPath := utils.PathMaasAccount(account, "password")
+	return utils.ReadFileWithProcessor(ctx, usernamePath, func(usernameBytes []byte) error {
+		return utils.ReadFileWithProcessor(ctx, passwordPath, func(passwordBytes []byte) error {
 			username := string(usernameBytes)
 			password := string(passwordBytes)
 			log.InfoC(ctx, "Setup account: `%v`", username)

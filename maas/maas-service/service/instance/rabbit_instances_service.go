@@ -131,7 +131,7 @@ func (s *RabbitInstanceServiceImpl) DeleteRabbitInstanceDesignatorByNamespace(ct
 func (s *RabbitInstanceServiceImpl) performOperation(ctx context.Context, instance model.MessageBrokerInstance, reg func() (*model.RabbitInstance, error)) (*model.RabbitInstance, error) {
 	log.InfoC(ctx, "Perform operation with instance '%s'", instance.GetId())
 	if instance.GetId() == "" {
-		return nil, errors.New("Instance id not specified")
+		return nil, errors.New("instance id not specified")
 	}
 	instance.FillDefaults()
 

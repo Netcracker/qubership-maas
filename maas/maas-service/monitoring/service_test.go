@@ -95,10 +95,10 @@ func TestDefaultAuditor_GetAllEntityRequestsStat(t *testing.T) {
 		Times(1)
 
 	auditor := NewAuditor(auditDao, dr.Active, nil)
-	res, err := auditor.GetAllEntityRequestsStat(ctx)
+	_, err := auditor.GetAllEntityRequestsStat(ctx)
 	assert.ErrorIs(t, err, sqlError)
 
-	res, err = auditor.GetAllEntityRequestsStat(ctx)
+	res, err := auditor.GetAllEntityRequestsStat(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(*res))
 }
@@ -126,10 +126,10 @@ func TestDefaultAuditor_GetKafkaMonitoringEntities(t *testing.T) {
 		Times(1)
 
 	auditor := NewAuditor(auditDao, dr.Active, func(string) watchdog.Status { return watchdog.UP })
-	res, err := auditor.GetKafkaMonitoringEntities(ctx)
+	_, err := auditor.GetKafkaMonitoringEntities(ctx)
 	assert.ErrorIs(t, err, sqlError)
 
-	res, err = auditor.GetKafkaMonitoringEntities(ctx)
+	res, err := auditor.GetKafkaMonitoringEntities(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(*res))
 }
@@ -158,10 +158,10 @@ func TestDefaultAuditor_GetRabbitMonitoringEntities(t *testing.T) {
 		Times(1)
 
 	auditor := NewAuditor(auditDao, dr.Active, func(string) watchdog.Status { return watchdog.UP })
-	res, err := auditor.GetRabbitMonitoringEntities(ctx)
+	_, err := auditor.GetRabbitMonitoringEntities(ctx)
 	assert.ErrorIs(t, err, sqlError)
 
-	res, err = auditor.GetRabbitMonitoringEntities(ctx)
+	res, err := auditor.GetRabbitMonitoringEntities(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(*res))
 }

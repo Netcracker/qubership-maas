@@ -6,6 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/go-pg/pg/v10"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/dao"
@@ -25,9 +29,8 @@ import (
 	mock_helper "github.com/netcracker/qubership-maas/service/rabbit_service/helper/mock"
 	mock_rabbit_service "github.com/netcracker/qubership-maas/service/rabbit_service/mock"
 	"github.com/netcracker/qubership-maas/testharness"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 var (
@@ -1140,6 +1143,7 @@ func TestRabbitBg2(t *testing.T) {
 		}
 
 		found, createdVhost, err := service.GetOrCreateVhost(ctx, "test-instance", &classifier, nil)
+		assertion.NoError(err)
 		assertion.False(found)
 		assertion.NotNil(createdVhost)
 		assertion.Equal("maas.origin.test", createdVhost.Vhost)
@@ -1164,6 +1168,7 @@ func TestRabbitBg2(t *testing.T) {
 
 		//check old vhost not changed
 		getVhost, err := service.FindVhostByClassifier(ctx, &classifier)
+		assertion.NoError(err)
 		assertion.NotNil(getVhost)
 		assertion.Equal("maas.origin.test", getVhost.Vhost)
 
@@ -1664,6 +1669,122 @@ func TestRabbitServiceImpl_CleanupNamespace(t *testing.T) {
 	})
 }
 
+// TestDeleteVHost_WithExportedVhost_DeletesShovelsBeforeBaseVhost verifies that when a base
+// vhost has a paired "-exported" vhost with shovels, all shovels are deleted before the base
+// vhost itself is removed.
+func TestDeleteVHost_WithExportedVhost_DeletesShovelsBeforeBaseVhost(t *testing.T) {
+	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
+
+		testInitializer(t)
+		initDbAndDaoAndDomainAndInstance(tdb)
+		defer mockCtrl.Finish()
+
+		km.EXPECT().SecurePassword(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("km:secured", nil).AnyTimes()
+		km.EXPECT().DeletePassword(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().CreateVHost(gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().FormatCnnUrl(gomock.Any()).Return("").AnyTimes()
+		auditService.EXPECT().AddEntityRequestStat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		authService.EXPECT().CheckSecurityForBoundNamespaces(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		authService.EXPECT().CheckSecurityForSingleNamespace(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		svc := NewRabbitServiceWithHelper(rabbitDao, instanceService, km, rabbitHelperMockFunc, auditService, nil, domainService, authService).(*RabbitServiceImpl)
+
+		baseClassifier := model.Classifier{Name: "test", Namespace: namespace}
+		_, baseVhost, err := svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &baseClassifier, nil)
+		assertion.NoError(err)
+
+		exportedClassifier := model.Classifier{Name: "test-exported", Namespace: namespace}
+		_, _, err = svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &exportedClassifier, nil)
+		assertion.NoError(err)
+
+		shovels := []model.Shovel{
+			{Name: "q1-test-namespace-exported", Vhost: "maas.test-namespace.test-exported"},
+			{Name: "q2-test-namespace-exported", Vhost: "maas.test-namespace.test-exported"},
+		}
+
+		gomock.InOrder(
+			rabbitHelper.EXPECT().GetVhostShovels(gomock.Any()).Return(shovels, nil),
+			rabbitHelper.EXPECT().DeleteShovelByName(gomock.Any(), "q1-test-namespace-exported").Return(nil),
+			rabbitHelper.EXPECT().DeleteShovelByName(gomock.Any(), "q2-test-namespace-exported").Return(nil),
+			rabbitHelper.EXPECT().DeleteVHost(gomock.Any()).Return(nil),
+		)
+
+		err = svc.DeleteVHost(ctx, baseVhost)
+		assertion.NoError(err)
+	})
+}
+
+// TestDeleteVHost_WithExportedVhostNoShovels_DeletesBaseVhostDirectly verifies that when the
+// paired "-exported" vhost has no shovels, deletion proceeds without any DeleteShovelByName
+// calls.
+func TestDeleteVHost_WithExportedVhostNoShovels_DeletesBaseVhostDirectly(t *testing.T) {
+	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
+
+		testInitializer(t)
+		initDbAndDaoAndDomainAndInstance(tdb)
+		defer mockCtrl.Finish()
+
+		km.EXPECT().SecurePassword(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("km:secured", nil).AnyTimes()
+		km.EXPECT().DeletePassword(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().CreateVHost(gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().FormatCnnUrl(gomock.Any()).Return("").AnyTimes()
+		auditService.EXPECT().AddEntityRequestStat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		authService.EXPECT().CheckSecurityForBoundNamespaces(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		authService.EXPECT().CheckSecurityForSingleNamespace(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		svc := NewRabbitServiceWithHelper(rabbitDao, instanceService, km, rabbitHelperMockFunc, auditService, nil, domainService, authService).(*RabbitServiceImpl)
+
+		baseClassifier := model.Classifier{Name: "test", Namespace: namespace}
+		_, baseVhost, err := svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &baseClassifier, nil)
+		assertion.NoError(err)
+
+		exportedClassifier := model.Classifier{Name: "test-exported", Namespace: namespace}
+		_, _, err = svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &exportedClassifier, nil)
+		assertion.NoError(err)
+
+		rabbitHelper.EXPECT().GetVhostShovels(gomock.Any()).Return([]model.Shovel{}, nil)
+		rabbitHelper.EXPECT().DeleteVHost(gomock.Any()).Return(nil)
+
+		err = svc.DeleteVHost(ctx, baseVhost)
+		assertion.NoError(err)
+	})
+}
+
+// TestDeleteVHost_ExportedVhostItself_SkipsShovelLookup verifies that deleting an "-exported"
+// vhost directly does not trigger any shovel lookup or cleanup (shovels are owned by that
+// vhost and are removed by RabbitMQ automatically on vhost deletion).
+func TestDeleteVHost_ExportedVhostItself_SkipsShovelLookup(t *testing.T) {
+	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
+
+		testInitializer(t)
+		initDbAndDaoAndDomainAndInstance(tdb)
+		defer mockCtrl.Finish()
+
+		km.EXPECT().SecurePassword(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("km:secured", nil).AnyTimes()
+		km.EXPECT().DeletePassword(gomock.Any(), gomock.Any()).Return(nil)
+		rabbitHelper.EXPECT().CreateVHost(gomock.Any()).Return(nil).AnyTimes()
+		rabbitHelper.EXPECT().FormatCnnUrl(gomock.Any()).Return("").AnyTimes()
+		auditService.EXPECT().AddEntityRequestStat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		authService.EXPECT().CheckSecurityForBoundNamespaces(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		authService.EXPECT().CheckSecurityForSingleNamespace(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+		svc := NewRabbitServiceWithHelper(rabbitDao, instanceService, km, rabbitHelperMockFunc, auditService, nil, domainService, authService).(*RabbitServiceImpl)
+
+		exportedClassifier := model.Classifier{Name: "test-exported", Namespace: namespace}
+		_, exportedVhost, err := svc.GetOrCreateVhost(ctx, rabbitInstance.Id, &exportedClassifier, nil)
+		assertion.NoError(err)
+
+		// GetVhostShovels must NOT be called — any unexpected call will fail the test via mockCtrl
+		rabbitHelper.EXPECT().DeleteVHost(gomock.Any()).Return(nil)
+
+		err = svc.DeleteVHost(ctx, exportedVhost)
+		assertion.NoError(err)
+	})
+}
+
 func TestRabbitServiceImpl_GetLazyBindings(t *testing.T) {
 	testharness.WithSharedTestDatabase(t, func(tdb *testharness.TestDatabase) {
 
@@ -1800,4 +1921,503 @@ func TestRegistrationService_RotatePassword(t *testing.T) {
 
 	})
 
+}
+
+func TestRabbitServiceImpl_ProcessExportedVhost_ShovelCleanup(t *testing.T) {
+	namespace := "test-namespace"
+	originNamespace := "origin"
+	peerNamespace := "peer"
+
+	bgState := &domain.BGState{
+		ControllerNamespace: "controller",
+		Origin: &domain.BGNamespace{
+			Name:    originNamespace,
+			State:   "active",
+			Version: "v1",
+		},
+		Peer: &domain.BGNamespace{
+			Name:    peerNamespace,
+			State:   "candidate",
+			Version: "v2",
+		},
+		UpdateTime: time.Now(),
+	}
+
+	// Test case 1: Cleanup orphaned shovels
+	t.Run("CleanupOrphanedShovels", func(t *testing.T) {
+		testInitializer(t)
+		defer mockCtrl.Finish()
+
+		// Setup
+		mockBgDomainService := mock_domain.NewMockBGDomainService(mockCtrl)
+		rabbitService := NewRabbitServiceWithHelper(
+			mockRabbitDao,
+			rabbitInstanceServiceMock,
+			km,
+			rabbitHelperMockFunc,
+			auditService,
+			nil,
+			mockBgDomainService,
+			authService,
+		)
+
+		// Mock bgState retrieval
+		mockBgDomainService.EXPECT().
+			GetCurrentBgStateByNamespace(gomock.Any(), namespace).
+			Return(bgState, nil).
+			Times(1)
+
+		// ProcessExportedVhost runs exported-vhost work under WithLock; mock executes callback
+		mockRabbitDao.EXPECT().
+			WithLock(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, lock string, f func(ctx context.Context) error) error {
+				return f(ctx)
+			}).
+			Times(1)
+
+		// Setup: Need at least one vhost to trigger the cleanup logic
+		originVhost := &model.VHostRegistration{
+			Id:        1,
+			Vhost:     "test",
+			Namespace: originNamespace,
+			Classifier: model.Classifier{
+				Name:      "test",
+				Namespace: originNamespace,
+			}.String(),
+		}
+
+		exportedVhost := &model.VHostRegistration{
+			Id:        2,
+			Vhost:     "test-exported",
+			Namespace: originNamespace,
+			Classifier: model.Classifier{
+				Name:      "test-exported",
+				Namespace: originNamespace,
+			}.String(),
+		}
+
+		// Mock FindVhostsByNamespace - return origin vhost
+		mockRabbitDao.EXPECT().
+			FindVhostsByNamespace(gomock.Any(), namespace).
+			Return([]model.VHostRegistration{*originVhost}, nil).
+			Times(1)
+
+		// Mock FindVhostByClassifier - return origin vhost for origin namespace, exported vhost for exported classifier
+		mockRabbitDao.EXPECT().
+			FindVhostByClassifier(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, classifier model.Classifier) (*model.VHostRegistration, error) {
+				// Check if it's the exported classifier (has -exported suffix)
+				if strings.HasSuffix(classifier.Name, "-exported") {
+					return exportedVhost, nil
+				}
+				if classifier.Namespace == originNamespace {
+					return originVhost, nil
+				}
+				if classifier.Namespace == peerNamespace {
+					return nil, nil // Peer vhost doesn't exist in this test
+				}
+				return nil, nil
+			}).
+			AnyTimes()
+
+		// Mock GetRabbitEntitiesByVhostId - return empty (no exported entities)
+		mockRabbitDao.EXPECT().
+			GetRabbitEntitiesByVhostId(gomock.Any(), gomock.Any()).
+			Return([]model.RabbitEntity{}, nil).
+			AnyTimes()
+
+		// Mock GetVhostQueues - return empty
+		rabbitHelper.EXPECT().
+			GetVhostQueues(gomock.Any()).
+			Return([]model.Queue{}, nil).
+			AnyTimes()
+
+		// Mock GetVhostExchanges - return empty
+		rabbitHelper.EXPECT().
+			GetVhostExchanges(gomock.Any()).
+			Return([]model.Exchange{}, nil).
+			AnyTimes()
+
+		// Mock GetVhostShovels - return some orphaned shovels
+		orphanedShovels := []model.Shovel{
+			{Name: "queue1-origin-exported", Vhost: "test-exported"},
+			{Name: "queue2-peer-exported", Vhost: "test-exported"},
+			{Name: "exchange1-origin-sq-origin-exported", Vhost: "test-exported"},
+			{Name: "some-other-shovel", Vhost: "test-exported"}, // No -exported suffix, should be skipped
+		}
+
+		rabbitHelper.EXPECT().
+			GetVhostShovels(gomock.Any()).
+			Return(orphanedShovels, nil).
+			Times(1)
+
+		// Expect DeleteShovelByName to be called for orphaned shovels with -exported suffix
+		rabbitHelper.EXPECT().
+			DeleteShovelByName(gomock.Any(), "queue1-origin-exported").
+			Return(nil).
+			Times(1)
+
+		rabbitHelper.EXPECT().
+			DeleteShovelByName(gomock.Any(), "queue2-peer-exported").
+			Return(nil).
+			Times(1)
+
+		rabbitHelper.EXPECT().
+			DeleteShovelByName(gomock.Any(), "exchange1-origin-sq-origin-exported").
+			Return(nil).
+			Times(1)
+
+		// Execute
+		err := rabbitService.ProcessExportedVhost(ctx, namespace)
+		assertion.NoError(err)
+	})
+
+	// Test case 2: Keep created shovels, delete only orphaned ones
+	t.Run("KeepCreatedShovels", func(t *testing.T) {
+		testInitializer(t)
+		defer mockCtrl.Finish()
+
+		// Setup
+		mockBgDomainService := mock_domain.NewMockBGDomainService(mockCtrl)
+		rabbitService := NewRabbitServiceWithHelper(
+			mockRabbitDao,
+			rabbitInstanceServiceMock,
+			km,
+			rabbitHelperMockFunc,
+			auditService,
+			nil,
+			mockBgDomainService,
+			authService,
+		)
+
+		// Mock bgState retrieval
+		mockBgDomainService.EXPECT().
+			GetCurrentBgStateByNamespace(gomock.Any(), namespace).
+			Return(bgState, nil).
+			Times(1)
+
+		// ProcessExportedVhost runs exported-vhost work under WithLock; mock executes callback
+		mockRabbitDao.EXPECT().
+			WithLock(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, lock string, f func(ctx context.Context) error) error {
+				return f(ctx)
+			}).
+			Times(1)
+
+		// Setup exported queue scenario
+		exportedVhost := &model.VHostRegistration{
+			Id:        1,
+			Vhost:     "test-exported",
+			Namespace: originNamespace,
+			Classifier: model.Classifier{
+				Name:      "test-exported",
+				Namespace: originNamespace,
+			}.String(),
+		}
+
+		originVhost := &model.VHostRegistration{
+			Id:        2,
+			Vhost:     "test",
+			Namespace: originNamespace,
+			Classifier: model.Classifier{
+				Name:      "test",
+				Namespace: originNamespace,
+			}.String(),
+		}
+
+		peerVhost := &model.VHostRegistration{
+			Id:        3,
+			Vhost:     "test",
+			Namespace: peerNamespace,
+			Classifier: model.Classifier{
+				Name:      "test",
+				Namespace: peerNamespace,
+			}.String(),
+		}
+
+		// Mock FindVhostsByNamespace - return origin vhost
+		mockRabbitDao.EXPECT().
+			FindVhostsByNamespace(gomock.Any(), namespace).
+			Return([]model.VHostRegistration{*originVhost}, nil).
+			Times(1)
+
+		// Mock FindVhostByClassifier for origin namespace
+		mockRabbitDao.EXPECT().
+			FindVhostByClassifier(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, classifier model.Classifier) (*model.VHostRegistration, error) {
+				if classifier.Namespace == originNamespace {
+					return originVhost, nil
+				}
+				if classifier.Namespace == peerNamespace {
+					return peerVhost, nil
+				}
+				// For exported classifier
+				return exportedVhost, nil
+			}).
+			AnyTimes()
+
+		// Mock GetRabbitEntitiesByVhostId - return exported queue
+		exportedQueueEntity := model.RabbitEntity{
+			EntityName:   sql.NullString{String: "queue1", Valid: true},
+			EntityType:   "queue",
+			ClientEntity: map[string]interface{}{"name": "queue1", "exported": true, "durable": true},
+		}
+
+		mockRabbitDao.EXPECT().
+			GetRabbitEntitiesByVhostId(gomock.Any(), originVhost.Id).
+			Return([]model.RabbitEntity{exportedQueueEntity}, nil).
+			Times(1)
+
+		mockRabbitDao.EXPECT().
+			GetRabbitEntitiesByVhostId(gomock.Any(), peerVhost.Id).
+			Return([]model.RabbitEntity{exportedQueueEntity}, nil).
+			Times(1)
+
+		// Mock CreateQueue
+		rabbitHelper.EXPECT().
+			CreateQueue(gomock.Any(), gomock.Any()).
+			Return(nil, "", nil).
+			AnyTimes()
+
+		// Mock CreateShovelForExportedQueue - return created shovel names
+		rabbitHelper.EXPECT().
+			CreateShovelForExportedQueue(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return([]string{"queue1-origin-exported", "queue1-peer-exported"}, nil).
+			Times(1)
+
+		// Mock GetVhostQueues
+		rabbitHelper.EXPECT().
+			GetVhostQueues(gomock.Any()).
+			Return([]model.Queue{}, nil).
+			AnyTimes()
+
+		// Mock GetVhostExchanges
+		rabbitHelper.EXPECT().
+			GetVhostExchanges(gomock.Any()).
+			Return([]model.Exchange{}, nil).
+			AnyTimes()
+
+		// Mock GetVhostShovels - return mix of created and orphaned shovels
+		allShovels := []model.Shovel{
+			{Name: "queue1-origin-exported", Vhost: "test-exported"},  // Created, should be kept
+			{Name: "queue1-peer-exported", Vhost: "test-exported"},    // Created, should be kept
+			{Name: "orphaned-queue-exported", Vhost: "test-exported"}, // Orphaned, should be deleted
+			{Name: "regular-shovel", Vhost: "test-exported"},          // No -exported suffix, should be skipped
+		}
+
+		rabbitHelper.EXPECT().
+			GetVhostShovels(gomock.Any()).
+			Return(allShovels, nil).
+			Times(1)
+
+		// Expect DeleteShovelByName only for orphaned shovel
+		rabbitHelper.EXPECT().
+			DeleteShovelByName(gomock.Any(), "orphaned-queue-exported").
+			Return(nil).
+			Times(1)
+
+		// Execute
+		err := rabbitService.ProcessExportedVhost(ctx, namespace)
+		assertion.NoError(err)
+	})
+
+	// Test case 3: Cleanup for exchange shovels
+	t.Run("CleanupExchangeShovels", func(t *testing.T) {
+		testInitializer(t)
+		defer mockCtrl.Finish()
+
+		// Setup
+		mockBgDomainService := mock_domain.NewMockBGDomainService(mockCtrl)
+		rabbitService := NewRabbitServiceWithHelper(
+			mockRabbitDao,
+			rabbitInstanceServiceMock,
+			km,
+			rabbitHelperMockFunc,
+			auditService,
+			nil,
+			mockBgDomainService,
+			authService,
+		)
+
+		// Mock bgState retrieval
+		mockBgDomainService.EXPECT().
+			GetCurrentBgStateByNamespace(gomock.Any(), namespace).
+			Return(bgState, nil).
+			Times(1)
+
+		// ProcessExportedVhost runs exported-vhost work under WithLock; mock executes callback
+		mockRabbitDao.EXPECT().
+			WithLock(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, lock string, f func(ctx context.Context) error) error {
+				return f(ctx)
+			}).
+			Times(1)
+
+		// Similar setup but for exchanges
+		exportedVhost := &model.VHostRegistration{
+			Id:        1,
+			Vhost:     "test-exported",
+			Namespace: originNamespace,
+			Classifier: model.Classifier{
+				Name:      "test-exported",
+				Namespace: originNamespace,
+			}.String(),
+		}
+
+		originVhost := &model.VHostRegistration{
+			Id:        2,
+			Vhost:     "test",
+			Namespace: originNamespace,
+			Classifier: model.Classifier{
+				Name:      "test",
+				Namespace: originNamespace,
+			}.String(),
+		}
+
+		peerVhost := &model.VHostRegistration{
+			Id:        3,
+			Vhost:     "test",
+			Namespace: peerNamespace,
+			Classifier: model.Classifier{
+				Name:      "test",
+				Namespace: peerNamespace,
+			}.String(),
+		}
+
+		mockRabbitDao.EXPECT().
+			FindVhostsByNamespace(gomock.Any(), namespace).
+			Return([]model.VHostRegistration{*originVhost}, nil).
+			Times(1)
+
+		mockRabbitDao.EXPECT().
+			FindVhostByClassifier(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, classifier model.Classifier) (*model.VHostRegistration, error) {
+				if classifier.Namespace == originNamespace {
+					return originVhost, nil
+				}
+				if classifier.Namespace == peerNamespace {
+					return peerVhost, nil
+				}
+				return exportedVhost, nil
+			}).
+			AnyTimes()
+
+		// Mock exported exchange
+		exportedExchangeEntity := model.RabbitEntity{
+			EntityName:   sql.NullString{String: "exchange1", Valid: true},
+			EntityType:   "exchange",
+			ClientEntity: map[string]interface{}{"name": "exchange1", "exported": true, "type": "topic"},
+		}
+
+		mockRabbitDao.EXPECT().
+			GetRabbitEntitiesByVhostId(gomock.Any(), originVhost.Id).
+			Return([]model.RabbitEntity{exportedExchangeEntity}, nil).
+			Times(1)
+
+		mockRabbitDao.EXPECT().
+			GetRabbitEntitiesByVhostId(gomock.Any(), peerVhost.Id).
+			Return([]model.RabbitEntity{exportedExchangeEntity}, nil).
+			Times(1)
+
+		// Mock createVersionRouterWithItsAE
+		rabbitHelper.EXPECT().
+			CreateExchange(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, exchange interface{}) (interface{}, string, error) {
+				// Return a valid exchange map after creation
+				exchangeMap := make(map[string]interface{})
+				if name, err := utils.ExtractName(exchange); err == nil {
+					exchangeMap["name"] = name
+					if m, ok := exchange.(map[string]interface{}); ok {
+						for k, v := range m {
+							exchangeMap[k] = v
+						}
+					}
+				}
+				return &exchangeMap, "", nil
+			}).
+			AnyTimes()
+
+		rabbitHelper.EXPECT().
+			GetExchange(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, exchange interface{}) (interface{}, error) {
+				// Return a valid exchange map
+				exchangeMap := make(map[string]interface{})
+				if name, err := utils.ExtractName(exchange); err == nil {
+					exchangeMap["name"] = name
+					if m, ok := exchange.(map[string]interface{}); ok {
+						for k, v := range m {
+							exchangeMap[k] = v
+						}
+					}
+				}
+				return &exchangeMap, nil
+			}).
+			AnyTimes()
+
+		rabbitHelper.EXPECT().
+			CreateBinding(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, binding interface{}) (interface{}, string, error) {
+				// Return a valid binding map after creation
+				bindingMap := make(map[string]interface{})
+				if m, ok := binding.(map[string]interface{}); ok {
+					for k, v := range m {
+						bindingMap[k] = v
+					}
+				}
+				return &bindingMap, "", nil
+			}).
+			AnyTimes()
+
+		rabbitHelper.EXPECT().
+			GetBinding(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, binding interface{}) (interface{}, error) {
+				// Return a valid binding map
+				bindingMap := make(map[string]interface{})
+				if m, ok := binding.(map[string]interface{}); ok {
+					for k, v := range m {
+						bindingMap[k] = v
+					}
+				}
+				return &bindingMap, nil
+			}).
+			AnyTimes()
+
+		// Mock CreateQueuesAndShovelsForExportedExchange
+		rabbitHelper.EXPECT().
+			CreateQueuesAndShovelsForExportedExchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return([]string{"exchange1-origin-sq-origin-exported", "exchange1-peer-sq-peer-exported"}, nil).
+			Times(1)
+
+		rabbitHelper.EXPECT().
+			GetVhostQueues(gomock.Any()).
+			Return([]model.Queue{}, nil).
+			AnyTimes()
+
+		rabbitHelper.EXPECT().
+			GetVhostExchanges(gomock.Any()).
+			Return([]model.Exchange{}, nil).
+			AnyTimes()
+
+		// Mock GetVhostShovels - return mix
+		allShovels := []model.Shovel{
+			{Name: "exchange1-origin-sq-origin-exported", Vhost: "test-exported"}, // Created, keep
+			{Name: "exchange1-peer-sq-peer-exported", Vhost: "test-exported"},     // Created, keep
+			{Name: "orphaned-exchange-sq-exported", Vhost: "test-exported"},       // Orphaned, delete
+		}
+
+		rabbitHelper.EXPECT().
+			GetVhostShovels(gomock.Any()).
+			Return(allShovels, nil).
+			Times(1)
+
+		// Expect DeleteShovelByName for orphaned shovel
+		rabbitHelper.EXPECT().
+			DeleteShovelByName(gomock.Any(), "orphaned-exchange-sq-exported").
+			Return(nil).
+			Times(1)
+
+		// Execute
+		err := rabbitService.ProcessExportedVhost(ctx, namespace)
+		assertion.NoError(err)
+	})
 }

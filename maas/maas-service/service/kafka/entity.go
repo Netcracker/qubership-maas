@@ -10,7 +10,7 @@ type TopicClassifierEntity struct {
 	Classifier model.Classifier `gorm:"serializer:json"`
 }
 
-func (_ TopicClassifierEntity) TableName() string {
+func (TopicClassifierEntity) TableName() string {
 	return "kafka_topic_classifiers"
 }
 
@@ -20,6 +20,6 @@ type TopicDefinitionClassifierEntity struct {
 	Classifier        *model.Classifier `gorm:"serializer:json"`
 }
 
-func (_ TopicDefinitionClassifierEntity) TableName() string {
+func (TopicDefinitionClassifierEntity) TableName() string {
 	return "kafka_topic_definitions_classifiers"
 }

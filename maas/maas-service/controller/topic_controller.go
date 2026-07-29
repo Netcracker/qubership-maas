@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
@@ -13,8 +16,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/kafka/helper"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/validator"
-	"net/http"
-	"time"
 )
 
 var tLog = logging.GetLogger("topic-controller")
@@ -28,8 +29,8 @@ func NewTopicController(service kafka2.KafkaService, authService auth.AuthServic
 	return &TopicController{kafkaService: service, authService: authService}
 }
 
-func (c *TopicController) GetOrCreateTopic(fiberCtx *fiber.Ctx, topicRegistrationReqDto *model.TopicRegistrationReqDto, beforeResponse func(*model.TopicRegistrationRespDto)) error {
-	ctx := fiberCtx.UserContext()
+func (c *TopicController) GetOrCreateTopic(fiberCtx fiber.Ctx, topicRegistrationReqDto *model.TopicRegistrationReqDto, beforeResponse func(*model.TopicRegistrationRespDto)) error {
+	ctx := fiberCtx.Context()
 
 	onTopicExists := model.Fail
 	if fiberCtx.Query("onTopicExists") == "merge" {
@@ -65,7 +66,7 @@ func (c *TopicController) GetOrCreateTopic(fiberCtx *fiber.Ctx, topicRegistratio
 	}
 }
 
-func (c *TopicController) GetOrCreateLazyTopic(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) GetOrCreateLazyTopic(fiberCtx fiber.Ctx) error {
 	return ExtractAndValidateClassifier(fiberCtx, func(ctx context.Context, classifier *model.Classifier) error {
 		onTopicExists := model.Fail
 		if fiberCtx.Query("onTopicExists") == "merge" {
@@ -87,7 +88,7 @@ func (c *TopicController) GetOrCreateLazyTopic(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func (c *TopicController) GetTopicByClassifier(fiberCtx *fiber.Ctx, beforeResponse func(*model.TopicRegistrationRespDto)) error {
+func (c *TopicController) GetTopicByClassifier(fiberCtx fiber.Ctx, beforeResponse func(*model.TopicRegistrationRespDto)) error {
 	return ExtractAndValidateClassifier(fiberCtx, func(ctx context.Context, classifier *model.Classifier) error {
 		topic, err := c.kafkaService.GetTopicByClassifierWithBgDomain(ctx, *classifier)
 		if err != nil {
@@ -105,8 +106,8 @@ func (c *TopicController) GetTopicByClassifier(fiberCtx *fiber.Ctx, beforeRespon
 	})
 }
 
-func (c *TopicController) SearchTopics(fiberCtx *fiber.Ctx, beforeResponse func([]*model.TopicRegistrationRespDto)) error {
-	ctx := fiberCtx.UserContext()
+func (c *TopicController) SearchTopics(fiberCtx fiber.Ctx, beforeResponse func([]*model.TopicRegistrationRespDto)) error {
+	ctx := fiberCtx.Context()
 
 	tLog.InfoC(ctx, "Received request to search topics by criteria %s, ctx: %+v", string(fiberCtx.Body()), model.RequestContextOf(ctx))
 	var searchCriteria model.TopicSearchRequest
@@ -139,7 +140,7 @@ func (c *TopicController) SearchTopics(fiberCtx *fiber.Ctx, beforeResponse func(
 // @Failure 405 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v1/kafka/topic [delete]
-func (c *TopicController) DeleteTopic(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) DeleteTopic(fiberCtx fiber.Ctx) error {
 	var searchCriteria model.TopicSearchRequest
 	return extractRequestDto(fiberCtx, &searchCriteria, func(ctx context.Context) error {
 		tLog.InfoC(ctx, "Received request to delete topics %s ctx: %+v", string(fiberCtx.Body()), model.RequestContextOf(ctx))
@@ -172,10 +173,10 @@ func (c *TopicController) DeleteTopic(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array}    model.KafkaTopicSyncReport
 // @Failure 500 {object}	map[string]string
 // @Router /api/v2/kafka/recovery/{namespace} [post]
-func (c *TopicController) SyncAllTopicsToKafka(fiberCtx *fiber.Ctx) error {
-	report, err := c.kafkaService.SyncAllTopicsToKafka(fiberCtx.UserContext(), fiberCtx.Params("namespace"))
+func (c *TopicController) SyncAllTopicsToKafka(fiberCtx fiber.Ctx) error {
+	report, err := c.kafkaService.SyncAllTopicsToKafka(fiberCtx.Context(), fiberCtx.Params("namespace"))
 	if err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "can not sync topics to kafka: %s", err.Error())
+		return utils.LogError(log, fiberCtx.Context(), "can not sync topics to kafka: %s", err.Error())
 	}
 
 	return RespondWithJson(fiberCtx, http.StatusOK, report)
@@ -192,7 +193,7 @@ func (c *TopicController) SyncAllTopicsToKafka(fiberCtx *fiber.Ctx) error {
 // @Failure 403 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v2/kafka/recover-topic [post]
-func (c *TopicController) SyncTopicToKafka(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) SyncTopicToKafka(fiberCtx fiber.Ctx) error {
 	return ExtractAndValidateClassifier(fiberCtx, func(ctx context.Context, classifier *model.Classifier) error {
 		report, err := c.kafkaService.SyncTopicToKafka(ctx, *classifier)
 		if err != nil {
@@ -203,8 +204,8 @@ func (c *TopicController) SyncTopicToKafka(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func (c *TopicController) GetKafkaTopicTemplatesByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *TopicController) GetKafkaTopicTemplatesByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	tLog.InfoC(ctx, "Received request to get all topic templates %s ctx: %+v", string(fiberCtx.Body()), model.RequestContextOf(ctx))
 	templates, err := c.kafkaService.GetKafkaTopicTemplatesByNamespace(ctx, model.RequestContextOf(ctx).Namespace)
@@ -215,7 +216,7 @@ func (c *TopicController) GetKafkaTopicTemplatesByNamespace(fiberCtx *fiber.Ctx)
 	return RespondWithJson(fiberCtx, http.StatusOK, templates)
 }
 
-func (c *TopicController) DeleteTemplate(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) DeleteTemplate(fiberCtx fiber.Ctx) error {
 	var topicTemplateDto model.TopicTemplateReqDto
 	return extractRequestDto(fiberCtx, &topicTemplateDto, func(ctx context.Context) error {
 		tLog.InfoC(ctx, "Received request to delete topic template %s ctx: %+v", string(fiberCtx.Body()), model.RequestContextOf(ctx))
@@ -234,7 +235,7 @@ func (c *TopicController) DeleteTemplate(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func (c *TopicController) DefineLazyTopic(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) DefineLazyTopic(fiberCtx fiber.Ctx) error {
 	var topicDto model.TopicRegistrationReqDto
 	return extractRequestDto(fiberCtx, &topicDto, func(ctx context.Context) error {
 		namespace := model.RequestContextOf(ctx).Namespace
@@ -272,8 +273,8 @@ func (c *TopicController) DefineLazyTopic(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func (c *TopicController) GetLazyTopicsByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *TopicController) GetLazyTopicsByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	tLog.InfoC(ctx, "Received request to get all lazy topics by namespace ctx: %+v", model.RequestContextOf(ctx))
 	topics, err := c.kafkaService.GetTopicDefinitionsByNamespaceAndKind(ctx, model.RequestContextOf(ctx).Namespace, model.TopicDefinitionKindLazy)
@@ -283,8 +284,8 @@ func (c *TopicController) GetLazyTopicsByNamespace(fiberCtx *fiber.Ctx) error {
 	return RespondWithJson(fiberCtx, http.StatusOK, topics)
 }
 
-func (c *TopicController) GetTenantTopicsByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *TopicController) GetTenantTopicsByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	tLog.InfoC(ctx, "Received request to get all tenant topics by namespace ctx: %+v", model.RequestContextOf(ctx))
 	topics, err := c.kafkaService.GetTopicDefinitionsByNamespaceAndKind(ctx, model.RequestContextOf(ctx).Namespace, model.TopicDefinitionKindTenant)
@@ -297,7 +298,7 @@ func (c *TopicController) GetTenantTopicsByNamespace(fiberCtx *fiber.Ctx) error 
 	return RespondWithJson(fiberCtx, http.StatusOK, topics)
 }
 
-func (c *TopicController) DeleteLazyTopic(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) DeleteLazyTopic(fiberCtx fiber.Ctx) error {
 	return checkNamespacePermissions(fiberCtx, func(ctx context.Context, namespace string, classifier model.Classifier) error {
 		lazyTopic, err := c.kafkaService.DeleteTopicDefinition(ctx, &classifier)
 		if err != nil {
@@ -311,7 +312,7 @@ func (c *TopicController) DeleteLazyTopic(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func (c *TopicController) DeleteTenantTopic(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) DeleteTenantTopic(fiberCtx fiber.Ctx) error {
 	return checkNamespacePermissions(fiberCtx, func(ctx context.Context, namespace string, classifier model.Classifier) error {
 		tLog.InfoC(ctx, "Received request to delete tenant topic definition by `%+v', ctx: %+v", classifier, model.RequestContextOf(ctx))
 		tenantTopic, err := c.kafkaService.DeleteTopicDefinition(ctx, &classifier)
@@ -343,11 +344,11 @@ func (c *TopicController) DeleteTenantTopic(fiberCtx *fiber.Ctx) error {
 // @Failure 405 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v2/kafka/topic/watch-create [post]
-func (c *TopicController) WatchTopicsCreate(fiberCtx *fiber.Ctx) error {
+func (c *TopicController) WatchTopicsCreate(fiberCtx fiber.Ctx) error {
 	requestTimeoutStr := fiberCtx.Query("timeout", "120s")
 	requestTimeout, err := time.ParseDuration(requestTimeoutStr)
 	if err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "invalid timeout value: %v: %s: %w", requestTimeoutStr, err.Error(), msg.BadRequest)
+		return utils.LogError(log, fiberCtx.Context(), "invalid timeout value: %v: %s: %w", requestTimeoutStr, err.Error(), msg.BadRequest)
 	}
 
 	return extractNamespace(fiberCtx, func(namespace string) error {
@@ -362,11 +363,11 @@ func (c *TopicController) WatchTopicsCreate(fiberCtx *fiber.Ctx) error {
 				}
 			}
 
-			fiberCtx.Context().Response.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+			fiberCtx.RequestCtx().Response.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 			// Don't cache response:
-			fiberCtx.Context().Response.Header.Set(fiber.HeaderCacheControl, "no-cache, no-store, must-revalidate") // HTTP 1.1.
-			fiberCtx.Context().Response.Header.Set(fiber.HeaderPragma, "no-cache")                                  // HTTP 1.0.
-			fiberCtx.Context().Response.Header.Set(fiber.HeaderExpires, "0")
+			fiberCtx.RequestCtx().Response.Header.Set(fiber.HeaderCacheControl, "no-cache, no-store, must-revalidate") // HTTP 1.1.
+			fiberCtx.RequestCtx().Response.Header.Set(fiber.HeaderPragma, "no-cache")                                  // HTTP 1.0.
+			fiberCtx.RequestCtx().Response.Header.Set(fiber.HeaderExpires, "0")
 
 			found, err := c.kafkaService.WatchTopicsCreate(ctx, classifiers, requestTimeout)
 			if err != nil {
@@ -377,9 +378,9 @@ func (c *TopicController) WatchTopicsCreate(fiberCtx *fiber.Ctx) error {
 	})
 }
 
-func checkNamespacePermissions(fiberCtx *fiber.Ctx, f func(context.Context, string, model.Classifier) error) error {
+func checkNamespacePermissions(fiberCtx fiber.Ctx, f func(context.Context, string, model.Classifier) error) error {
 	return extractNamespace(fiberCtx, func(namespace string) error {
-		ctx := fiberCtx.UserContext()
+		ctx := fiberCtx.Context()
 		body := string(fiberCtx.Body())
 		classifier, err := model.NewClassifierFromReq(body)
 		if err != nil {
@@ -399,8 +400,8 @@ func checkNamespacePermissions(fiberCtx *fiber.Ctx, f func(context.Context, stri
 	})
 }
 
-func extractRequestDto(fiberCtx *fiber.Ctx, object any, handler func(ctx context.Context) error) error {
-	ctx := fiberCtx.UserContext()
+func extractRequestDto(fiberCtx fiber.Ctx, object any, handler func(ctx context.Context) error) error {
+	ctx := fiberCtx.Context()
 
 	body := fiberCtx.Body()
 	if len(body) == 0 {
@@ -413,8 +414,8 @@ func extractRequestDto(fiberCtx *fiber.Ctx, object any, handler func(ctx context
 	return handler(ctx)
 }
 
-func extractNamespace(fiberCtx *fiber.Ctx, handler func(namespace string) error) error {
-	rc := model.RequestContextOf(fiberCtx.UserContext())
+func extractNamespace(fiberCtx fiber.Ctx, handler func(namespace string) error) error {
+	rc := model.RequestContextOf(fiberCtx.Context())
 	if rc != nil {
 		return handler(rc.Namespace)
 	}

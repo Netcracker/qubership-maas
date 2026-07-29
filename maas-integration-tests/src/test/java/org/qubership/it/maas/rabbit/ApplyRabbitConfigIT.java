@@ -633,6 +633,48 @@ class ApplyRabbitConfigIT extends RabbitTest {
     }
 
 
+    @Test
+    public void exportedQueueChangeArgumentsFromLazyToQuorum() throws IOException {
+        Map<String, Object> lazyArguments = new HashMap<>();
+        lazyArguments.put("x-queue-mode", "lazy");
+
+        Map<String, Object> lazyQueue = new HashMap<>();
+        lazyQueue.put("name", "ApplyRabbitConfigIT-queue");
+        lazyQueue.put("exported", true);
+        lazyQueue.put("durable", true);
+        lazyQueue.put("arguments", lazyArguments);
+
+        log.info("Applying config with exported lazy queue {}", convertMapToStream(lazyQueue));
+        RabbitConfigResp.SingleReply reply = applySingleConfigWithEntities(200, null, lazyQueue, null, null, ApplyConfigOperation.CREATE);
+
+        assertEquals("ok", reply.getResult().getStatus());
+        assertNotNull(reply.getResult().getData().getEntities().getQueues());
+        assertEquals(1, reply.getResult().getData().getEntities().getQueues().length);
+
+        Map<String, Object> exportedClassifier = createSimpleClassifier("ApplyRabbitConfigIT-exported");
+        VhostConfigResponse exportedVhostAfterCreate = getRabbitVhostByClassifier(SC_OK, exportedClassifier);
+        assertNotNull(exportedVhostAfterCreate.getVhost());
+
+        Map<String, Object> quorumArguments = new HashMap<>();
+        quorumArguments.put("x-queue-type", "quorum");
+
+        Map<String, Object> quorumQueue = new HashMap<>();
+        quorumQueue.put("name", "ApplyRabbitConfigIT-queue");
+        quorumQueue.put("exported", true);
+        quorumQueue.put("durable", true);
+        quorumQueue.put("arguments", quorumArguments);
+
+        log.info("Applying config with exported quorum queue {}", convertMapToStream(quorumQueue));
+        reply = applySingleConfigWithEntities(200, null, quorumQueue, null, null, ApplyConfigOperation.CREATE);
+
+        assertEquals("ok", reply.getResult().getStatus());
+        assertNotNull(reply.getResult().getData().getEntities().getQueues());
+        assertEquals(1, reply.getResult().getData().getEntities().getQueues().length);
+
+        VhostConfigResponse exportedVhostAfterUpdate = getRabbitVhostByClassifier(SC_OK, exportedClassifier);
+        assertNotNull(exportedVhostAfterUpdate.getVhost());
+    }
+
     public Map<String, Object> getExchange() {
         Map<String, Object> exchange = new HashMap<>();
         Map<String, Object> argumentsExchange = new HashMap<>();

@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_assert "github.com/stretchr/testify/assert"
 	"math/rand"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gofiber/fiber/v3"
+	_assert "github.com/stretchr/testify/assert"
 )
 
 type void struct{}
@@ -156,10 +159,10 @@ func TestUtils_CheckChangesInOriginalSet(t *testing.T) {
 
 func TestNormalizeYaml1(t *testing.T) {
 	assert := _assert.New(t)
-	input := `  
+	input := `
 ---
 abc: cde
---- 
+---
 foo: bar
 
 `
@@ -170,7 +173,7 @@ foo: bar
 
 func TestNormalizeYaml2(t *testing.T) {
 	assert := _assert.New(t)
-	input := `  
+	input := `
 abc: "cde ---"
 `
 	actual, err := NormalizeJsonOrYamlInput(input)
@@ -211,14 +214,14 @@ func TestNormalizeJson2(t *testing.T) {
 func TestNormalizeJson_IgnoreEmptySections(t *testing.T) {
 	assert := _assert.New(t)
 	input := `
-# some text 
+# some text
 ---
 abc: cde
 
-# some other comment 
+# some other comment
 # and comments
 ---
-# and licence 
+# and licence
 `
 	actual, err := NormalizeJsonOrYamlInput(input)
 	assert.NoError(err)
@@ -230,7 +233,7 @@ type Credentials struct {
 	Password string `fmt:"obfuscate"`
 }
 
-func (v Credentials) Format(state fmt.State, verb int32) {
+func (v Credentials) Format(state fmt.State, verb rune) {
 	FormatterUtil(v, state, verb)
 }
 
@@ -267,7 +270,7 @@ func Test_cancelableSleep(t *testing.T) {
 	start := time.Now()
 	CancelableSleep(context.Background(), 1*time.Second)
 
-	if time.Now().Sub(start) < 1*time.Second {
+	if time.Since(start) < 1*time.Second {
 		assert.Fail("sleep must be cancelled")
 	}
 }
@@ -283,7 +286,7 @@ func Test_cancelableSleepCancel(t *testing.T) {
 	}()
 	CancelableSleep(ctx, 1*time.Second)
 
-	if time.Now().Sub(start) >= 1*time.Second {
+	if time.Since(start) >= 1*time.Second {
 		assert.Fail("sleep must be cancelled")
 	}
 }
@@ -422,6 +425,147 @@ func TestRootCause(t *testing.T) {
 func TestRootCause2(t *testing.T) {
 	var e1 = errors.New("oops")
 	_assert.Equal(t, e1, RootCause(e1))
+}
+
+func TestParseAuthHeader(t *testing.T) {
+	tests := []struct {
+		name   string
+		header string
+		scheme string
+		creds  string
+		ok     bool
+	}{
+		{
+			name:   "valid bearer uppercase",
+			header: "Bearer token123",
+			scheme: "Bearer",
+			creds:  "token123",
+			ok:     true,
+		},
+		{
+			name:   "valid basic uppercase",
+			header: "Basic dXNlcjpwYXNz",
+			scheme: "Basic",
+			creds:  "dXNlcjpwYXNz",
+			ok:     true,
+		},
+		{
+			name:   "valid bearer lowercase scheme",
+			header: "bearer token123",
+			scheme: "bearer",
+			creds:  "token123",
+			ok:     true,
+		},
+		{
+			name:   "extra spaces between scheme and creds",
+			header: "Bearer    token123",
+			scheme: "Bearer",
+			creds:  "token123",
+			ok:     true,
+		},
+		{
+			name:   "missing credentials",
+			header: "Basic ",
+			scheme: "",
+			creds:  "",
+			ok:     false,
+		},
+		{
+			name:   "no scheme",
+			header: "token123",
+			scheme: "",
+			creds:  "",
+			ok:     false,
+		},
+		{
+			name:   "unsupported scheme",
+			header: "Digest abcdef12345",
+			scheme: "",
+			creds:  "",
+			ok:     false,
+		},
+		{
+			name:   "trailing space after creds",
+			header: "Bearer token123 ",
+			scheme: "",
+			creds:  "",
+			ok:     false,
+		},
+		{
+			name:   "empty header",
+			header: "",
+			scheme: "",
+			creds:  "",
+			ok:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme, creds, ok := ParseAuthHeader(tt.header)
+
+			if ok != tt.ok {
+				t.Errorf("expected valid auth header %v, got %v", tt.ok, ok)
+			}
+			if scheme != tt.scheme {
+				t.Errorf("expected auth scheme %q, got %q", tt.scheme, scheme)
+			}
+			if creds != tt.creds {
+				t.Errorf("expected user creds=%q, got %q", tt.creds, creds)
+			}
+		})
+	}
+}
+
+func TestGetBasicAuth(t *testing.T) {
+	// base64("user:pass") == "dXNlcjpwYXNz"
+	const validCreds = "dXNlcjpwYXNz"
+
+	tests := []struct {
+		name    string
+		header  string
+		user    string
+		pass    string
+		wantErr bool
+	}{
+		{name: "canonical Basic", header: "Basic " + validCreds, user: "user", pass: "pass"},
+		{name: "lowercase basic", header: "basic " + validCreds, user: "user", pass: "pass"},
+		{name: "uppercase BASIC", header: "BASIC " + validCreds, user: "user", pass: "pass"},
+		{name: "mixed-case bAsIc", header: "bAsIc " + validCreds, user: "user", pass: "pass"},
+		{name: "empty header", header: "", wantErr: true},
+		{name: "not basic scheme", header: "Bearer sometoken", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert := _assert.New(t)
+
+			var (
+				gotUser string
+				gotPass SecretString
+				gotErr  error
+			)
+			app := fiber.New()
+			app.Get("/", func(c fiber.Ctx) error {
+				gotUser, gotPass, gotErr = GetBasicAuth(c)
+				return c.SendStatus(fiber.StatusOK)
+			})
+
+			req := httptest.NewRequest("GET", "/", nil)
+			if tt.header != "" {
+				req.Header.Set(fiber.HeaderAuthorization, tt.header)
+			}
+			_, err := app.Test(req)
+			assert.NoError(err)
+
+			if tt.wantErr {
+				assert.Error(gotErr)
+				return
+			}
+			assert.NoError(gotErr)
+			assert.Equal(tt.user, gotUser)
+			assert.Equal(tt.pass, string(gotPass))
+		})
+	}
 }
 
 func TestRunWithRetryValue1(t *testing.T) {

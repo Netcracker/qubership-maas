@@ -5,8 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
@@ -16,11 +21,9 @@ import (
 	v "github.com/netcracker/qubership-maas/validator"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
-	"net/http"
-	"regexp"
-	"strconv"
-	"strings"
 )
+
+type headerContextKey string
 
 const (
 	HeaderXNamespace    = "X-Origin-Namespace"
@@ -58,42 +61,80 @@ func init() {
 
 type RequestBodyHandler func(ctx context.Context) (interface{}, error)
 
-func SecurityMiddleware(roles []model.RoleName, authorize func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		userCtx := ctx.UserContext()
-		username, password, err := utils.GetBasicAuth(ctx)
-		if err != nil {
+type authorizeWithBasicFunc func(context.Context, string, utils.SecretString, string, []model.RoleName) (*model.Account, error)
+type authorizeWithTokenFunc func(context.Context, string, []model.RoleName) (*model.Account, error)
+
+func SecurityMiddleware(roles []model.RoleName, authorizeWithBasic authorizeWithBasicFunc, authorizeWithToken authorizeWithTokenFunc) fiber.Handler {
+	return func(ctx fiber.Ctx) error {
+		userCtx := ctx.Context()
+		authHeader := string(ctx.Request().Header.Peek(fiber.HeaderAuthorization))
+
+		var (
+			account *model.Account
+			// in kubernetes m2m auth composite isolation is always enabled
+			compositeIsolationDisabled = false
+		)
+
+		authScheme, creds, ok := utils.ParseAuthHeader(authHeader)
+		if !ok {
 			if slices.Contains(roles, model.AnonymousRole) {
 				log.WarnC(userCtx, "Anonymous access will be dropped in future releases for: %s", ctx.OriginalURL())
 				return ctx.Next()
 			}
-			return utils.LogError(log, userCtx, "security middleware error: %w", err)
+			return utils.LogError(log, userCtx, "request authorization failure: invalid auth header: %w", msg.AuthError)
 		}
 
-		namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
+		switch strings.ToLower(authScheme) {
+		case "basic":
+			username, password, err := utils.GetBasicAuth(ctx)
+			if err != nil {
+				return utils.LogError(log, userCtx, "security middleware error: %w", err)
+			}
 
-		acc, err := authorize(ctx.UserContext(), username, password, namespace, roles)
-		if err != nil {
-			return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			namespace := string(ctx.Request().Header.Peek(HeaderXNamespace))
+			account, err = authorizeWithBasic(userCtx, username, password, namespace, roles)
+			if err != nil {
+				return utils.LogError(log, userCtx, "request authorization failure: %w", err)
+			}
+			compositeIsolationDisabled = strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
+		case "bearer":
+			if authorizeWithToken == nil {
+				return utils.LogError(log, userCtx, "kubernetes m2m authentication is not enabled, use basic or set KUBERNETES_M2M_ENABLED=true: %w", msg.UnauthorizedError)
+			}
+
+			var err error
+			account, err = authorizeWithToken(userCtx, creds, roles)
+			if err != nil {
+				return utils.LogError(log, userCtx, "request authorization failure: %v: %w", err, msg.UnauthorizedError)
+			}
+
+			ctx.Request().Header.Add(HeaderXMicroservice, account.Username)
+			ctx.Request().Header.Add(HeaderXNamespace, account.Namespace)
+
+			rc := model.RequestContextOf(ctx.Context())
+			if rc != nil {
+				rc.Namespace = account.Namespace
+				rc.Microservice = account.Username
+			}
+		default:
+			return utils.LogError(log, userCtx, "security middleware error: %w", msg.AuthError)
 		}
 
-		compositeIsolationDisabled := strings.ToLower(string(ctx.Request().Header.Peek(HeaderXCompositeIsolationDisabled))) == "disabled"
-
-		secCtx := model.NewSecurityContext(acc, compositeIsolationDisabled)
-		ctx.SetUserContext(model.WithSecurityContext(userCtx, secCtx))
+		secCtx := model.NewSecurityContext(account, compositeIsolationDisabled)
+		ctx.SetContext(model.WithSecurityContext(userCtx, secCtx))
 		return ctx.Next()
 	}
 }
 
-func ExtractOrAttachXRequestId(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func ExtractOrAttachXRequestId(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	requestId := string(fiberCtx.Request().Header.Peek(HeaderXRequestId))
 	if requestId == "" {
 		requestId = uuid.New().String()
 		log.InfoC(ctx, "Header 'X-Request-Id' is missing, generated requestId: %v", requestId)
 	}
-	ctx = context.WithValue(ctx, HeaderXRequestId, requestId)
-	fiberCtx.SetUserContext(ctx)
+	ctx = context.WithValue(ctx, headerContextKey(HeaderXRequestId), requestId)
+	fiberCtx.SetContext(ctx)
 
 	// add request-id to response
 	fiberCtx.Set(HeaderXRequestId, requestId)
@@ -105,11 +146,11 @@ func maskPasswordInBody(originalBody string) string {
 	return passwordRegExp.ReplaceAllString(originalBody, `"password": "******",`)
 }
 
-func LogRequest(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func LogRequest(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	body := string(fiberCtx.Body())
 	if body != "" {
-		body = maskPasswordInBody(fmt.Sprintf("\n\tBody: %s", strings.Replace(body, "\n", "\n\t\t", -1)))
+		body = maskPasswordInBody(fmt.Sprintf("\n\tBody: %s", strings.ReplaceAll(body, "\n", "\n\t\t")))
 	}
 
 	auth := ""
@@ -137,8 +178,8 @@ func LogRequest(fiberCtx *fiber.Ctx) error {
 	return err
 }
 
-func ExtractRequestContext(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func ExtractRequestContext(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	requestContext := &model.RequestContext{}
 
 	namespace := string(fiberCtx.Request().Header.Peek(HeaderXNamespace))
@@ -158,13 +199,19 @@ func ExtractRequestContext(fiberCtx *fiber.Ctx) error {
 	requestContext.Version = version
 
 	ctx = model.WithRequestContext(ctx, requestContext)
-	fiberCtx.SetUserContext(ctx)
+	fiberCtx.SetContext(ctx)
 	return fiberCtx.Next()
 }
 
 // Namespace parameter shouldn't be emoty
-func RequiresNamespaceHeader(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func RequiresNamespaceHeader(fiberCtx fiber.Ctx) error {
+	// Skip namespace check for k8s m2m token requests
+	authScheme, _, ok := utils.ParseAuthHeader(fiberCtx.Get("Authorization"))
+	if ok && strings.ToLower(authScheme) == "bearer" {
+		return fiberCtx.Next()
+	}
+
+	ctx := fiberCtx.Context()
 	rc := model.RequestContextOf(ctx)
 	if rc == nil {
 		return errors.New("request context not yet extracted")
@@ -177,8 +224,8 @@ func RequiresNamespaceHeader(fiberCtx *fiber.Ctx) error {
 	return fiberCtx.Next()
 }
 
-func ParseRequestParametersFromConfig(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func ParseRequestParametersFromConfig(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	narrow := func(o interface{}, out interface{}) error {
 		m, err := json.Marshal(o)
@@ -229,25 +276,25 @@ func ParseRequestParametersFromConfig(fiberCtx *fiber.Ctx) error {
 		log.DebugC(ctx, "Version field in spec is missed")
 	}
 
-	fiberCtx.SetUserContext(model.WithRequestContext(ctx, requestContext))
+	fiberCtx.SetContext(model.WithRequestContext(ctx, requestContext))
 	return fiberCtx.Next()
 }
 
-func RespondWithJson(c *fiber.Ctx, code int, payload interface{}) error {
-	log.InfoC(c.UserContext(), "Responding with code '%v' and payload: %+v", code, payload)
+func RespondWithJson(c fiber.Ctx, code int, payload interface{}) error {
+	log.InfoC(c.Context(), "Responding with code '%v' and payload: %+v", code, payload)
 	if payload == nil {
 		return c.Status(code).Send(nil)
 	}
 	return c.Status(code).JSON(payload)
 }
 
-func Respond(c *fiber.Ctx, code int) error {
-	log.InfoC(c.UserContext(), "Responding with code '%d'", code)
+func Respond(c fiber.Ctx, code int) error {
+	log.InfoC(c.Context(), "Responding with code '%d'", code)
 	return c.Status(code).Send(nil)
 }
 
-func UnmarshalRequestBody[T any](fiberCtx *fiber.Ctx, obj T, handler func(ctx context.Context) error) error {
-	ctx := fiberCtx.UserContext()
+func UnmarshalRequestBody[T any](fiberCtx fiber.Ctx, obj T, handler func(ctx context.Context) error) error {
+	ctx := fiberCtx.Context()
 	if err := json.Unmarshal(fiberCtx.Body(), obj); err != nil {
 		return utils.LogError(log, ctx, "error unmarshall body: %v: %w", err.Error(), msg.BadRequest)
 	}
@@ -255,7 +302,7 @@ func UnmarshalRequestBody[T any](fiberCtx *fiber.Ctx, obj T, handler func(ctx co
 	return handler(ctx)
 }
 
-func TmfErrorHandler(ctx *fiber.Ctx, err error) error {
+func TmfErrorHandler(ctx fiber.Ctx, err error) error {
 	code := http.StatusInternalServerError
 	var meta map[string]string
 
@@ -278,6 +325,8 @@ func TmfErrorHandler(ctx *fiber.Ctx, err error) error {
 		code = http.StatusForbidden
 	case errors.Is(err, msg.Gone):
 		code = http.StatusGone
+	case errors.Is(err, msg.UnauthorizedError):
+		code = http.StatusUnauthorized
 	case errors.Is(err, dao.DatabaseIsNotActiveError):
 		code = http.StatusMethodNotAllowed
 	case errors.Is(err, dao.DatabaseIsReadonlyError):
@@ -297,12 +346,12 @@ func TmfErrorHandler(ctx *fiber.Ctx, err error) error {
 		NSType:  "NC.TMFErrorResponse.v1.0",
 	}
 
-	log.ErrorC(ctx.UserContext(), "[%v][%v] %s", tmfError.Code, tmfError.Id, err.Error())
+	log.ErrorC(ctx.Context(), "[%v][%v] %s", tmfError.Code, tmfError.Id, err.Error())
 	return ctx.Status(code).JSON(tmfError)
 }
 
-func ExtractAndValidateClassifier(fiberCtx *fiber.Ctx, handler func(ctx context.Context, classifier *model.Classifier) error) error {
-	ctx := fiberCtx.UserContext()
+func ExtractAndValidateClassifier(fiberCtx fiber.Ctx, handler func(ctx context.Context, classifier *model.Classifier) error) error {
+	ctx := fiberCtx.Context()
 	classifier, err := model.NewClassifierFromReq(string(fiberCtx.Body()))
 	if err != nil {
 		return utils.LogError(log, ctx, "failed to create classifier from request body: %v: %w", err.Error(), msg.BadRequest)
@@ -315,20 +364,20 @@ func ExtractAndValidateClassifier(fiberCtx *fiber.Ctx, handler func(ctx context.
 	return handler(ctx, &classifier)
 }
 
-func WithYaml[T any](next func(*fiber.Ctx, *T) error) func(*fiber.Ctx) error {
+func WithYaml[T any](next func(fiber.Ctx, *T) error) func(fiber.Ctx) error {
 	return WithBody(yaml.Unmarshal, next)
 }
 
-func WithJson[T any](next func(*fiber.Ctx, *T) error) func(*fiber.Ctx) error {
+func WithJson[T any](next func(fiber.Ctx, *T) error) func(fiber.Ctx) error {
 	return WithBody(json.Unmarshal, next)
 }
 
-func WithBody[T any](bodyParser func(data []byte, v any) error, next func(*fiber.Ctx, *T) error) func(*fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func WithBody[T any](bodyParser func(data []byte, v any) error, next func(fiber.Ctx, *T) error) func(fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		var body T
 		err := bodyParser(ctx.Body(), &body)
 		if err != nil {
-			return utils.LogError(log, ctx.UserContext(), "failed to parse body: %s: %w", err.Error(), msg.BadRequest)
+			return utils.LogError(log, ctx.Context(), "failed to parse body: %s: %w", err.Error(), msg.BadRequest)
 		}
 		if err := v.Get().Struct(body); err != nil {
 			return err

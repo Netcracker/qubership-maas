@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-errors/errors"
-	"github.com/go-resty/resty/v2"
-	"github.com/netcracker/qubership-core-lib-go/v3/logging"
-	"github.com/netcracker/qubership-maas/model"
-	"github.com/netcracker/qubership-maas/utils"
 	"io"
 	"net/http"
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/go-errors/errors"
+	"github.com/go-resty/resty/v2"
+	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/utils"
 )
 
 //go:generate mockgen -source=rabbit_helper.go -destination=mock/helper.go
@@ -55,9 +56,9 @@ type RabbitHelper interface {
 	CreatePolicy(ctx context.Context, policy interface{}) (interface{}, string, error)
 	DeletePolicy(ctx context.Context, policy interface{}) (interface{}, error)
 
-	CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) error
-	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange) error
-	DeleteShovelsForExportedVhost(ctx context.Context) error
+	CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error)
+	CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error)
+	DeleteShovelByName(ctx context.Context, shovelName string) error
 	GetVhostShovels(ctx context.Context) ([]model.Shovel, error)
 }
 
@@ -179,7 +180,7 @@ func (h RabbitHelperImpl) DeleteVHost(ctx context.Context) error {
 		nil,
 		[]int{http.StatusNoContent, http.StatusNotFound},
 		fmt.Sprintf("Error delete user: %v", vhostUsername)); err != nil {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return err
 	}
 
@@ -190,7 +191,7 @@ func (h RabbitHelperImpl) DeleteVHost(ctx context.Context) error {
 		nil,
 		[]int{http.StatusNoContent, http.StatusNotFound},
 		fmt.Sprintf("Error delete vhostName: %v", vhostName)); err != nil {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return err
 	}
 	return nil
@@ -228,7 +229,7 @@ func (h RabbitHelperImpl) getEntity(ctx context.Context, url, user, password str
 		nil,
 		[]int{http.StatusOK, http.StatusNotFound},
 		fmt.Sprintf("Error getting entity with url '%v', user '%v'", url, user)); err != nil {
-		log.ErrorC(ctx, fmt.Sprintf("Error in getEntity during DoRequest: %v", err.Error()))
+		log.ErrorC(ctx, "%s", fmt.Sprintf("Error in getEntity during DoRequest: %v", err.Error()))
 		return nil, err
 	} else {
 		if response.RawResponse.StatusCode == http.StatusNotFound {
@@ -267,7 +268,7 @@ func (h RabbitHelperImpl) CreateAdminEntity(ctx context.Context, entity interfac
 
 func (h RabbitHelperImpl) createEntity(ctx context.Context, entity interface{}, url, method, user, password string,
 	getFunc EntityAction, deleteFunc EntityAction) (interface{}, string, error) {
-	log.InfoC(ctx, "Creating entity: %v", entity)
+	log.InfoC(ctx, "Creating entity (generic): %+v", entity)
 	if initResponse, err := h.httpHelper.DoRequest(ctx, method,
 		fmt.Sprintf("%s/%s", h.instance.ApiUrl, url),
 		user, password,
@@ -277,7 +278,7 @@ func (h RabbitHelperImpl) createEntity(ctx context.Context, entity interface{}, 
 		//in binding case adding properties_key from response header
 		if strings.Contains(initResponse.Request.URL, "/api/bindings/") {
 			location := initResponse.Header().Get("Location")
-			pattern := regexp.MustCompile("^.*\\/(.*)$")
+			pattern := regexp.MustCompile(`^.*/(.*)$`)
 			groups := pattern.FindStringSubmatch(location)
 			mapEntity := entity.(map[string]interface{})
 			mapEntity["properties_key"] = groups[1]
@@ -318,15 +319,15 @@ func (h RabbitHelperImpl) createEntity(ctx context.Context, entity interface{}, 
 			reasonMap, ok := reason.(*map[string]interface{})
 			if !ok {
 				err := fmt.Errorf("error during conversion to *map[string]interface{} for '%+v'", reason)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return nil, "", err
 			}
 			return response, (*reasonMap)["reason"].(string), nil
 		}
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, "", err
 	} else {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, "", err
 	}
 }
@@ -340,7 +341,7 @@ func (h RabbitHelperImpl) DeleteAdminEntity(ctx context.Context, entity interfac
 }
 
 func (h RabbitHelperImpl) deleteEntity(ctx context.Context, entity interface{}, url, user, password string) (interface{}, error) {
-	log.InfoC(ctx, "Deleting entity: %v", entity)
+	log.InfoC(ctx, "Deleting entity by url: %v", url)
 	if response, err := h.httpHelper.DoRequest(ctx, resty.MethodDelete,
 		fmt.Sprintf("%s/%s", h.instance.ApiUrl, url),
 		user, password,
@@ -349,11 +350,12 @@ func (h RabbitHelperImpl) deleteEntity(ctx context.Context, entity interface{}, 
 		fmt.Sprintf("Error deleting url '%v' for entity : %v", url, entity)); err != nil {
 		return nil, err
 	} else {
-		if response.RawResponse.StatusCode == http.StatusNoContent {
+		switch response.RawResponse.StatusCode {
+		case http.StatusNoContent:
 			return entity, nil
-		} else if response.RawResponse.StatusCode == http.StatusNotFound {
+		case http.StatusNotFound:
 			return nil, nil
-		} else {
+		default:
 			return nil, errors.Errorf("Unexpected error during entity deletion, return status code: %v", response.RawResponse.StatusCode)
 		}
 	}
@@ -371,8 +373,9 @@ func (h RabbitHelperImpl) GetExchange(ctx context.Context, exchange interface{})
 }
 
 func (h RabbitHelperImpl) CreateExchange(ctx context.Context, exchange interface{}) (interface{}, string, error) {
-	log.InfoC(ctx, "Creating exchange: %v", exchange)
 	exchangeName, err := utils.ExtractName(exchange)
+	log.InfoC(ctx, "Creating exchange with name: %v", exchangeName)
+
 	if err != nil {
 		log.ErrorC(ctx, "ExchangeType entity '%v' doesn't have name field", exchange)
 		return nil, "", err
@@ -404,8 +407,9 @@ func (h RabbitHelperImpl) GetQueue(ctx context.Context, queue interface{}) (inte
 }
 
 func (h RabbitHelperImpl) CreateQueue(ctx context.Context, queue interface{}) (interface{}, string, error) {
-	log.InfoC(ctx, "Creating queue: %v", queue)
 	queueName, err := utils.ExtractName(queue)
+	log.InfoC(ctx, "Creating queue with name: %v", queueName)
+
 	if err != nil {
 		log.ErrorC(ctx, "queue entity '%v' doesn't have name field", queue)
 		return nil, "", err
@@ -505,7 +509,7 @@ func (h RabbitHelperImpl) CreateNormalOrLazyBinding(ctx context.Context, binding
 
 	location := initResponse.Header().Get("Location")
 	if location != "" {
-		pattern := regexp.MustCompile("^.*\\/(.*)$")
+		pattern := regexp.MustCompile(`^.*/(.*)$`)
 		groups := pattern.FindStringSubmatch(location)
 		createdBinding["properties_key"] = groups[1]
 		return createdBinding, nil
@@ -571,7 +575,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 					Message: fmt.Sprintf("User was not authorized for vhost: %+v", h.vhost),
 					Err:     ErrNotAuthorizedRabbit,
 				}
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return entities, err
 			}
 		}
@@ -582,7 +586,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 		_, ok := result.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion exchanges to *[]interface{} for '%+v'", result)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return entities, err
 		}
 		entities.Exchanges = *result.(*[]interface{})
@@ -591,7 +595,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 			Message: fmt.Sprintf("No exchanges in RabbitMQ for vhost: %+v", h.vhost),
 			Err:     err,
 		}
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return entities, err
 	}
 
@@ -606,7 +610,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 		_, ok := result.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion queues to *[]interface{} for '%+v'", result)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return entities, err
 		}
 		entities.Queues = *result.(*[]interface{})
@@ -622,7 +626,7 @@ func (h RabbitHelperImpl) GetAllEntities(ctx context.Context) (model.RabbitEntit
 		_, ok := result.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion bindings to *[]interface{} for '%+v'", result)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return entities, err
 		}
 		entities.Bindings = *result.(*[]interface{})
@@ -647,7 +651,7 @@ func (h RabbitHelperImpl) GetAllExchanges(ctx context.Context) ([]interface{}, e
 	_, ok := result.(*[]interface{})
 	if !ok {
 		err := fmt.Errorf("error during conversion all exchanges to *[]interface{} for '%+v'", result)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, err
 	}
 	return *result.(*[]interface{}), nil
@@ -686,12 +690,12 @@ func (h RabbitHelperImpl) GetExchangeSourceBindings(ctx context.Context, exchang
 	url := fmt.Sprintf("exchanges/%s/%s/bindings/source", h.vhost.Vhost, exchangeName)
 	//bindings, err := h.GetEntity(ctx, url, []map[string]interface{}{})
 	bindings, err := h.GetEntity(ctx, url, []interface{}{})
-	log.InfoC(ctx, fmt.Sprintf("bindings of exchange '%v' are: %v", exchangeName, bindings))
+	log.InfoC(ctx, "%s", fmt.Sprintf("bindings of exchange '%v' are: %v", exchangeName, bindings))
 	if bindings != nil {
 		_, ok := bindings.(*[]interface{})
 		if !ok {
 			err := fmt.Errorf("error during conversion exchange source bindings to *[]interface{} for '%+v'", bindings)
-			log.ErrorC(ctx, err.Error())
+			log.ErrorC(ctx, "%s", err.Error())
 			return nil, err
 		}
 		return *bindings.(*[]interface{}), err
@@ -735,17 +739,27 @@ func (h RabbitHelperImpl) DeletePolicy(ctx context.Context, policy interface{}) 
 	return h.DeleteAdminEntity(ctx, policy, url)
 }
 
-func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue) error {
+func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhosts []model.VHostRegistration, queue model.Queue, existingShovelsSet map[string]struct{}) ([]string, error) {
 	queueName, err := utils.ExtractName(queue)
 	if err != nil {
-		return utils.LogError(log, ctx, "queue entity '%v' doesn't have name field", queue)
+		return nil, utils.LogError(log, ctx, "queue entity '%v' doesn't have name field", queue)
 	}
 
 	address := h.instance.AmqpUrl
-	address = strings.TrimLeft(address, "amqp://")
-	address = strings.TrimLeft(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqp://")
 
+	var createdShovelNames []string
 	for _, vhost := range vhosts {
+		shovelName := queueName + "-" + vhost.Namespace + "-exported"
+
+		// Check if shovel already exists
+		if _, exists := existingShovelsSet[shovelName]; exists {
+			log.InfoC(ctx, "Shovel '%v' already exists, skipping creation for queue '%v' and classifier '%v'", shovelName, queueName, vhost.Classifier)
+			createdShovelNames = append(createdShovelNames, shovelName)
+			continue
+		}
+
 		log.InfoC(ctx, "Creating shovel for queue '%v' and classifier '%v'", queueName, vhost.Classifier)
 		shovel := model.Shovel{
 			Value: model.ShovelValue{
@@ -758,33 +772,35 @@ func (h RabbitHelperImpl) CreateShovelForExportedQueue(ctx context.Context, vhos
 			},
 		}
 
-		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, queueName+"-"+vhost.Namespace+"-exported")
+		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
 		_, _, err = h.CreateAdminEntity(ctx, shovel, url, http.MethodPut, nil, nil)
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateAdminEntity: %w", err)
+			return nil, utils.LogError(log, ctx, "error during CreateAdminEntity: %w", err)
 		}
+		createdShovelNames = append(createdShovelNames, shovelName)
 	}
 
-	return nil
+	return createdShovelNames, nil
 }
 
-func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostsAndVersion []model.VhostAndVersion, exchange model.Exchange) error {
+func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.Context, vhostsAndVersion []model.VhostAndVersion, exchange model.Exchange, existingShovelsSet map[string]struct{}) ([]string, error) {
 	exchangeName, err := utils.ExtractName(exchange)
 	if err != nil {
-		return utils.LogError(log, ctx, "exchange entity '%v' doesn't have name field", exchange)
+		return nil, utils.LogError(log, ctx, "exchange entity '%v' doesn't have name field", exchange)
 	}
 
 	address := h.instance.AmqpUrl
-	address = strings.TrimLeft(address, "amqp://")
-	address = strings.TrimLeft(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqps://")
+	address = strings.TrimPrefix(address, "amqp://")
 
+	var createdShovelNames []string
 	for _, vhostAndVersion := range vhostsAndVersion {
 
 		queueName := exchangeName + "-" + vhostAndVersion.Vhost.Namespace + shovelQueue
 
 		_, _, err = h.CreateQueue(ctx, model.Queue{"name": queueName, "durable": true})
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateQueue while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
+			return nil, utils.LogError(log, ctx, "error during CreateQueue while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
 		}
 
 		//bind vr to new versioned exchange
@@ -799,7 +815,16 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 		}
 		_, _, err = h.CreateBinding(ctx, veBinding)
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateBinding while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
+			return nil, utils.LogError(log, ctx, "error during CreateBinding while in CreateQueuesAndShovelsForExportedExchange, queue name: %v, err: %w", queueName, err)
+		}
+
+		shovelName := queueName + "-" + vhostAndVersion.Vhost.Namespace + "-exported"
+
+		// Check if shovel already exists
+		if _, exists := existingShovelsSet[shovelName]; exists {
+			log.InfoC(ctx, "Shovel '%v' already exists, skipping creation for exchange queue '%v' and classifier '%v'", shovelName, queueName, vhostAndVersion.Vhost.Classifier)
+			createdShovelNames = append(createdShovelNames, shovelName)
+			continue
 		}
 
 		log.InfoC(ctx, "Creating shovel for exchange queue '%v' and classifier '%v'", queueName, vhostAndVersion.Vhost.Classifier)
@@ -814,34 +839,22 @@ func (h RabbitHelperImpl) CreateQueuesAndShovelsForExportedExchange(ctx context.
 			},
 		}
 
-		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, queueName+"-"+vhostAndVersion.Vhost.Namespace+"-exported")
+		url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
 		_, _, err = h.CreateAdminEntity(ctx, shovel, url, http.MethodPut, nil, nil)
 		if err != nil {
-			return utils.LogError(log, ctx, "error during CreateAdminEntity while in CreateQueuesAndShovelsForExportedExchange: %w", err)
+			return nil, utils.LogError(log, ctx, "error during CreateAdminEntity while in CreateQueuesAndShovelsForExportedExchange: %w", err)
 		}
+		createdShovelNames = append(createdShovelNames, shovelName)
 	}
 
-	return nil
+	return createdShovelNames, nil
 }
 
-func (h RabbitHelperImpl) DeleteShovelsForExportedVhost(ctx context.Context) error {
-	url := fmt.Sprintf("parameters/shovel/%s", h.vhost.Vhost)
-	shovels, err := h.GetAdminEntity(ctx, url, []model.Shovel{})
+func (h RabbitHelperImpl) DeleteShovelByName(ctx context.Context, shovelName string) error {
+	url := fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovelName)
+	_, err := h.DeleteAdminEntity(ctx, nil, url)
 	if err != nil {
-		return utils.LogError(log, ctx, "error during GetAdminEntity while in DeleteShovelsForExportedVhost: %w", err)
-	}
-
-	if shovels == nil {
-		return nil
-	}
-	shovelsConverted := shovels.(*[]model.Shovel)
-
-	for _, shovel := range *shovelsConverted {
-		url = fmt.Sprintf("parameters/shovel/%s/%s", h.vhost.Vhost, shovel.Name)
-		_, err = h.DeleteAdminEntity(ctx, nil, url)
-		if err != nil {
-			return utils.LogError(log, ctx, "error during DeleteAdminEntity while in DeleteShovelsForExportedVhost in vhost '%s' for shovel named '%s': %w", h.vhost.Vhost, shovel.Name, err)
-		}
+		return utils.LogError(log, ctx, "error during DeleteAdminEntity while deleting shovel in vhost '%s' for shovel named '%s': %w", h.vhost.Vhost, shovelName, err)
 	}
 
 	return nil
@@ -906,13 +919,38 @@ func (h RabbitHelperImpl) convertToType(obj interface{}, toType interface{}) (in
 	}
 }
 
-func (h RabbitHelperImpl) IsInstanceAvailable() error {
-	res, err := h.httpClient.R().
-		SetBasicAuth(h.instance.User, h.instance.Password).
-		Get(h.instance.ApiUrl + "/healthchecks/node")
+const (
+	rabbitHealthCheckAlarmsPath = "/health/checks/alarms"
+	rabbitHealthCheckLegacyPath = "/healthchecks/node"
+)
 
+func (h RabbitHelperImpl) IsInstanceAvailable() error {
+	res, err := h.rabbitHealthCheck(rabbitHealthCheckAlarmsPath)
 	if err != nil {
 		return err
+	}
+	if res.StatusCode() == http.StatusNotFound {
+		res, err = h.rabbitHealthCheck(rabbitHealthCheckLegacyPath)
+		if err != nil {
+			return err
+		}
+	}
+	return interpretRabbitHealthCheckResponse(res)
+}
+
+func (h RabbitHelperImpl) rabbitHealthCheck(pathSuffix string) (*resty.Response, error) {
+	return h.httpClient.R().
+		SetBasicAuth(h.instance.User, h.instance.Password).
+		Get(h.instance.ApiUrl + pathSuffix)
+}
+
+func interpretRabbitHealthCheckResponse(res *resty.Response) error {
+	statusCode := res.StatusCode()
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
+		return fmt.Errorf("healthcheck request unauthorized (HTTP %d): check instance credentials", statusCode)
+	}
+	if statusCode != http.StatusOK && statusCode != http.StatusServiceUnavailable {
+		return fmt.Errorf("healthcheck unexpected HTTP status: %d, body: %s", statusCode, string(res.Body()))
 	}
 
 	raw := res.Body()

@@ -70,7 +70,6 @@ func init() {
 }
 
 type KindProcessor struct {
-	order   int
 	value   interface{}
 	handler func(context.Context, interface{}, string) (interface{}, error)
 }
@@ -216,8 +215,8 @@ func (cs *DefaultConfiguratorService) ApplyConfig(ctx context.Context, raw strin
 		msg := fmt.Sprintf(format, v...)
 		results = append(results,
 			model.ConfigMsResponse{
-				obj,
-				model.ConfigMsResult{Status: "error", Error: msg},
+				Request: obj,
+				Result:  model.ConfigMsResult{Status: "error", Error: msg},
 			},
 		)
 		if firstError == nil {
@@ -250,8 +249,8 @@ func (cs *DefaultConfiguratorService) ApplyConfig(ctx context.Context, raw strin
 
 			if result, err := proc.handler(ctx, config, namespace); err == nil {
 				results = append(results, model.ConfigMsResponse{
-					config,
-					model.ConfigMsResult{Status: model.STATUS_OK, Data: result},
+					Request: config,
+					Result:  model.ConfigMsResult{Status: model.STATUS_OK, Data: result},
 				})
 			} else {
 				log.ErrorC(ctx, "Error apply config: %v, \n\tConfig: %+v", err, config)
@@ -365,7 +364,7 @@ func (cs *DefaultConfiguratorService) ApplyConfigV2(ctx context.Context, raw str
 				return msRabbitResults.(map[string]model.RabbitResult), err
 			})
 			if err != nil {
-				log.ErrorC(ctx, "error during applying aggregated rabbit config: %w", err)
+				log.ErrorC(ctx, "error during applying aggregated rabbit config: %v", err)
 			}
 
 			for _, serviceConfig := range serviceConfigs {
@@ -550,7 +549,7 @@ func (cs *DefaultConfiguratorService) applyInstanceDesignatorKafka(ctx context.C
 	config, ok := cfg.(*model.InstanceDesignatorKafkaReq)
 	if !ok {
 		msg := fmt.Sprintf("Problem during casting cfg to InstanceDesignatorKafkaReq for config: %v", cfg)
-		log.ErrorC(ctx, msg)
+		log.ErrorC(ctx, "%s", msg)
 		return nil, model.AggregateConfigError{
 			Err:     model.ErrAggregateConfigConversionError,
 			Message: msg,
@@ -572,7 +571,7 @@ func (cs *DefaultConfiguratorService) applyInstanceDesignatorRabbit(ctx context.
 	config, ok := cfg.(*model.InstanceDesignatorRabbitReq)
 	if !ok {
 		msg := fmt.Sprintf("Problem during casting cfg to InstanceDesignatorRabbitReq for config: %v", cfg)
-		log.ErrorC(ctx, msg)
+		log.ErrorC(ctx, "%s", msg)
 		return nil, model.AggregateConfigError{
 			Err:     model.ErrAggregateConfigConversionError,
 			Message: msg,
@@ -592,6 +591,8 @@ func (cs *DefaultConfiguratorService) applyInstanceDesignatorRabbit(ctx context.
 }
 
 func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Context, cfg interface{}, namespace string) (interface{}, error) {
+	log.InfoC(ctx, "ApplyRabbitConfiguration: starting")
+
 	config := cfg.(*model.RabbitConfigReqDto)
 
 	result := &model.RabbitResult{}
@@ -627,6 +628,8 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 		Password: vHostRegistration.Password,
 	}
 
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished vhost section, starting deletions section")
+
 	//deletion section
 	if config.Spec.RabbitDeletions != nil {
 		result.RabbitDeletions, err = cs.rabbitService.DeleteEntities(ctx, config.Spec.Classifier, *config.Spec.RabbitDeletions)
@@ -634,8 +637,9 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 			log.ErrorC(ctx, "Error during deleting config: %v", err)
 			return nil, err
 		}
-		log.InfoC(ctx, "RabbitResult deletions: %+v", result.RabbitDeletions)
 	}
+
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished deletions section, starting policies section")
 
 	if config.Spec.RabbitPolicies != nil {
 		result.Policies, err = cs.rabbitService.ApplyPolicies(ctx, config.Spec.Classifier, config.Spec.RabbitPolicies)
@@ -646,8 +650,9 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 		if result.Policies == nil {
 			result.Policies = make([]interface{}, 0)
 		}
-		log.InfoC(ctx, "RabbitResult created policies: %+v", result.Policies)
 	}
+
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished policies section, starting entities section")
 
 	//entities section
 	if config.Spec.Entities != nil {
@@ -658,11 +663,15 @@ func (cs *DefaultConfiguratorService) ApplyRabbitConfiguration(ctx context.Conte
 		}
 	}
 
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished entities section, starting exported vhost section")
+
 	//exported vhost section
 	err = cs.rabbitService.ProcessExportedVhost(ctx, namespace)
 	if err != nil {
-		return nil, utils.LogError(log, ctx, "Error during ProcessExportedVhost while in ApplyRabbitConfiguration: %v", err)
+		return nil, utils.LogError(log, ctx, "Error during ProcessExportedVhost while in ApplyRabbitConfiguration: %w", err)
 	}
+
+	log.InfoC(ctx, "ApplyRabbitConfiguration: finished")
 
 	return result, nil
 }
@@ -674,8 +683,8 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 	log.InfoC(ctx, "Starting to apply rabbit configuration for namespace '%v'", namespace)
 	serviceConfigs, ok := cfg.(model.ServiceConfigs)
 	if !ok {
-		errMsg := fmt.Sprintf("Error during converting config to 'ServiceConfigs', only aggregated config is allowed. Note, that you can't send rabbit config v2 to rabbit directly, it should be sent via deployed, which aggregates configs from all microservices of application")
-		log.ErrorC(ctx, errMsg)
+		errMsg := "Error during converting config to 'ServiceConfigs', only aggregated config is allowed. Note, that you can't send rabbit config v2 to rabbit directly, it should be sent via deployed, which aggregates configs from all microservices of application"
+		log.ErrorC(ctx, "%s", errMsg)
 		return results, model.AggregateConfigError{
 			Err:     model.ErrAggregateConfigParsing,
 			Message: errMsg,
@@ -688,7 +697,7 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 	log.InfoC(ctx, "Starting to apply rabbit config v1, add microservices' configs and their entities to DB")
 	results, entitiesToBeDeleted, err := applyRabbitConfigV1AndServiceConfigsToDb(ctx, cs, serviceConfigs, namespace, candidateVersion)
 	if err != nil {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return results, err
 	}
 	log.InfoC(ctx, "All configs of microservices and their entities were successfully added to DB")
@@ -723,7 +732,7 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 			err := cs.rabbitService.ApplyMssInActiveButNotInCandidateForVhost(ctx, vhost, activeVersion, candidateVersion)
 			if err != nil {
 				err = fmt.Errorf("error during ApplyMssInActiveButNotInCandidateForVhost for vhost with classifier '%v': %w", vhost.Classifier, err)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return results, err
 			}
 		}
@@ -734,7 +743,7 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 	log.InfoC(ctx, "Starting validation of entities for namespace '%v'", namespace)
 	err = cs.rabbitService.RabbitBgValidation(ctx, namespace, candidateVersion)
 	if err != nil {
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return results, err
 	}
 
@@ -743,7 +752,7 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 	_, err = cs.rabbitService.DeleteEntitiesByRabbitVersionedEntities(ctx, entitiesToBeDeleted)
 	if err != nil {
 		err = fmt.Errorf("error during DeleteEntitiesByRabbitVersionedEntities of entitiesToBeDeleted: %w", err)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return results, err
 	}
 
@@ -752,7 +761,7 @@ func (cs *DefaultConfiguratorService) applyRabbitConfigurationV2(ctx context.Con
 	_, _, err = cs.rabbitService.CreateVersionedEntities(ctx, namespace, candidateVersion)
 	if err != nil {
 		err = fmt.Errorf("error during CreateVersionedEntities: %w", err)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return results, err
 	}
 
@@ -811,7 +820,7 @@ func applyRabbitConfigV1AndServiceConfigsToDb(ctx context.Context, cs *DefaultCo
 			rabbitConfig, ok := serviceConfig.Config.(*model.RabbitConfigReqDto)
 			if !ok {
 				err := fmt.Errorf("error during conversion to RabbitConfigReqDto for '%+v'", rabbitConfig)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return results, entitiesToBeDeleted, err
 			}
 
@@ -844,7 +853,7 @@ func applyRabbitConfigV1AndServiceConfigsToDb(ctx context.Context, cs *DefaultCo
 			result, ok := interfaceResult.(*model.RabbitResult)
 			if !ok {
 				err := fmt.Errorf("error during conversion to RabbitResult for '%+v'", interfaceResult)
-				log.ErrorC(ctx, err.Error())
+				log.ErrorC(ctx, "%s", err.Error())
 				return results, entitiesToBeDeleted, err
 			}
 
@@ -858,7 +867,7 @@ func (cs *DefaultConfiguratorService) ApplyKafkaConfiguration(ctx context.Contex
 	config, ok := cfg.(*model.TopicRegistrationConfigReqDto)
 	if !ok {
 		err := fmt.Errorf("error during conversion to TopicRegistrationConfigReqDto for '%+v'", cfg)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, err
 	}
 	log.DebugC(ctx, "apply config: %+v", config)
@@ -886,7 +895,7 @@ func (cs *DefaultConfiguratorService) ApplyKafkaTopicTemplate(ctx context.Contex
 	config, ok := cfg.(*model.TopicTemplateConfigReqDto)
 	if !ok {
 		err := fmt.Errorf("error during conversion to TopicTemplateConfigReqDto for '%+v'", cfg)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, err
 	}
 	log.DebugC(ctx, "Topic template: %+v", config)
@@ -1016,7 +1025,7 @@ func (cs *DefaultConfiguratorService) applyKafkaTopicDefinition(ctx context.Cont
 	config, ok := cfg.(*model.TopicRegistrationConfigReqDto)
 	if !ok {
 		err := fmt.Errorf("error during conversion to TopicRegistrationConfigReqDto for '%+v'", cfg)
-		log.ErrorC(ctx, err.Error())
+		log.ErrorC(ctx, "%s", err.Error())
 		return nil, err
 	}
 

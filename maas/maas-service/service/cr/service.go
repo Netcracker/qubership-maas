@@ -30,9 +30,8 @@ type WaitListDao interface {
 }
 
 type CustomResourceProcessorService struct {
-	resourceApplier     *applier
-	configuratorService configurator_service.ConfiguratorService
-	waitListDao         WaitListDao
+	resourceApplier *applier
+	waitListDao     WaitListDao
 }
 
 func NewCustomResourceProcessorService(waitListDao WaitListDao, configuratorService configurator_service.ConfiguratorService, kafkaService kafka.KafkaService, rabbitService rabbit_service.RabbitService) *CustomResourceProcessorService {

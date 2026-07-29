@@ -2,16 +2,17 @@ package controller
 
 import (
 	"context"
-	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
-	"github.com/netcracker/qubership-maas/model"
-	mock_instance "github.com/netcracker/qubership-maas/service/instance/mock"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/model"
+	mock_instance "github.com/netcracker/qubership-maas/service/instance/mock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestInstanceController_RegisterNewKafkaInstance(t *testing.T) {

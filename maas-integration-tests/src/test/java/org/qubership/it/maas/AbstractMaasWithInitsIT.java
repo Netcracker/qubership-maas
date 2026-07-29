@@ -8,11 +8,16 @@ import org.junit.jupiter.api.TestInfo;
 import org.testcontainers.containers.*;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 
 import static org.qubership.it.maas.MaasITHelper.TEST_NAMESPACE;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,10 +30,79 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
     protected static final KafkaContainer KAFKA_CONTAINER_1 = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.1")).withNetwork(TEST_NETWORK);
     protected static final KafkaContainer KAFKA_CONTAINER_2 = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.1")).withNetwork(TEST_NETWORK);
 
-    protected static final RabbitMQContainer RABBITMQ_CONTAINER_1 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK);
-    protected static final RabbitMQContainer RABBITMQ_CONTAINER_2 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK);
+    protected static final RabbitMQContainer RABBITMQ_CONTAINER_1 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK).withPluginsEnabled("rabbitmq_shovel", "rabbitmq_shovel_management");
+    protected static final RabbitMQContainer RABBITMQ_CONTAINER_2 = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3.12-management")).withNetwork(TEST_NETWORK).withPluginsEnabled("rabbitmq_shovel", "rabbitmq_shovel_management");
 
     protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2")).withNetwork(TEST_NETWORK);
+
+    private static final int OIDC_SERVER_PORT = 55199;
+    private static final String OIDC_SERVER_HOSTNAME = "oidc-server";
+    private static final Path oidcTokenTempFile;
+    protected static final K8sAuthHelper k8sAuthHelper;
+
+    protected static final GenericContainer<?> OIDC_SERVER_CONTAINER = new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:3.0.1")
+            .withExposedPorts(OIDC_SERVER_PORT)
+            .withNetwork(TEST_NETWORK)
+            .withNetworkAliases(OIDC_SERVER_HOSTNAME)
+            .withEnv(Map.of(
+                    "SERVER_PORT", String.valueOf(OIDC_SERVER_PORT),
+                    "SERVER_HOSTNAME", OIDC_SERVER_HOSTNAME,
+                    "JSON_CONFIG", """
+                            {
+                                "tokenCallbacks": [
+                                    {
+                                        "issuerId": "issuer1",
+                                        "requestMappings": [
+                                            {
+                                                "requestParam": "code",
+                                                "match": "code1",
+                                                "claims": {
+                                                    "iss": "http://oidc-server:55199/issuer1",
+                                                    "sub": "test-client",
+                                                    "aud": [
+                                                        "maas"
+                                                    ],
+                                                    "kubernetes.io": {
+                                                        "namespace": "maas-it-test",
+                                                        "serviceaccount": {
+                                                            "name": "maas"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                            """
+            ));
+
+    static {
+        OIDC_SERVER_CONTAINER.start();
+
+        try {
+            oidcTokenTempFile = Files.createTempFile("", "");
+            String issuer = "http://%s:%s/issuer1".formatted(OIDC_SERVER_HOSTNAME, OIDC_SERVER_PORT);
+            String onHostIssuer = "http://%s:%s/issuer1".formatted("localhost", OIDC_SERVER_CONTAINER.getMappedPort(OIDC_SERVER_PORT));
+            k8sAuthHelper = new K8sAuthHelper(issuer, onHostIssuer);
+            Files.writeString(oidcTokenTempFile, k8sAuthHelper.getServiceAccountToken());
+            try {
+                Set<PosixFilePermission> permissions = Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.GROUP_READ,
+                        PosixFilePermission.OTHERS_READ
+                );
+                Files.setPosixFilePermissions(oidcTokenTempFile, permissions);
+            } catch (UnsupportedOperationException e) {
+                oidcTokenTempFile.toFile().setReadable(true, true);
+                oidcTokenTempFile.toFile().setWritable(true, true);
+                oidcTokenTempFile.toFile().setReadable(true, false);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     protected static final GenericContainer<?> MAAS_CONTAINER = new GenericContainer<>(
             new ImageFromDockerfile()
@@ -39,11 +113,13 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
                             "DB_POSTGRESQL_DATABASE", POSTGRES_CONTAINER.getDatabaseName(),
                             "DB_POSTGRESQL_USERNAME", POSTGRES_CONTAINER.getUsername(),
                             "DB_POSTGRESQL_PASSWORD", POSTGRES_CONTAINER.getPassword(),
-                            "HEALTH_CHECK_INTERVAL", "1s"
+                            "HEALTH_CHECK_INTERVAL", "1s",
+                            "KUBERNETES_M2M_ENABLED", "true"
                     )
             )
             .withNetwork(TEST_NETWORK)
             .withExposedPorts(8080)
+            .withCopyFileToContainer(MountableFile.forHostPath(oidcTokenTempFile.toAbsolutePath()), "/var/run/secrets/kubernetes.io/serviceaccount/token")
             .dependsOn(POSTGRES_CONTAINER);
 
     static {

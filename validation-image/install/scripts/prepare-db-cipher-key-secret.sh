@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-kubectl --namespace="${ENV_NAMESPACE}" get secret maas-db-cipher-key-secret &> /dev/null
-if [ "$?" -ne 0 ]; then
+if ! kubectl --namespace="${NAMESPACE}" get secret maas-db-cipher-key-secret &> /dev/null; then
 	echo "Going to create a new database cipher key secret."
-  (cat << EOF | kubectl --namespace="${ENV_NAMESPACE}" apply -f -
+  (cat << EOF | kubectl --namespace="${NAMESPACE}" apply -f -
    {
      "apiVersion": "v1",
      "kind": "Secret",

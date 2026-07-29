@@ -43,16 +43,16 @@ func (d DialectorWithCallbacks) Initialize(db *gorm.DB) (err error) {
 	if d.Conn != nil {
 		db.ConnPool = d.Conn
 	} else if d.DriverName != "" {
-		db.ConnPool, err = sql.Open(d.DriverName, d.Config.DSN)
+		db.ConnPool, err = sql.Open(d.DriverName, d.DSN)
 	} else {
 		var config *pgx.ConnConfig
 
-		config, err = pgx.ParseConfig(d.Config.DSN)
+		config, err = pgx.ParseConfig(d.DSN)
 		if err != nil {
 			return
 		}
 
-		result := timeZoneMatcher.FindStringSubmatch(d.Config.DSN)
+		result := timeZoneMatcher.FindStringSubmatch(d.DSN)
 		if len(result) > 2 {
 			config.RuntimeParams["timezone"] = result[2]
 		}

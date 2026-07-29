@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	_assert "github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 	"time"
@@ -19,44 +18,44 @@ func TestMatchClassifiersWithNamespaceAndName(t *testing.T) {
 }
 
 func TestClassifierToStringEmpty(t *testing.T) {
-	_assert.Equal(t, "{}", Classifier{}.String())
+	assert.Equal(t, "{}", Classifier{}.String())
 }
 
 func TestParseVersion1(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	version, err := ParseVersion("v1")
 	assert.NoError(err)
 	assert.Equal(Version("v1"), version)
 }
 
 func TestParseVersion2(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	version, err := ParseVersion("1 ") // intentionally add extra space to check string trimming
 	assert.NoError(err)
 	assert.Equal(Version("v1"), version)
 }
 
 func TestEmptyVersion(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	version, err := ParseVersion("")
 	assert.NoError(err)
 	assert.Equal(VersionEmpty, version)
 }
 
 func TestIncorrectVersion(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	_, err := ParseVersion("abc")
 	assert.Error(err)
 }
 
 func TestIncorrectVersion2(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	_, err := ParseVersion("v1ff")
 	assert.Error(err)
 }
 
 func TestResolveCreateReq(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	topicReqDto := TopicRegistrationReqDto{
 		Classifier: Classifier{

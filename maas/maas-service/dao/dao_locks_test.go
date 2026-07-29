@@ -22,7 +22,7 @@ func TestLock(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			wg.Add(1)
 			go func() {
-				baseDao.WithLock(ctx, "blabla", func(ctx context.Context) error {
+				assert.NoError(t, baseDao.WithLock(ctx, "blabla", func(ctx context.Context) error {
 					if atomic.AddInt32(&counter, 1) != 1 {
 						assert.Fail(t, "Overlapping")
 					}
@@ -35,7 +35,7 @@ func TestLock(t *testing.T) {
 					}
 
 					return nil
-				})
+				}))
 				wg.Done()
 			}()
 		}
@@ -48,18 +48,20 @@ func TestLock_ParallelExecutionOnDifferentId(t *testing.T) {
 	WithSharedDao(t, func(baseDao *BaseDaoImpl) {
 		sem := testharness.NewSemaphore(t)
 
-		go baseDao.WithLock(context.Background(), "first", func(ctx context.Context) error {
-			sem.Notify("first started")
-			sem.Await("second finished", 10*time.Second)
-			sem.Notify("first finished")
-			return nil
-		})
+		go func() {
+			assert.NoError(t, baseDao.WithLock(context.Background(), "first", func(ctx context.Context) error {
+				sem.Notify("first started")
+				sem.Await("second finished", 10*time.Second)
+				sem.Notify("first finished")
+				return nil
+			}))
+		}()
 
 		sem.Await("first started", 10*time.Second)
-		baseDao.WithLock(context.Background(), "second", func(ctx context.Context) error {
+		assert.NoError(t, baseDao.WithLock(context.Background(), "second", func(ctx context.Context) error {
 			sem.Notify("second finished")
 			return nil
-		})
+		}))
 
 		sem.Await("first finished", 10*time.Second)
 	})

@@ -116,16 +116,24 @@ public class MaasITHelper {
     }
 
     public Request createJsonRequestWithNamespace(String url, String authorization, Object body, String method, String namespace) throws JsonProcessingException {
+        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Basic", body, method)
+                .addHeader("X-Origin-Namespace", namespace)
+                .addHeader("X-Origin-Microservice", TEST_MICROSERVICE)
+                .build();
+    }
+
+    public Request createJsonRequestWithNamespaceAndK8sToken(String url, String authorization, Object body, String method) throws JsonProcessingException {
+        return createJsonRequestWithNamespaceAndScheme(url, authorization, "Bearer", body, method).build();
+    }
+
+    private Request.Builder createJsonRequestWithNamespaceAndScheme(String url, String authorization, String authScheme, Object body, String method) throws JsonProcessingException {
         String content = mapper.writeValueAsString(body);
         log.info("Request body {}, url {}, method {}, auth {}", content, url, method, authorization);
         return new Request.Builder()
                 .url(maasAddress + url)
-                .addHeader("Authorization", "Basic " + authorization)
-                .addHeader("X-Origin-Namespace", namespace)
-                .addHeader("X-Origin-Microservice", TEST_MICROSERVICE)
+                .addHeader("Authorization", authScheme + " " + authorization)
                 .addHeader("Content-Type", "application/json")
-                .method(method, body != null ? RequestBody.create(content, JSON) : null)
-                .build();
+                .method(method, body != null ? RequestBody.create(content, JSON) : null);
     }
 
     public Request createJsonRequest(String url, String authorization, String namespace, Object body, String method) throws JsonProcessingException {
@@ -186,11 +194,11 @@ public class MaasITHelper {
         return builder.build();
     }
 
-    public Request createRequestV2ByYaml(String url, String authorization, String content, String method) {
+    public Request createRequestV2ByYaml(String url, String authorizationScheme, String authorization, String content, String method) {
         log.info("Request body {}, url {}, method {}, auth {}", content, url, method, authorization);
         Request.Builder builder = new Request.Builder()
                 .url(maasAddress + url)
-                .addHeader("Authorization", "Basic " + authorization)
+                .addHeader("Authorization", authorizationScheme + " " + authorization)
                 .addHeader("Content-Type", "text/yaml")
                 .method(method, content != null ? RequestBody.create(content, YAML) : null);
 

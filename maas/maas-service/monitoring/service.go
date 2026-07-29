@@ -54,7 +54,7 @@ func (a *defaultAuditor) AddEntityRequestStat(ctx context.Context, entityType En
 		// we need to execute tx in autonomous mode
 		inner := context.Background()
 		if err := a.auditDao.AddEntityRequestStat(inner, req.AsModel()); err != nil {
-			log.Error("Error log entity request to audit: %w", err)
+			log.Error("Error log entity request to audit: %v", err)
 		}
 	}()
 }

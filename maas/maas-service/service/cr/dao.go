@@ -30,7 +30,7 @@ type CustomResourceWaitEntity struct {
 	CreatedAt      time.Time
 }
 
-func (_ CustomResourceWaitEntity) TableName() string {
+func (CustomResourceWaitEntity) TableName() string {
 	return "custom_resource_waits"
 }
 

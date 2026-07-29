@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/utils/v2"
 	"github.com/stretchr/testify/assert"
 	pgcontainer "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -111,7 +111,7 @@ func newTestDatabase(t *testing.T) *TestDatabase {
 		defer cancel()
 		p, err := pg.MappedPort(ctx, "5432")
 		require.NoError(t, err)
-		tdb.port = p.Int()
+		tdb.port = int(p.Num())
 	}
 
 	t.Logf("PostgresSQL test container endpoint: %+v\n", tdb)

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/netcracker/qubership-maas/utils"
-	"path/filepath"
 	"reflect"
 )
 
@@ -22,16 +21,13 @@ type brokerInstanceService[A brokerInstance] interface {
 }
 
 func processInstanceRegistrationFiles[T brokerInstance](ctx context.Context, name string, service brokerInstanceService[T]) error {
-	//instancePath := fmt.Sprintf("/etc/maas/maas-instance-registrations/maas-%s-instance-body", name)
 	fileName := fmt.Sprintf("maas-%s-instance-body", name)
-	instancePath := filepath.Join(EtcMaaSRoot, "maas-instance-registrations", fileName)
+	instancePath := utils.PathInstanceRegistrations(fileName)
 	err := registerInstance(ctx, name, service, instancePath)
 	if err != nil {
 		return err
 	}
-
-	//backward compatibility, property is no longer supported
-	instancePath = fmt.Sprintf("maas-%s-instance-body", name)
+	// backward compatibility, property is no longer supported
 	return registerInstance(ctx, name, service, instancePath+"-2")
 }
 
@@ -75,7 +71,7 @@ func registerInstance[T brokerInstance](ctx context.Context, name string, servic
 }
 
 func readInstance[T any](ctx context.Context, path string, processor func(body []T) error) error {
-	return readFile(ctx, path, func(body []byte) error {
+	return utils.ReadFileWithProcessor(ctx, path, func(body []byte) error {
 		// try array of T instances
 		var objects []T
 		err := json.Unmarshal(body, &objects)

@@ -23,7 +23,7 @@ type registrationEntity struct {
 	Namespace string
 }
 
-func (_ registrationEntity) TableName() string {
+func (registrationEntity) TableName() string {
 	return "composite_namespaces_v2"
 }
 

@@ -5,9 +5,9 @@ import (
 	"log"
 )
 
-const (
-	requestContextKey = "RequestContext"
-)
+type requestContextKeyType struct{}
+
+var requestContextKey = requestContextKeyType{}
 
 type RequestContext struct {
 	Namespace    string

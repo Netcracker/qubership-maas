@@ -95,7 +95,7 @@ func TestKafkaInstanceOperations(t *testing.T) {
 			_, err = dao.UpdateInstanceRegistration(ctx, backupInstance)
 			assert.NoError(t, err)
 
-			inst, err = dao.GetInstanceById(ctx, "backup")
+			_, err = dao.GetInstanceById(ctx, "backup")
 			assert.NoError(t, err)
 			assert.Equal(t, "backup-new:9092", backupInstance.Addresses["PLAINTEXT"][0])
 		}

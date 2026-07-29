@@ -44,17 +44,13 @@ func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *mode
 		case model.SslCertAuth:
 			if !useTls {
 				log.DebugC(ctx, "Admin SSL authorization is skipped due to using PLAINTEXT protocol")
-				break
-			}
-			if err := fillSslClientCert(ctx, config, credentials); err != nil {
+			} else if err := fillSslClientCert(ctx, config, credentials); err != nil {
 				return nil, err
 			}
-			break
 		case model.PlainAuth:
 			if err := fillPlainSaslAuth(ctx, config, credentials); err != nil {
 				return nil, err
 			}
-			break
 		case model.SslCertPlusPlain:
 			if useTls {
 				if err := fillSslClientCert(ctx, config, credentials); err != nil {
@@ -66,12 +62,10 @@ func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *mode
 			if err := fillPlainSaslAuth(ctx, config, credentials); err != nil {
 				return nil, err
 			}
-			break
 		case model.SCRAMAuth:
 			if err := fillSaslSCRAMAuth(ctx, config, credentials); err != nil {
 				return nil, err
 			}
-			break
 		case model.SslCertPlusSCRAM:
 			if useTls {
 				if err := fillSslClientCert(ctx, config, credentials); err != nil {
@@ -83,7 +77,6 @@ func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *mode
 			if err := fillSaslSCRAMAuth(ctx, config, credentials); err != nil {
 				return nil, err
 			}
-			break
 		default:
 			errMsg := fmt.Sprintf("kafka: %s auth is not supported by this MaaS release", credentials.GetAuthType())
 			return nil, errors.New(errMsg)
@@ -110,7 +103,6 @@ func fillSslClientCert(ctx context.Context, config *sarama.Config, credentials m
 		return err
 	}
 	config.Net.TLS.Config.Certificates = []tls.Certificate{cert}
-	config.Net.TLS.Config.BuildNameToCertificate()
 	return nil
 }
 
@@ -150,7 +142,7 @@ func resolvePassword(passwordWithPrefix []byte) (string, error) {
 	case model.Plain:
 		return typeAndPass[1], nil
 	default:
-		return "", errors.New(fmt.Sprintf("kafka: password type %s is not supported", passType))
+		return "", fmt.Errorf("kafka: password type %s is not supported", passType)
 	}
 }
 

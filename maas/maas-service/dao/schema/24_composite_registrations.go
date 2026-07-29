@@ -13,11 +13,14 @@ func init() {
 
 	migrations.MustRegisterTx(func(db migrations.DB) error {
 		log.InfoC(ctx, "Update table composite_namespaces_v2")
-		_, err := db.Exec(`create table composite_namespaces_v2(
+		if _, err := db.Exec(`create table composite_namespaces_v2(
                         "id" SERIAL PRIMARY KEY,
 						"base_namespace" varchar(63) NOT NULL,
 						"namespace" varchar(63) NOT NULL
-						)`)
+						)`); err != nil {
+			return err
+		}
+		var err error
 
 		_, err = db.Exec(`CREATE INDEX composite_namespaces_v2_base_namespace_idx ON composite_namespaces_v2(base_namespace)`)
 		if err != nil {

@@ -32,9 +32,6 @@ import (
 	"testing"
 	"time"
 )
-import (
-	_assert "github.com/stretchr/testify/assert"
-)
 
 var (
 	assertion                 *assert.Assertions
@@ -89,7 +86,7 @@ func testInitializer(t *testing.T) {
 }
 
 func TestIncorrectInput(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -103,7 +100,7 @@ Abc: cde
 
 func TestIncorrectKind(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -121,7 +118,7 @@ kind: foo
 
 func TestKafkaUnknownField(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -152,7 +149,7 @@ spec:
 
 func TestConfigV2KafkaApply(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -232,7 +229,7 @@ spec:
 
 func TestKafkaApply(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -267,7 +264,7 @@ spec:
 
 func TestConfigApplyError(t *testing.T) {
 	testInitializer(t)
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 ---
@@ -303,7 +300,7 @@ func TestConfigDesignatorWithoutDefaultInstance(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -401,7 +398,7 @@ func TestSharedConfigDesignatorAndKafkaTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -475,7 +472,7 @@ func TestSharedConfigParsingErr(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -528,7 +525,7 @@ func TestSharedConfigUnknownFieldErr(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -566,7 +563,7 @@ func TestSharedConfigErr(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -633,7 +630,7 @@ func TestSharedConfigDesignatorAndKafkaTopicError(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -716,7 +713,7 @@ func TestSharedConfigRabbitV2Error(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -772,7 +769,7 @@ func TestSharedConfigKafkaAndRabbitDesignator(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -875,7 +872,7 @@ func TestBaseNamespaceAndKafkaTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -931,7 +928,7 @@ spec:
 }
 
 func Test_applyKafkaTopicDefinition_ToTopicDefinition_failed(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	name1 := "name-1"
 	namespace1 := "namespace-1"
@@ -958,7 +955,7 @@ func Test_applyKafkaTopicDefinition_ToTopicDefinition_failed(t *testing.T) {
 }
 
 func Test_registry_orderedKinds(t *testing.T) {
-	assert := _assert.New(t)
+	assert := assert.New(t)
 	r := newRegistry()
 	firstKind := model.Kind{ApiVersion: KafkaConfigV2ApiVersion, Kind: TopicTemplateDeleteKind}
 	secondKind := model.Kind{ApiVersion: KafkaConfigV2ApiVersion, Kind: TenantTopicDeleteKind}
@@ -978,7 +975,7 @@ func TestApplyKafkaDeleteTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -1018,7 +1015,7 @@ func TestApplyKafkaDeleteTenantTopic(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -1068,7 +1065,7 @@ func TestApplyKafkaDeleteTopicTemplate(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
 
-	assert := _assert.New(t)
+	assert := assert.New(t)
 
 	cfg := `
 apiVersion: nc.maas.config/v2
@@ -1136,11 +1133,13 @@ spec:
 		requestContext := &model.RequestContext{Namespace: "first-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		if _, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
-		})
+		}); err != nil {
+			t.Logf("WARNING: instance registration in test setup failed, continuing: %v", err)
+		}
 
 		_, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -1202,11 +1201,13 @@ func TestKafkaTenantTopic_ChangeMinNumPartition(t *testing.T) {
 		requestContext := &model.RequestContext{Namespace: "test-namespace"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		if _, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
-		})
+		}); err != nil {
+			t.Logf("WARNING: instance registration in test setup failed, continuing: %v", err)
+		}
 
 		kafkaInstance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -1337,11 +1338,13 @@ spec:
 		requestContext := &model.RequestContext{Namespace: "first-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 		instanceDao := instance.NewKafkaInstancesDao(baseDao, domainDao)
-		instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+		if _, err := instanceDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
 			Id:           "default",
 			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
 			MaasProtocol: "PLAINTEXT",
-		})
+		}); err != nil {
+			t.Logf("WARNING: instance registration in test setup failed, continuing: %v", err)
+		}
 		kafkaHelper := mock_kafka_helper.NewMockHelper(mockCtrl)
 		kafkaInstance, err := instanceDao.GetInstanceById(ctx, "default")
 		assert.NoError(t, err)
@@ -1514,7 +1517,7 @@ spec:
 		requestContext = &model.RequestContext{Namespace: "second-ns"}
 		ctx = model.WithRequestContext(context.Background(), requestContext)
 
-		results, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
+		_, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
 		assertion.ErrorContains(err, "no topic template was found by name")
 
 		err = kafkaService.Warmup(ctx, &domain.BGState{
@@ -1532,7 +1535,7 @@ spec:
 		})
 		assert.NoError(t, err)
 
-		results, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
+		_, err = configuratorService.ApplyConfig(ctx, cfgTopicSecondNs, "second-ns")
 		assertion.NoError(err)
 	})
 }

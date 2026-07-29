@@ -11,7 +11,7 @@ func TestNamespaceCleanupService_DeleteNamespace(t *testing.T) {
 	counter := 0
 	cb := func(ctx context.Context, namespace string) error { counter += 1; return nil }
 	nc := NewNamespaceCleanupService(cb, cb)
-	nc.DeleteNamespace(context.Background(), "cloud-dev")
+	assert.NoError(t, nc.DeleteNamespace(context.Background(), "cloud-dev"))
 	assert.Equal(t, 2, counter)
 }
 

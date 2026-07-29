@@ -6,12 +6,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/pprof"
+	"path/filepath"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxmanager"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/controller"
 	controllerBluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
 	controllerCompositeV1 "github.com/netcracker/qubership-maas/controller/composite/v1"
@@ -42,13 +45,15 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/watchdog"
 	"github.com/rcrowley/go-metrics"
+
 	// swagger docs
 	_ "github.com/netcracker/qubership-maas/docs"
 )
 
 var (
 	log               logging.Logger
-	ctx, globalCancel = context.WithCancel(context.WithValue(context.Background(), "requestId", ""))
+	requestIDKey      = struct{ name string }{name: "requestId"}
+	ctx, globalCancel = context.WithCancel(context.WithValue(context.Background(), requestIDKey, ""))
 	exitCode          = atomic.Int32{}
 )
 
@@ -78,12 +83,23 @@ func main() {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
 	}
 
+	m2mEnabled := configloader.GetKoanf().Bool("kubernetes.m2m.enabled")
+	audience := configloader.GetKoanf().String("kubernetes.m2m.audience")
+	var oidcVerifier tokenverifier.Verifier
+	if m2mEnabled {
+		v, err := tokenverifier.NewKubernetesVerifier(ctx, audience)
+		if err != nil {
+			log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
+		}
+		oidcVerifier = v
+	}
+
 	compositeRegistrationService := composite.NewRegistrationService(composite.NewPGRegistrationDao(pg))
 	keyManagementHelper := keymanagement.NewPlain()
 	bgService := bg_service.NewBgService(bg_service.NewBgServiceDao(pg))
 	domainDao := domain.NewBGDomainDao(pg)
 	bgDomainService := domain.NewBGDomainService(domainDao)
-	authService := auth.NewAuthService(auth.NewAuthDao(pg), compositeRegistrationService, bgDomainService)
+	authService := auth.NewAuthService(auth.NewAuthDao(pg), compositeRegistrationService, bgDomainService, oidcVerifier)
 
 	kafkaHelper := helper.CreateKafkaHelper(ctx)
 	kafkaInstanceService := instance.NewKafkaInstanceService(instance.NewKafkaInstancesDao(pg, domainDao), kafkaHelper)
@@ -148,12 +164,12 @@ func main() {
 	if drMode.IsActive() {
 		err := kafkaService.MigrateKafka(ctx)
 		if err != nil {
-			log.PanicC(ctx, err.Error())
+			log.PanicC(ctx, "%s", err.Error())
 		}
 	}
 
 	healthAggregator := watchdog.NewHealthAggregator(pg.IsAvailable, instanceWatchdog.All)
-	app := router.CreateApi(ctx, controllers, healthAggregator, authService)
+	app := router.CreateApi(ctx, controllers, healthAggregator, authService, m2mEnabled)
 
 	utils.RegisterShutdownHook(func(code int) {
 		// save exit code to be used in Exit() call
@@ -171,7 +187,7 @@ func main() {
 		log.InfoC(ctx, "Run postdeploy actions...")
 		err := postdeploy.RunPostdeployScripts(ctx, authService, rabbitInstanceService, kafkaInstanceService)
 		if err != nil {
-			log.PanicC(ctx, err.Error())
+			log.PanicC(ctx, "%s", err.Error())
 		}
 		log.InfoC(ctx, "Postdeploy actions finished")
 	} else {
@@ -180,8 +196,8 @@ func main() {
 
 	serverBind := configloader.GetOrDefaultString("http.server.bind", ":8080")
 	log.InfoC(ctx, "Starting server on %v", serverBind)
-	if err := app.Listen(serverBind); err != nil {
-		log.PanicC(ctx, err.Error())
+	if err := app.Listen(serverBind, fiber.ListenConfig{DisableStartupMessage: true}); err != nil {
+		log.PanicC(ctx, "%s", err.Error())
 	}
 
 	log.InfoC(ctx, "Server gracefully finished with exit code: %d", exitCode.Load())
@@ -190,29 +206,39 @@ func main() {
 
 func startPProf() {
 	go func() {
-		app := fiber.New(fiber.Config{DisableStartupMessage: true})
+		app := fiber.New(fiber.Config{})
 		app.Use(pprof.New())
 		log.Debugf("run pprof on 127.0.0.1:6060")
-		app.Listen("127.0.0.1:6060")
+		err := app.Listen("127.0.0.1:6060", fiber.ListenConfig{DisableStartupMessage: true})
+		if err != nil {
+			log.Debugf("pprof server error: %v", err)
+		}
 	}()
 }
 
 func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Duration) dao.BaseDao {
 	configSection := configloader.GetKoanf()
+	dbDir := filepath.Join(utils.MaasSecretsDir, "db")
+	cipherDir := filepath.Join(utils.MaasSecretsDir, "cipher")
+	dbFromFile := utils.SecretDirMounted(dbDir)
+	cipherFromFile := utils.SecretDirMounted(cipherDir)
+
+	addr, user, password, database, tlsEnabled, cipherKey := resolveDbSecrets(ctx, configSection, dbDir, cipherDir, dbFromFile, cipherFromFile)
+
 	dbConfig := db.Config{
-		Addr:          configSection.String("db.postgresql.address"),
-		User:          configSection.String("db.postgresql.username"),
-		Password:      configSection.String("db.postgresql.password"),
-		Database:      configSection.String("db.postgresql.database"),
+		Addr:          addr,
+		User:          user,
+		Password:      password,
+		Database:      database,
 		PoolSize:      configSection.Int("db.pool.size"),
 		ConnectionTtl: configSection.Duration("db.connection.ttl"),
 		DrMode:        drMode,
-		TlsEnabled:    configSection.Bool("db.postgresql.tls.enabled"),
+		TlsEnabled:    tlsEnabled,
 		TlsSkipVerify: configSection.Bool("db.postgresql.tls.skipverify"),
-		CipherKey:     configSection.MustString("db.cipher.key"),
+		CipherKey:     cipherKey,
 	}
 
-	log.Info("Initialize dao with db: %+v", dbConfig)
+	log.Info("Initialize dao with db: addr=%s, database=%s, poolSize=%d, tlsEnabled=%v", dbConfig.Addr, dbConfig.Database, dbConfig.PoolSize, dbConfig.TlsEnabled)
 	daoInstance := dao.New(&dbConfig)
 
 	if err := daoInstance.StartMonitor(ctx, healthCheckInterval); err != nil {
@@ -239,4 +265,55 @@ func createDao(ctx context.Context, drMode dr.Mode, healthCheckInterval time.Dur
 	}()
 
 	return daoInstance
+}
+
+// resolveDbSecrets returns DB connection and cipher values. When the db or cipher dir is mounted, secrets are required from files; otherwise config/env is used.
+func resolveDbSecrets(ctx context.Context, configSection interface {
+	String(string) string
+	Bool(string) bool
+	MustString(string) string
+}, dbDir, cipherDir string, dbFromFile, cipherFromFile bool) (addr, user, password, database string, tlsEnabled bool, cipherKey string) {
+	if dbFromFile {
+		log.InfoC(ctx, "DB credentials: from file (dir %s)", dbDir)
+		var err error
+		addr, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("pg_address"))
+		if err != nil {
+			log.PanicC(ctx, "pg_address: %v", err)
+		}
+		user, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("username"))
+		if err != nil {
+			log.PanicC(ctx, "username: %v", err)
+		}
+		password, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("password"))
+		if err != nil {
+			log.PanicC(ctx, "password: %v", err)
+		}
+		database, err = utils.ReadSecretFromFileRequired(utils.PathDbSecret("dbname"))
+		if err != nil {
+			log.PanicC(ctx, "dbname: %v", err)
+		}
+		tlsEnabled, err = utils.ReadSecretBoolFromFileRequired(utils.PathDbSecret("tls"))
+		if err != nil {
+			log.PanicC(ctx, "tls: %v", err)
+		}
+	} else {
+		log.InfoC(ctx, "DB credentials: from config/env")
+		addr = configSection.String("db.postgresql.address")
+		user = configSection.String("db.postgresql.username")
+		password = configSection.String("db.postgresql.password")
+		database = configSection.String("db.postgresql.database")
+		tlsEnabled = configSection.Bool("db.postgresql.tls.enabled")
+	}
+	if cipherFromFile {
+		log.InfoC(ctx, "Cipher key: from file (dir %s)", cipherDir)
+		var err error
+		cipherKey, err = utils.ReadSecretFromFileRequired(utils.PathCipherSecret("key"))
+		if err != nil {
+			log.PanicC(ctx, "cipher key: %v", err)
+		}
+	} else {
+		log.InfoC(ctx, "Cipher key: from config/env")
+		cipherKey = configSection.MustString("db.cipher.key")
+	}
+	return addr, user, password, database, tlsEnabled, cipherKey
 }

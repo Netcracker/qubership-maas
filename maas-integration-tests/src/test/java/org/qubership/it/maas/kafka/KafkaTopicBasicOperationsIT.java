@@ -42,6 +42,16 @@ class KafkaTopicBasicOperationsIT extends AbstractMaasWithInitsIT {
         assertFalse(StringUtils.isBlank(topic.getInstance()));
         assertNotNull(topic.getAddresses());
         assertFalse(topic.getAddresses().isEmpty());
+
+        topic = createKafkaTopicWithK8sToken(HttpStatus.SC_CREATED, createSimpleClassifier("create-topic-test-" + UUID.randomUUID()));
+        assertTrue(topic.getName().startsWith("maas." + TEST_NAMESPACE));
+        assertEquals(TEST_NAMESPACE, topic.getNamespace());
+        assertTrue(topic.getName().contains("create-topic-test-"));
+        assertTrue(topic.getName().contains(TEST_NAMESPACE));
+        assertNotNull(topic.getInstance());
+        assertFalse(StringUtils.isBlank(topic.getInstance()));
+        assertNotNull(topic.getAddresses());
+        assertFalse(topic.getAddresses().isEmpty());
     }
 
     @Test

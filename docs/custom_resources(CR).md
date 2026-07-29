@@ -27,7 +27,7 @@ metadata:
 spec:
   # all properties below are optional
   pragma:
-    onTopicExists: merge
+    onEntityExists: merge
   replicationFactor: inherit
   minNumPartitions: 20
   topicNameTemplate: '%namespace%.%name%'

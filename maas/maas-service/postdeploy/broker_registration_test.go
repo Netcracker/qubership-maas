@@ -40,7 +40,9 @@ func withTempFile(t *testing.T, content string, callback func(path string)) {
 	if err != nil {
 		panic(err)
 	}
-	defer os.Remove(accountsDir.Name())
+	defer func() {
+		assert.NoError(t, os.Remove(accountsDir.Name()))
+	}()
 
 	callback(accountsDir.Name())
 }

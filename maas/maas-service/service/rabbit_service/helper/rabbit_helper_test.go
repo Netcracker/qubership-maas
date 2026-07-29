@@ -3,15 +3,19 @@ package helper
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
 	"github.com/go-resty/resty/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/model"
 	mock_helper "github.com/netcracker/qubership-maas/service/rabbit_service/helper/mock"
 	"github.com/netcracker/qubership-maas/testharness"
+	"github.com/netcracker/qubership-maas/utils"
 	"github.com/onsi/gomega/gbytes"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"testing"
 )
 
 var (
@@ -68,9 +72,11 @@ func TestRabbitVhostHelperImpl_CreateQueue(t *testing.T) {
 		"name": "test-queue",
 	}
 
-	var queueBytes, _ = json.Marshal(queue)
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
 	buf := gbytes.NewBuffer()
-	buf.Write(queueBytes)
+	_, err = buf.Write(queueBytes)
+	assert.NoError(err)
 
 	httpHelper.EXPECT().
 		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -110,9 +116,11 @@ func TestRabbitVhostHelperImpl_CreateQueueInequivArg(t *testing.T) {
 		"name": "test-queue",
 	}
 
-	var queueBytes, _ = json.Marshal(queue)
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
 	buf := gbytes.NewBuffer()
-	buf.Write(queueBytes)
+	_, err = buf.Write(queueBytes)
+	assert.NoError(err)
 
 	httpHelper.EXPECT().
 		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -170,9 +178,11 @@ func TestRabbitVhostHelperImpl_CreateQueueBadRequest(t *testing.T) {
 		"name": "test-queue",
 	}
 
-	var queueBytes, _ = json.Marshal(queue)
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
 	buf := gbytes.NewBuffer()
-	buf.Write(queueBytes)
+	_, err = buf.Write(queueBytes)
+	assert.NoError(err)
 
 	httpHelper.EXPECT().
 		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -184,7 +194,7 @@ func TestRabbitVhostHelperImpl_CreateQueueBadRequest(t *testing.T) {
 		}).
 		Times(1)
 
-	_, _, err := rabbitHelper.CreateQueue(context.Background(), queue)
+	_, _, err = rabbitHelper.CreateQueue(context.Background(), queue)
 	assert.Error(err)
 }
 
@@ -283,4 +293,74 @@ func TestRabbitHelperImpl_test(t *testing.T) {
 		assertion.NoError(err)
 	})
 
+}
+
+func TestIsInstanceAvailable_healthCheckPaths(t *testing.T) {
+	okBody := `{"status":"ok"}`
+
+	t.Run("modern endpoint", func(t *testing.T) {
+		var legacyCalled bool
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.HasSuffix(r.URL.Path, rabbitHealthCheckAlarmsPath):
+				_, _ = w.Write([]byte(okBody))
+			case strings.HasSuffix(r.URL.Path, rabbitHealthCheckLegacyPath):
+				legacyCalled = true
+				w.WriteHeader(http.StatusNotFound)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		helper := rabbitHelperForHealthTest(t, srv.URL)
+		assert.NoError(t, helper.IsInstanceAvailable())
+		assert.False(t, legacyCalled)
+	})
+
+	t.Run("fallback to legacy on 404", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case strings.HasSuffix(r.URL.Path, rabbitHealthCheckAlarmsPath):
+				w.WriteHeader(http.StatusNotFound)
+			case strings.HasSuffix(r.URL.Path, rabbitHealthCheckLegacyPath):
+				_, _ = w.Write([]byte(okBody))
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		helper := rabbitHelperForHealthTest(t, srv.URL)
+		assert.NoError(t, helper.IsInstanceAvailable())
+	})
+
+	t.Run("no fallback on unauthorized", func(t *testing.T) {
+		var legacyCalled bool
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, rabbitHealthCheckLegacyPath) {
+				legacyCalled = true
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		t.Cleanup(srv.Close)
+
+		helper := rabbitHelperForHealthTest(t, srv.URL)
+		err := helper.IsInstanceAvailable()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unauthorized")
+		assert.False(t, legacyCalled)
+	})
+}
+
+func rabbitHelperForHealthTest(t *testing.T, apiURL string) RabbitHelperImpl {
+	t.Helper()
+	return RabbitHelperImpl{
+		instance: model.RabbitInstance{
+			ApiUrl:   apiURL + "/api",
+			User:     "guest",
+			Password: "guest",
+		},
+		httpClient: utils.NewRestyClient(),
+	}
 }

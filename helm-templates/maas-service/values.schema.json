@@ -276,6 +276,26 @@
         [
           "postgresql=>postgresql-sample||mongodb=>mongo-sample;"
         ]
+      },
+      "KUBERNETES_M2M_ENABLED": {
+        "$id": "#/properties/KUBERNETES_M2M_ENABLED",
+        "type": "boolean",
+        "title": "The KUBERNETES_M2M_ENABLED schema",
+        "description": "If true enable Kubernetes OIDC m2m authentication",
+        "default": false,
+        "examples": [
+          true, false
+        ]
+      },
+      "KUBERNETES_M2M_AUDIENCE": {
+        "$id": "#/properties/KUBERNETES_M2M_AUDIENCE",
+        "type": "string",
+        "title": "The KUBERNETES_M2M_AUDIENCE schema",
+        "description": "Specify audience for m2m tokens. Requests with different audience will be rejected",
+        "default": "maas",
+        "examples": [
+            "maas", "netcracker"
+        ]
       }
     }
   }

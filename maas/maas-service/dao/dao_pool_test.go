@@ -32,7 +32,9 @@ func testConnectionPoolWithSettings(t *testing.T, tdb *testharness.TestDatabase,
 
 	sqlDb, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
-	defer sqlDb.Close()
+	defer func() {
+		assert.NoError(t, sqlDb.Close())
+	}()
 
 	sqlDb.SetMaxOpenConns(3)
 	sqlDb.SetConnMaxLifetime(30 * time.Minute)
