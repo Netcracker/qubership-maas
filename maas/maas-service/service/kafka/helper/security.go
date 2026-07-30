@@ -6,9 +6,10 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-maas/model"
-	"strings"
 )
 
 const (
@@ -21,6 +22,20 @@ const (
 var ErrNoCACert = errors.New("kafka: CA certificate must be configured for SSL connection to kafka")
 
 func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *model.KafkaInstance) (sarama.ClusterAdmin, error) {
+	config, err := helper.buildConfig(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+	addresses := instance.Addresses[instance.MaasProtocol]
+	admin, err := helper.client.NewClusterAdmin(addresses, config)
+	if err != nil {
+		log.ErrorC(ctx, "Failed to create kafka admin client for %+v: %v", addresses, err)
+		return nil, err
+	}
+	return admin, nil
+}
+
+func (helper *HelperImpl) buildConfig(ctx context.Context, instance *model.KafkaInstance) (*sarama.Config, error) {
 	config := sarama.NewConfig()
 
 	config.Admin.Timeout = helper.KafkaClientTimeout
@@ -83,13 +98,7 @@ func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *mode
 		}
 	}
 
-	addresses := instance.Addresses[instance.MaasProtocol]
-	admin, err := helper.client.NewClusterAdmin(addresses, config)
-	if err != nil {
-		log.ErrorC(ctx, "Failed to create kafka admin client for %+v: %v", addresses, err)
-		return nil, err
-	}
-	return admin, nil
+	return config, nil
 }
 
 func fillSslClientCert(ctx context.Context, config *sarama.Config, credentials model.KafkaCredentials) error {

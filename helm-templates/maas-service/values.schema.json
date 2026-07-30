@@ -10,6 +10,16 @@
         { "type": "integer" },
         { "type": "string" }
       ]
+    },
+    "booleanOrString": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        }
+      ]
     }
   },
   "properties": {
@@ -295,6 +305,14 @@
         "default": "maas",
         "examples": [
             "maas", "netcracker"
+        ]
+      },
+      "MONITORING_ENABLED": {
+        "$id": "#/properties/MONITORING_ENABLED",
+        "$ref": "#/definitions/booleanOrString",
+        "description": "Is monitoring enabled",
+        "examples": [
+          false
         ]
       }
     }

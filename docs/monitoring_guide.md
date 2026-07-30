@@ -11,6 +11,7 @@
 ### Purpose
 
 Single-pane-of-glass for the health and performance of a MaaS service pod. Covers:
+
 - Service availability and DR state
 - CPU and memory resource consumption
 - Go runtime internals (goroutines, GC, heap)
@@ -24,14 +25,14 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 ## Template Variables (Dropdowns)
 
-| Variable           | What it selects |
-|--------------------|---|
-| `datasource`       | The Prometheus / VictoriaMetrics data source |
-| `namespace`        | Kubernetes namespace |
-| `service_name`     | Container name (default: `maas-service`) |
-| `pod_name`         | Specific pod replica |
-| `samplin`          | Interval used in `rate()` calculations |
-| `kafka_instances`  | Multi-select: which Kafka broker(s) to display |
+| Variable | What it selects |
+| --- | --- |
+| `datasource` | The Prometheus / VictoriaMetrics data source |
+| `namespace` | Kubernetes namespace |
+| `service_name` | Container name (default: `maas-service`) |
+| `pod_name` | Specific pod replica |
+| `samplin` | Interval used in `rate()` calculations |
+| `kafka_instances` | Multi-select: which Kafka broker(s) to display |
 | `rabbit_instances` | Multi-select: which RabbitMQ broker(s) to display |
 
 ---
@@ -41,7 +42,7 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 > **When to use:** First row to check during any incident. Gives an instant health snapshot.
 
 | Panel | Metric | Values & Colors | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Health** | `kube_pod_container_status_running` | `1` = OK (green), `0` = FATAL (red), no data = N/A (orange) | Is the pod running right now? |
 | **Uptime** | `time() - process_start_time_seconds` | Duration in seconds | How long the pod has been up. A very low value means a recent restart. |
 | **DR Mode** | `maas_db_dr_mode` | `0` = Active (green), `1` = Standby (blue), `2` = Disabled (orange) | Current DR role. Standby pods do not serve traffic. |
@@ -197,7 +198,7 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 - One stat tile is shown per registered Kafka instance.
 
 | Value | Color | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | `0` | Blue | UNKNOWN — health check hasn't completed yet |
 | `10` | Green | OK — broker is reachable |
 | `20` | Orange | WARNING |
@@ -212,16 +213,115 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 ---
 
+## Registry Discrepancy Dashboard
+
+**Dashboard Name:** MaaS Discrepancy Dashboard
+**UID:** `maas-discrepancy`
+**Location:** `helm-templates/maas-service/dashboards/maas-discrepancy-dashboard.json` (shipped by `templates/Dashboard.yaml`)
+**Collection Interval:** `discrepancy.metrics.interval`, default `5m`
+
+### What it shows
+
+MaaS keeps its own registry of topics and vhosts in PostgreSQL, while the entities themselves live on
+Kafka and RabbitMQ. Those two views can drift apart — someone deletes a topic directly on the broker,
+a vhost creation half-fails, a database is restored from an older backup. This dashboard answers one
+question: **does the MaaS registry still match reality on the brokers?**
+
+### Metrics
+
+All three share the labels `broker_type` (`Kafka` / `RabbitMQ`) and `broker_id` (the registered instance
+id).
+
+| Metric | Meaning |
+| --- | --- |
+| `maas_discrepancy_registered_entities` | Topics/vhosts registered in the MaaS database for that broker |
+| `maas_discrepancy_lost_entities` | Registered in MaaS, **missing on the broker** |
+
+They additionally carry **`entity_namespace`** and **`tenant_id`** labels — the MaaS namespace and tenant
+the topic/vhost belongs to — so discrepancy can be attributed to a specific namespace or tenant. Both come
+from the database record (classifier). Non-tenant entities have an empty `tenant_id`. `entity_namespace`
+is deliberately **not** called `namespace`: Prometheus reserves that for the scrape target's Kubernetes
+namespace.
+
+### Why "lost" matters
+
+**Lost** hurts callers directly. MaaS believes a topic or vhost exists and will happily hand out its
+connection details, but nothing is there. Microservices get "unknown topic" or "vhost not found" errors
+at runtime, and MaaS itself will not self-heal — it deliberately refuses to recreate an entity behind the
+registry's back. Any non-zero value deserves investigation. The check is existence only: a topic/vhost
+that exists on the broker counts as `ok`, regardless of its configuration.
+
+### When a source can't be read
+
+Discrepancy is only reported for instances that were fully read this cycle. If MaaS cannot read an
+instance — either its registry rows from the database or the live state from the broker — that instance
+is **skipped**: the error is logged and **no metrics are emitted for it** that cycle (there is no stale
+carry-over of previous numbers). Its series simply disappear until the next successful check.
+
+This keeps the numbers honest: a lost value on the dashboard always reflects a check that actually
+reached the broker. A brief broker blip shows up as a gap in the timeseries, never as a false
+"everything is lost" spike.
+
+### Panels
+
+The dashboard has a **Kafka Topics** row and a **RabbitMQ VHosts** row, each with the same panels: stat
+tiles, per-broker timeseries and a broker-availability state-timeline. The **Broker**, **Namespace** and
+**Tenant** filters are shared across both rows (each row is already scoped to its broker type).
+
+| Panel | Query | When to act |
+| --- | --- | --- |
+| **Lost** (stat) | `sum(maas_discrepancy_lost_entities{broker_type=…})` | Red on any non-zero value. Recreate the entity on the broker, or delete the stale registration through the MaaS API. |
+| **Registered** (stat) | `sum(maas_discrepancy_registered_entities{broker_type=…})` | Informational. A sudden drop means registrations were deleted — or the instance became unreadable and its series vanished. Cross-check against a namespace cleanup. |
+| **Topics/VHosts By Broker** (stacked timeseries) | `present` = registered − lost, and `lost`, per `broker_id` | Green = present (on the broker), red = lost; the stack height is the registered total. A red band appearing, or a gap, pinpoints when and on which broker entities went missing. |
+| **Broker Availability** (state-timeline) | `maas_health_broker_status{broker_type=…}` | MaaS broker health: green = ok, orange = warning, red = problem (unreachable). A red band explains why discrepancy series went stale that cycle. |
+
+### Diagnosing a non-zero value
+
+The dashboard reports counts, not names. First narrow it down with the Namespace / Tenant filters (the
+`entity_namespace` and `tenant_id` labels tell you which namespace/tenant drifted), then use the
+discrepancy REST API (see [rest_api.md](rest_api.md)) to get the exact topics with an `ok` / `absent`
+status.
+
+Common causes, in rough order of likelihood:
+
+1. Someone operated on the broker directly instead of through the MaaS API.
+2. A database was restored from an older backup, so it references entities already gone from the broker.
+
+### Cost and configuration
+
+Each collection cycle issues **one `DescribeTopics` (Metadata) call per Kafka instance** — scoped to the
+registered topics, with no `DescribeConfigs` — and **one `GET /api/vhosts?columns=name`** per RabbitMQ
+instance. A single metadata request each, served from the broker's memory. The cost is per-instance, not
+per-entity, so it does not grow as topics are added.
+
+Tune with `discrepancy.metrics.interval` (default `5m`). Values below roughly `1m` are not recommended
+on shared brokers.
+
+---
+
 ## OOB Alerts
 
-**No out-of-the-box alerts are shipped by the MaaS product team.** The product ships metrics and a dashboard only.
+### Shipped: discrepancy alerts
 
-If alerting is required, it must be configured by the platform/operations team. 
+When `MONITORING_ENABLED=true`, the chart ships a `PrometheusRule`
+(`templates/PrometheusRule.yaml`) with one discrepancy alert. No extra configuration is required —
+the platform's VictoriaMetrics operator picks the rule up the same way it does the `PodMonitor`.
 
-### Recommended Alerts to Configure
+| Alert | Fires when | `for:` | Severity |
+| --- | --- | --- | --- |
+| `MaaSLostEntities` | `lost_entities > 0` | 15m | warning |
+
+The rule aggregates with `max without (instance, pod)` so replicas don't multiply the value, and carries
+the `entity_namespace` label into its annotations (so the alert names the affected tenant). No reachability
+guard is needed: an unreadable instance emits no discrepancy metrics at all, so the lost series
+disappears rather than going stale — there is nothing to page on until a real check produces a real value.
+
+### Recommended: service-health alerts (not shipped)
+
+These are **not** shipped — configure them per the platform/operations team's alerting stack.
 
 | Alert Name | PromQL Expression | Suggested `for:` | Severity |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | MaaS Pod Down | `kube_pod_container_status_running{container="maas-service"} == 0` | immediate | critical |
 | Master DB Unavailable | `maas_health_is_master_db_alive == 0` | 1m | critical |
 | Broker Unreachable | `maas_health_broker_status < 10` | 2m | critical |
