@@ -5,6 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"reflect"
+	"slices"
+	"sort"
+	"strings"
+
 	v "github.com/go-playground/validator/v10"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
@@ -18,11 +24,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/validator"
-	"golang.org/x/exp/slices"
-	"math"
-	"reflect"
-	"sort"
-	"strings"
 )
 
 const (

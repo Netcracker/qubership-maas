@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
 	v "github.com/netcracker/qubership-maas/validator"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 )
 

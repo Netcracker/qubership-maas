@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/netcracker/qubership-maas/msg"
-	"golang.org/x/exp/slices"
+	"slices"
 	"strings"
+
+	"github.com/netcracker/qubership-maas/msg"
 )
 
 type Classifier struct {

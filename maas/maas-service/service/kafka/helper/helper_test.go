@@ -90,6 +90,19 @@ func initTest(t *testing.T) {
 	configs = []sarama.ConfigEntry{{Name: "flush.ms", Value: "1000"}}
 }
 
+func expectDescribeTopicConfigs(configs []sarama.ConfigEntry) *gomock.Call {
+	return clusterAdmin.EXPECT().
+		DescribeConfigs(
+			gomock.Eq([]*sarama.ConfigResource{&topicResource}),
+			gomock.Eq(sarama.DescribeConfigsOptions{}),
+		).
+		Return([]*sarama.ConfigResourceResult{{
+			Type:    sarama.TopicResource,
+			Name:    TestTopicName,
+			Configs: configs,
+		}}, nil)
+}
+
 func TestCreateTopicWithDefaults(t *testing.T) {
 	initTest(t)
 	gomock.InOrder(
@@ -105,9 +118,7 @@ func TestCreateTopicWithDefaults(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			Close().
@@ -157,9 +168,7 @@ func TestCreateTopicWithSettings(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			Close().
@@ -218,9 +227,7 @@ func TestUpdateTopicSettings(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadataBefore, nil).
 			MinTimes(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configsBefore, nil).
+		expectDescribeTopicConfigs(configsBefore).
 			MinTimes(1),
 		clusterAdmin.EXPECT().
 			AlterConfig(sarama.TopicResource, gomock.Eq(TestTopicName), expectedTopic.RequestedSettings.Configs, false).
@@ -242,9 +249,7 @@ func TestUpdateTopicSettings(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadataAfter, nil).
 			MinTimes(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configsAfter, nil).
+		expectDescribeTopicConfigs(configsAfter).
 			MinTimes(1),
 		clusterAdmin.EXPECT().
 			Close().
@@ -269,9 +274,7 @@ func TestUpdateTopicSettingsNoChanges(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			AlterConfig(sarama.TopicResource, gomock.Eq(TestTopicName), gomock.Any(), gomock.Any()).
@@ -311,9 +314,7 @@ func TestUpdateTopicSettingsShouldRetry(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			AlterConfig(sarama.TopicResource, gomock.Eq(TestTopicName), gomock.Any(), gomock.Any()).
