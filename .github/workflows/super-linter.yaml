@@ -96,6 +96,10 @@ jobs:
         # Keep Go linting in the dedicated golangci-lint job below.
         VALIDATE_GO: false
         VALIDATE_GO_MODULES: false
+        # Helm chart templates are Go templates, not YAML: yamllint cannot parse
+        # constructs like a leading `{{ if ... }}`. Chart.yaml, values.yaml and
+        # resource-profiles stay linted.
+        FILTER_REGEX_EXCLUDE: (^|/)helm-templates/[^/]+/templates/
         # To report GitHub Actions status checks
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         DEFAULT_BRANCH: ${{ github.event.pull_request.base.ref || github.event.push.ref }}
