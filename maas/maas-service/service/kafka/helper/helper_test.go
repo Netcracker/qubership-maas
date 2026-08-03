@@ -642,6 +642,31 @@ func TestCheckHealth_ClientCredentialsFail(t *testing.T) {
 	assert.Contains(err.Error(), "SASL authentication failed")
 }
 
+func TestCheckHealth_ClientCredentialsConfigError(t *testing.T) {
+	initTest(t)
+	kafkaInstance.Credentials = map[model.KafkaRole][]model.KafkaCredentials{
+		model.Client: {{AuthType: "oauth"}},
+	}
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{dummyNonExistenceTopic})).
+			Return([]*sarama.TopicMetadata{{Name: dummyNonExistenceTopic, Err: sarama.ErrUnknownTopicOrPartition}}, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			Close().
+			Return(nil).
+			Times(1),
+	)
+
+	err := helper.CheckHealth(ctx, kafkaInstance)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "not supported")
+}
+
 type closerStub struct {
 	closed bool
 }
