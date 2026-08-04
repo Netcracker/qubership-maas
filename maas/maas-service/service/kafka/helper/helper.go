@@ -778,6 +778,7 @@ func newMetricCounter(methodName string) prometheus.Histogram {
 	return metric
 }
 
+
 func measureTime(m prometheus.Histogram, f func() error) error {
 	_, err := measureTimeValue(m, func() (any, error) { return nil, f() })
 	return err
