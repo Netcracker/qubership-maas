@@ -92,7 +92,7 @@ func (c *RegistrationController) GetAll(fiberCtx fiber.Ctx) error {
 
 	response := make([]RegistrationResponse, 0)
 	for _, entity := range entites {
-		response = append(response, RegistrationResponse(entity))
+		response = append(response, *NewRegistrationResponse(&entity))
 	}
 
 	return controller.RespondWithJson(fiberCtx, http.StatusOK, response)

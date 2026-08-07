@@ -54,12 +54,8 @@ import (
 var (
 	log               logging.Logger
 	requestIDKey      = struct{ name string }{name: "requestId"}
-	ctx, globalCancel = context.WithCancel(
-		context.WithValue(
-			context.Background(), requestIDKey, "",
-		),
-	)
-	exitCode = atomic.Int32{}
+	ctx, globalCancel = context.WithCancel(context.WithValue(context.Background(), requestIDKey, ""))
+	exitCode          = atomic.Int32{}
 )
 
 func init() {
