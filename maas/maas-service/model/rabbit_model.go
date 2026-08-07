@@ -120,7 +120,6 @@ func (reg *VHostRegistration) GetTenantId() string {
 	return c.TenantId
 }
 
-// todo changes for vault
 func (reg *VHostRegistration) GetDecodedPassword() string {
 	return strings.TrimPrefix(reg.Password, "plain:")
 }
