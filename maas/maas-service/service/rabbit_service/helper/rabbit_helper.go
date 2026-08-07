@@ -22,6 +22,7 @@ type RabbitHelper interface {
 	CreateVHost(ctx context.Context) error
 	CreateVHostAndReturnStatus(ctx context.Context) (int, error)
 	DeleteVHost(ctx context.Context) error
+	GetAllVhosts(ctx context.Context) ([]model.VhostInfo, error)
 	FormatCnnUrl(vHost string) string
 	IsInstanceAvailable() error
 
@@ -901,6 +902,20 @@ func (h RabbitHelperImpl) GetVhostExchanges(ctx context.Context) ([]model.Exchan
 	}
 	exchangesConverted := exchanges.(*[]model.Exchange)
 	return *exchangesConverted, nil
+}
+
+// GetAllVhosts lists all vhosts existing on the rabbit instance.
+func (h RabbitHelperImpl) GetAllVhosts(ctx context.Context) ([]model.VhostInfo, error) {
+	vhosts, err := h.GetAdminEntity(ctx, "vhosts?columns=name", []model.VhostInfo{})
+	if err != nil {
+		return nil, utils.LogError(log, ctx, "error during GetAdminEntity: %w", err)
+	}
+
+	if vhosts == nil {
+		return nil, nil
+	}
+	vhostsConverted := vhosts.(*[]model.VhostInfo)
+	return *vhostsConverted, nil
 }
 
 func (h RabbitHelperImpl) FormatCnnUrl(vHost string) string {

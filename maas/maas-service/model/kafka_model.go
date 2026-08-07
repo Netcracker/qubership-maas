@@ -71,7 +71,6 @@ func (s SslCert) Format(state fmt.State, verb rune) {
 type PasswordType string
 
 const (
-	Vault PasswordType = "vault"
 	Plain PasswordType = "plain"
 )
 

@@ -2,9 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"github.com/netcracker/qubership-maas/controller"
-	"github.com/netcracker/qubership-maas/service/configurator_service"
-	"github.com/netcracker/qubership-maas/service/cr"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/netcracker/qubership-maas/controller"
+	"github.com/netcracker/qubership-maas/service/configurator_service"
+	"github.com/netcracker/qubership-maas/service/cr"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -56,7 +57,7 @@ spec:
   instance: test-instance
 `))
 
-	resp, err := app.Test(req, 100)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -78,7 +79,7 @@ spec:
   instance: test-instance
 `))
 
-	resp, err = app.Test(reqNamespaceToLong, 100)
+	resp, err = app.Test(reqNamespaceToLong, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -135,7 +136,7 @@ spec:
   template: test-template
 `))
 
-	resp, err := app.Test(req, 100)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 
@@ -171,7 +172,7 @@ func TestCustomResourceController_Status(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test/42", nil)
 
-	resp, err := app.Test(req, 100)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 
@@ -186,7 +187,7 @@ func TestCustomResourceController_Status(t *testing.T) {
 
 	req = httptest.NewRequest("GET", "/test/42", nil)
 
-	resp, err = app.Test(req, 100)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -221,7 +222,7 @@ func TestCustomResourceController_Terminate(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/test/42/terminate", nil)
 
-	resp, err := app.Test(req, 100)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 
@@ -236,7 +237,7 @@ func TestCustomResourceController_Terminate(t *testing.T) {
 
 	req = httptest.NewRequest("GET", "/test/42/terminate", nil)
 
-	resp, err = app.Test(req, 100)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: time.Duration(100) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

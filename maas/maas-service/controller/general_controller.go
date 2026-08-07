@@ -3,7 +3,12 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+	"reflect"
+	"strconv"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	api_version "github.com/netcracker/qubership-maas/api-version"
 	"github.com/netcracker/qubership-maas/model"
@@ -13,10 +18,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/cleanup"
 	"github.com/netcracker/qubership-maas/utils"
 	"golang.org/x/exp/constraints"
-	"net/http"
-	"reflect"
-	"strconv"
-	"strings"
 )
 
 type GeneralController struct {
@@ -35,7 +36,7 @@ func NewGeneralController(s *cleanup.NamespaceCleanupService, a auth.AuthService
 	return &GeneralController{s, a, auditService}
 }
 
-func (g *GeneralController) ApiVersion(ctx *fiber.Ctx) error {
+func (g *GeneralController) ApiVersion(ctx fiber.Ctx) error {
 	return RespondWithJson(ctx, http.StatusOK, api_version.ApiVersion)
 }
 
@@ -50,8 +51,8 @@ func (g *GeneralController) ApiVersion(ctx *fiber.Ctx) error {
 // @Failure 400 {object}    map[string]string
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/namespace [delete]
-func (g *GeneralController) DeleteNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (g *GeneralController) DeleteNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	gLog.DebugC(ctx, "Received request to DeleteNamespace")
 	var namespaceReq model.Namespace
 	if err := json.Unmarshal(fiberCtx.Body(), &namespaceReq); err != nil {
@@ -74,8 +75,8 @@ func (g *GeneralController) DeleteNamespace(fiberCtx *fiber.Ctx) error {
 // @Success 200 {object}    string
 // @Failure 500 {object}	map[string]string
 // @Router /api/v2/monitoring/entity-distribution [get]
-func (g *GeneralController) GetMonitoringEntities(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (g *GeneralController) GetMonitoringEntities(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Received request to GetRabbitMonitoringEntities")
 
 	rabbitEntities, err := g.auditService.GetRabbitMonitoringEntities(ctx)
@@ -103,8 +104,8 @@ func (g *GeneralController) GetMonitoringEntities(fiberCtx *fiber.Ctx) error {
 // @Success 200 {object}    string
 // @Failure 500 {object}	map[string]string
 // @Router /api/v2/monitoring/entity-request-audit [get]
-func (g *GeneralController) GetMonitoringEntityRequests(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (g *GeneralController) GetMonitoringEntityRequests(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Received request to GetMonitoringEntityRequests")
 	requests, err := g.auditService.GetAllEntityRequestsStat(ctx)
 	if err != nil {

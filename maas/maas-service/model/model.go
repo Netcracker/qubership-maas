@@ -3,11 +3,12 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"slices"
+	"strings"
+
 	"github.com/lib/pq"
 	"github.com/netcracker/qubership-maas/utils"
-	"golang.org/x/exp/slices"
-	"regexp"
-	"strings"
 )
 
 type RoleName string

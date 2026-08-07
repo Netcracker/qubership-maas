@@ -120,7 +120,6 @@ func (reg *VHostRegistration) GetTenantId() string {
 	return c.TenantId
 }
 
-// todo changes for vault
 func (reg *VHostRegistration) GetDecodedPassword() string {
 	return strings.TrimPrefix(reg.Password, "plain:")
 }
@@ -188,6 +187,11 @@ func (d RabbitEntityType) String() string {
 
 type Exchange map[string]interface{}
 type Queue map[string]interface{}
+
+// VhostInfo is a short representation of a vhost as it is reported by RabbitMQ management API
+type VhostInfo struct {
+	Name string `json:"name"`
+}
 
 type RabbitEntities struct {
 	//todo: rabbit entites should be refactored to specific type []map[string]interface{}

@@ -43,5 +43,9 @@ production.mode: false
 kafka.client.timeout: 10s
 health.check.interval: 5s
 
+# how often maas compares its registry against the actual state of the brokers
+# to publish maas_discrepancy_* metrics
+discrepancy.metrics.interval: 5m
+
 # Migrate cr
 fallback.cr.apiversion: ""

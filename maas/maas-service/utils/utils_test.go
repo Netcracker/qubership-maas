@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	_assert "github.com/stretchr/testify/assert"
 	"math/rand"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gofiber/fiber/v3"
+	_assert "github.com/stretchr/testify/assert"
 )
 
 type void struct{}
@@ -509,6 +512,58 @@ func TestParseAuthHeader(t *testing.T) {
 			if creds != tt.creds {
 				t.Errorf("expected user creds=%q, got %q", tt.creds, creds)
 			}
+		})
+	}
+}
+
+func TestGetBasicAuth(t *testing.T) {
+	// base64("user:pass") == "dXNlcjpwYXNz"
+	const validCreds = "dXNlcjpwYXNz"
+
+	tests := []struct {
+		name    string
+		header  string
+		user    string
+		pass    string
+		wantErr bool
+	}{
+		{name: "canonical Basic", header: "Basic " + validCreds, user: "user", pass: "pass"},
+		{name: "lowercase basic", header: "basic " + validCreds, user: "user", pass: "pass"},
+		{name: "uppercase BASIC", header: "BASIC " + validCreds, user: "user", pass: "pass"},
+		{name: "mixed-case bAsIc", header: "bAsIc " + validCreds, user: "user", pass: "pass"},
+		{name: "empty header", header: "", wantErr: true},
+		{name: "not basic scheme", header: "Bearer sometoken", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert := _assert.New(t)
+
+			var (
+				gotUser string
+				gotPass SecretString
+				gotErr  error
+			)
+			app := fiber.New()
+			app.Get("/", func(c fiber.Ctx) error {
+				gotUser, gotPass, gotErr = GetBasicAuth(c)
+				return c.SendStatus(fiber.StatusOK)
+			})
+
+			req := httptest.NewRequest("GET", "/", nil)
+			if tt.header != "" {
+				req.Header.Set(fiber.HeaderAuthorization, tt.header)
+			}
+			_, err := app.Test(req)
+			assert.NoError(err)
+
+			if tt.wantErr {
+				assert.Error(gotErr)
+				return
+			}
+			assert.NoError(gotErr)
+			assert.Equal(tt.user, gotUser)
+			assert.Equal(tt.pass, string(gotPass))
 		})
 	}
 }

@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/service/instance"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/validator"
-	"net/http"
 )
 
 type InstanceController struct {
@@ -37,7 +38,7 @@ func NewInstanceController(kafkaInstanceService instance.KafkaInstanceService, r
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/rabbit/instance [post]
-func (c *InstanceController) RegisterNewRabbitInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) RegisterNewRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input model.RabbitInstance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.Register(ctx, &input) })
 }
@@ -55,7 +56,7 @@ func (c *InstanceController) RegisterNewRabbitInstance(fiberCtx *fiber.Ctx) erro
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/kafka/instance [post]
-func (c *InstanceController) RegisterNewKafkaInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) RegisterNewKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input model.KafkaInstance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.Register(ctx, &input) })
 }
@@ -69,10 +70,10 @@ func (c *InstanceController) RegisterNewKafkaInstance(fiberCtx *fiber.Ctx) error
 // @Success 200 {array}     model.RabbitInstance
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/rabbit/instances [get]
-func (c *InstanceController) GetAllRabbitInstances(fiberCtx *fiber.Ctx) error {
-	result, err := c.rabbit.GetRabbitInstances(fiberCtx.UserContext())
+func (c *InstanceController) GetAllRabbitInstances(fiberCtx fiber.Ctx) error {
+	result, err := c.rabbit.GetRabbitInstances(fiberCtx.Context())
 	if err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "can not list all rabbit instances: %s", err.Error())
+		return utils.LogError(log, fiberCtx.Context(), "can not list all rabbit instances: %s", err.Error())
 	}
 	return RespondWithJson(fiberCtx, http.StatusOK, result)
 }
@@ -86,10 +87,10 @@ func (c *InstanceController) GetAllRabbitInstances(fiberCtx *fiber.Ctx) error {
 // @Success 200 {array}     model.KafkaInstance
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/kafka/instances [get]
-func (c *InstanceController) GetAllKafkaInstances(fiberCtx *fiber.Ctx) error {
-	result, err := c.kafka.GetKafkaInstances(fiberCtx.UserContext())
+func (c *InstanceController) GetAllKafkaInstances(fiberCtx fiber.Ctx) error {
+	result, err := c.kafka.GetKafkaInstances(fiberCtx.Context())
 	if err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "can not list all kafka instances: %s", err.Error())
+		return utils.LogError(log, fiberCtx.Context(), "can not list all kafka instances: %s", err.Error())
 	}
 	return RespondWithJson(fiberCtx, http.StatusOK, result)
 }
@@ -107,7 +108,7 @@ func (c *InstanceController) GetAllKafkaInstances(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/rabbit/instance [put]
-func (c *InstanceController) UpdateRabbitInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) UpdateRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input model.RabbitInstance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.Update(ctx, &input) })
 }
@@ -125,7 +126,7 @@ func (c *InstanceController) UpdateRabbitInstance(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/kafka/instance [put]
-func (c *InstanceController) UpdateKafkaInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) UpdateKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input model.KafkaInstance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.Update(ctx, &input) })
 }
@@ -143,7 +144,7 @@ func (c *InstanceController) UpdateKafkaInstance(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/rabbit/instance/default [put]
-func (c *InstanceController) SetDefaultRabbitInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) SetDefaultRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input model.RabbitInstance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.SetDefault(ctx, &input) })
 }
@@ -161,7 +162,7 @@ func (c *InstanceController) SetDefaultRabbitInstance(fiberCtx *fiber.Ctx) error
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/kafka/instance/default [put]
-func (c *InstanceController) SetDefaultKafkaInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) SetDefaultKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input model.KafkaInstance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.SetDefault(ctx, &input) })
 }
@@ -183,7 +184,7 @@ type Instance struct {
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/rabbit/instance [delete]
-func (c *InstanceController) UnregisterRabbitInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) UnregisterRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input Instance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.Unregister(ctx, input.Id) })
 }
@@ -201,21 +202,21 @@ func (c *InstanceController) UnregisterRabbitInstance(fiberCtx *fiber.Ctx) error
 // @Failure 404 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/kafka/instance [delete]
-func (c *InstanceController) UnregisterKafkaInstance(fiberCtx *fiber.Ctx) error {
+func (c *InstanceController) UnregisterKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input Instance
 	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.Unregister(ctx, input.Id) })
 }
 
-func (c *InstanceController) executeOperation(fiberCtx *fiber.Ctx, input any, serviceFunction func(context.Context) (any, error)) error {
+func (c *InstanceController) executeOperation(fiberCtx fiber.Ctx, input any, serviceFunction func(context.Context) (any, error)) error {
 	if err := json.Unmarshal(fiberCtx.Body(), &input); err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "error parse json request: %v: %w", err.Error(), msg.BadRequest)
+		return utils.LogError(log, fiberCtx.Context(), "error parse json request: %v: %w", err.Error(), msg.BadRequest)
 	}
 
 	if err := validator.Get().Struct(input); err != nil {
-		return utils.LogError(log, fiberCtx.UserContext(), "request validation error: %w", errors.Join(err, msg.BadRequest))
+		return utils.LogError(log, fiberCtx.Context(), "request validation error: %w", errors.Join(err, msg.BadRequest))
 	}
 
-	result, err := serviceFunction(fiberCtx.UserContext())
+	result, err := serviceFunction(fiberCtx.Context())
 	if err != nil {
 		return err
 	}
@@ -223,8 +224,8 @@ func (c *InstanceController) executeOperation(fiberCtx *fiber.Ctx, input any, se
 	return RespondWithJson(fiberCtx, http.StatusOK, result)
 }
 
-func (c *InstanceController) GetKafkaInstanceDesignatorsByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *InstanceController) GetKafkaInstanceDesignatorsByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	namespace := model.RequestContextOf(ctx).Namespace
 
 	instanceDesignators, err := c.kafka.GetKafkaInstanceDesignatorByNamespace(ctx, namespace)
@@ -240,8 +241,8 @@ func (c *InstanceController) GetKafkaInstanceDesignatorsByNamespace(fiberCtx *fi
 	return RespondWithJson(fiberCtx, http.StatusOK, instanceDesignators)
 }
 
-func (c *InstanceController) DeleteKafkaInstanceDesignatorByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *InstanceController) DeleteKafkaInstanceDesignatorByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	namespace := model.RequestContextOf(ctx).Namespace
 
 	err := c.kafka.DeleteKafkaInstanceDesignatorByNamespace(ctx, namespace)
@@ -253,8 +254,8 @@ func (c *InstanceController) DeleteKafkaInstanceDesignatorByNamespace(fiberCtx *
 	return RespondWithJson(fiberCtx, http.StatusOK, nil)
 }
 
-func (c *InstanceController) GetRabbitInstanceDesignatorsByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *InstanceController) GetRabbitInstanceDesignatorsByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	namespace := model.RequestContextOf(ctx).Namespace
 
 	instanceDesignators, err := c.rabbit.GetRabbitInstanceDesignatorByNamespace(ctx, namespace)
@@ -270,8 +271,8 @@ func (c *InstanceController) GetRabbitInstanceDesignatorsByNamespace(fiberCtx *f
 	return RespondWithJson(fiberCtx, http.StatusOK, instanceDesignators)
 }
 
-func (c *InstanceController) DeleteRabbitInstanceDesignatorByNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *InstanceController) DeleteRabbitInstanceDesignatorByNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	namespace := model.RequestContextOf(ctx).Namespace
 
 	err := c.rabbit.DeleteRabbitInstanceDesignatorByNamespace(ctx, namespace)

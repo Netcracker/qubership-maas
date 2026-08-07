@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
@@ -13,7 +15,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/netcracker/qubership-maas/validator"
-	"net/http"
 )
 
 type VHostController struct {
@@ -53,8 +54,8 @@ func NewVHostController(s rabbit_service.RabbitService, a auth.AuthService) *VHo
 // @Failure 403 {object}	map[string]string
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/rabbit/vhost [post]
-func (c *VHostController) GetOrCreateVHost(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VHostController) GetOrCreateVHost(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	var vhostRequest model.VHostRegistrationReqDto
 	if err := json.Unmarshal(fiberCtx.Body(), &vhostRequest); err != nil {
@@ -80,7 +81,7 @@ func (c *VHostController) GetOrCreateVHost(fiberCtx *fiber.Ctx) error {
 			return utils.LogError(log, ctx, "error during vhost getting or creation: %s", err.Error())
 		}
 	}
-	extended := fiberCtx.QueryBool("extended", false)
+	extended := fiber.Query[bool](fiberCtx, "extended", false)
 	cnnUrl, err := c.service.GetConnectionUrl(ctx, vHostRegistration)
 	if err != nil {
 		return utils.LogError(log, ctx, "error during GetConnectionUrl in GetOrCreateVHost: %s", err.Error())
@@ -107,8 +108,8 @@ func (c *VHostController) GetOrCreateVHost(fiberCtx *fiber.Ctx) error {
 	}
 }
 
-func (c *VHostController) SearchVhosts(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VHostController) SearchVhosts(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	tLog.InfoC(ctx, "Received request to search vhosts by criteria %s, ctx: %+v", string(fiberCtx.Body()), model.RequestContextOf(ctx))
 
@@ -143,8 +144,8 @@ func (c *VHostController) SearchVhosts(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}	map[string]string
 // @Failure 204
 // @Router /api/v1/rabbit/vhost [delete]
-func (c *VHostController) DeleteVHost(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VHostController) DeleteVHost(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	searchForm, err := model.ConvertToSearchForm(string(fiberCtx.Body()))
 	if err != nil {
@@ -172,7 +173,7 @@ func (c *VHostController) DeleteVHost(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}	map[string]string
 // @Failure 204 {object}	map[string]string
 // @Router /api/v1/rabbit/vhost/get-by-classifier [post]
-func (c *VHostController) GetVHostAndConfigByClassifier(fiberCtx *fiber.Ctx) error {
+func (c *VHostController) GetVHostAndConfigByClassifier(fiberCtx fiber.Ctx) error {
 	return ExtractAndValidateClassifier(fiberCtx, func(ctx context.Context, classifier *model.Classifier) error {
 		result := &VhostAndConfigResult{}
 
@@ -189,7 +190,7 @@ func (c *VHostController) GetVHostAndConfigByClassifier(fiberCtx *fiber.Ctx) err
 			return utils.LogError(log, ctx, "error while getting virtual host's configs by classifier %+v: %w", classifier, err)
 		}
 
-		extended := fiberCtx.QueryBool("extended", false)
+		extended := fiber.Query[bool](fiberCtx, "extended", false)
 		cnnUrl, err := c.service.GetConnectionUrl(ctx, vHostRegistration)
 		if err != nil {
 			return utils.LogError(log, ctx, "error during GetConnectionUrl in GetVHostAndConfigByClassifier: %w", err)
@@ -224,8 +225,8 @@ func (c *VHostController) GetVHostAndConfigByClassifier(fiberCtx *fiber.Ctx) err
 // @Failure 400 {object}	map[string]string
 // @Router /api/v2/rabbit/validations [get]
 // Namespace parameter shouldn't be emoty
-func (c *VHostController) ValidateRabbitConfigs(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VHostController) ValidateRabbitConfigs(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	namespace := model.RequestContextOf(ctx).Namespace
 	lazyBindings, err := c.service.GetLazyBindings(ctx, namespace)
 	if err != nil {
@@ -249,8 +250,8 @@ func (c *VHostController) ValidateRabbitConfigs(fiberCtx *fiber.Ctx) error {
 // @Success 200
 // @Failure 500 {object}	map[string]string
 // @Router /api/v2/rabbit/recovery/{namespace} [post]
-func (c *VHostController) RecoverNamespace(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VHostController) RecoverNamespace(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	namespace := fiberCtx.Params("namespace")
 	if namespace == "" {
 		log.WarnC(ctx, "parameter 'namespace' is empty, use header namespace instead")
@@ -265,8 +266,8 @@ func (c *VHostController) RecoverNamespace(fiberCtx *fiber.Ctx) error {
 	return RespondWithJson(fiberCtx, http.StatusOK, nil)
 }
 
-func (c *VHostController) RotatePasswords(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (c *VHostController) RotatePasswords(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 
 	searchForm, err := model.ConvertToSearchForm(string(fiberCtx.Body()))
 	if err != nil {

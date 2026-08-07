@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"github.com/netcracker/qubership-maas/service/instance"
 	"github.com/netcracker/qubership-maas/service/rabbit_service/helper"
 	"github.com/netcracker/qubership-maas/utils"
-	"golang.org/x/exp/maps"
 )
 
 var ErrAggregateConfigParsing = errors.New("configurator_service: bad input, check correctness of your YAML")

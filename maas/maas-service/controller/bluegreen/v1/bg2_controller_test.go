@@ -2,18 +2,20 @@ package v1
 
 import (
 	"encoding/json"
-	"github.com/gofiber/fiber/v2"
-	"github.com/golang/mock/gomock"
-	"github.com/netcracker/qubership-maas/controller"
-	mock_bg2 "github.com/netcracker/qubership-maas/controller/bluegreen/v1/mock"
-	"github.com/netcracker/qubership-maas/service/bg2/domain"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/golang/mock/gomock"
+	"github.com/netcracker/qubership-maas/controller"
+	mock_bg2 "github.com/netcracker/qubership-maas/controller/bluegreen/v1/mock"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -60,7 +62,7 @@ func TestBg2Controller_InitDomain(t *testing.T) {
   }
 }`
 	req := httptest.NewRequest("POST", "/operation/init-domain", strings.NewReader(payload))
-	resp, _ := app.Test(req, 10000000)
+	resp, _ := app.Test(req, fiber.TestConfig{Timeout: time.Duration(10000000) * time.Millisecond})
 	assert.NotNil(t, resp)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	AssertResponseEqual(t, SyncResponse{Status: ProcessStatusCompleted, Message: "Init successfully finished"}, resp.Body)
@@ -79,7 +81,7 @@ func TestBg2Controller_InitDomain(t *testing.T) {
 `
 	req = httptest.NewRequest("POST", "/operation/init-domain", strings.NewReader(payload))
 	var err error
-	resp, err = app.Test(req, 10000000)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: time.Duration(10000000) * time.Millisecond})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)

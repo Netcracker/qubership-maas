@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/auth"
 	"github.com/netcracker/qubership-maas/utils"
-	"net/http"
 )
 
 type AccountController struct {
@@ -39,7 +40,7 @@ func NewAccountController(s auth.AuthService) *AccountController {
 // @Failure 400 {object}    map[string]string
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/auth/account/client [post]
-func (a *AccountController) CreateAccount(fiberCtx *fiber.Ctx) error {
+func (a *AccountController) CreateAccount(fiberCtx fiber.Ctx) error {
 	var account model.ClientAccountDto
 	return UnmarshalRequestBody(fiberCtx, &account, func(ctx context.Context) error {
 		aLog.InfoC(ctx, "Create new auth account: '%+v'", account)
@@ -63,7 +64,7 @@ func (a *AccountController) CreateAccount(fiberCtx *fiber.Ctx) error {
 // @Failure 400 {object}    map[string]string
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/auth/account/client [delete]
-func (a *AccountController) DeleteClientAccount(fiberCtx *fiber.Ctx) error {
+func (a *AccountController) DeleteClientAccount(fiberCtx fiber.Ctx) error {
 	var accountRequest model.ClientAccountDto
 	return UnmarshalRequestBody(fiberCtx, &accountRequest, func(ctx context.Context) error {
 		aLog.InfoC(ctx, "Get request to delete account")
@@ -95,8 +96,8 @@ func (a *AccountController) DeleteClientAccount(fiberCtx *fiber.Ctx) error {
 // @Failure 409 {object}	map[string]string
 // @Router /api/v1/auth/account/manager [post]
 // TODO too much logic for controller, move to service and use global transaction to prevent race between check and create
-func (a *AccountController) SaveManagerAccount(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (a *AccountController) SaveManagerAccount(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	log.InfoC(ctx, "Get request on create a new manager account")
 
 	var accountRequest model.ManagerAccountDto
@@ -145,8 +146,8 @@ func (a *AccountController) SaveManagerAccount(fiberCtx *fiber.Ctx) error {
 // @Failure 404 {object}    map[string]string
 // @Failure 500 {object}	map[string]string
 // @Router /api/v1/auth/accounts [get]
-func (a *AccountController) GetAllAccounts(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (a *AccountController) GetAllAccounts(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	tLog.InfoC(ctx, "Received request to get all accounts")
 	accounts, err := a.service.GetAllAccounts(ctx)
 	if err != nil {
@@ -167,8 +168,8 @@ func (a *AccountController) GetAllAccounts(fiberCtx *fiber.Ctx) error {
 // @Failure 500 {object}	map[string]string
 // @Failure 404 {object}	map[string]string
 // @Router /api/v2/auth/account/manager/{name}/password [put]
-func (a *AccountController) UpdatePassword(fiberCtx *fiber.Ctx) error {
-	ctx := fiberCtx.UserContext()
+func (a *AccountController) UpdatePassword(fiberCtx fiber.Ctx) error {
+	ctx := fiberCtx.Context()
 	name := fiberCtx.Params("name")
 	tLog.InfoC(ctx, "Received request to update '%s' password", name)
 	err := a.service.UpdateUserPassword(ctx, name, utils.SecretString(fiberCtx.Body()))
