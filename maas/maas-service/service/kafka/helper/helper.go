@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/IBM/sarama"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"strings"
-	"time"
 )
 
 var log = logging.GetLogger("kafka-helper")
@@ -26,7 +27,7 @@ var deleteMethodMetric = newMetricCounter("deleteTopic")
 var updateMethodMetric = newMetricCounter("updateTopic")
 var isTopicExistsMethodMetric = newMetricCounter("isTopicExists")
 var settingsMethodMetric = newMetricCounter("topicSettings")
-var listTopicsMethodMetric = newMetricCounter("listTopics")
+var getExistingTopicsMethodMetric = newMetricCounter("getExistingTopics")
 var bulkTopicSettingsMetric = newMetricCounter("bulkTopicSetting")
 
 func CreateKafkaHelper(ctx context.Context) Helper {
@@ -52,7 +53,7 @@ type Helper interface {
 	DeleteTopic(ctx context.Context, topic *model.TopicRegistration) error
 	UpdateTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
 	GetTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
-	GetListTopics(ctx context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error)
+	GetExistingTopics(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]bool, error)
 	DoesTopicExistOnKafka(ctx context.Context, instance *model.KafkaInstance, topicName string) (bool, error)
 	BulkGetTopicSettings(ctx context.Context, topics []*model.TopicRegistrationRespDto) error
 
@@ -92,6 +93,20 @@ func (helper HelperImpl) CheckHealth(ctx context.Context, kafkaInstance *model.K
 		log.WarnC(ctx, "Kafka instance %+v health check returned error: %v", kafkaInstance, err)
 		return err
 	}
+
+	if credentialsList, found := kafkaInstance.Credentials[model.Client]; found && len(credentialsList) > 0 {
+		client, err := helper.createClient(ctx, kafkaInstance)
+		if err != nil {
+			log.WarnC(ctx, "Failed to create kafka client for %+v: %v", kafkaInstance, err)
+			return err
+		}
+		defer func() {
+			if err := client.Close(); err != nil {
+				log.WarnC(ctx, "Failed to close kafka client for %+v: %v", kafkaInstance, err)
+			}
+		}()
+	}
+
 	log.DebugC(ctx, "Kafka instance %+v is healthy", kafkaInstance)
 	return nil
 }
@@ -471,11 +486,7 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 		result.ReplicationFactor = &replicationFactor
 	}
 
-	topicResource := sarama.ConfigResource{
-		Type: sarama.TopicResource,
-		Name: topic,
-	}
-	configs, err := admin.DescribeConfig(topicResource)
+	configs, err := describeTopicConfig(admin, topic)
 	if err != nil {
 		log.ErrorC(ctx, "Failed to obtain kafka topic %s configs from kafka. Error: %v", topic, err)
 		return nil, err
@@ -488,8 +499,15 @@ func (helper *HelperImpl) getTopicSettings(ctx context.Context, admin sarama.Clu
 	return &result, nil
 }
 
-func (helper *HelperImpl) GetListTopics(ctx context.Context, instance *model.KafkaInstance) (map[string]sarama.TopicDetail, error) {
-	return measureTimeValue(listTopicsMethodMetric, func() (map[string]sarama.TopicDetail, error) {
+// GetExistingTopics returns, for the requested topic names, the set of those that actually exist on
+// the broker (value true). Names missing from the map are not present on the broker.
+func (helper *HelperImpl) GetExistingTopics(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]bool, error) {
+	return measureTimeValue(getExistingTopicsMethodMetric, func() (map[string]bool, error) {
+		result := make(map[string]bool, len(topicNames))
+		if len(topicNames) == 0 {
+			return result, nil
+		}
+
 		admin, err := helper.createClusterAdmin(ctx, instance)
 		if err != nil {
 			log.ErrorC(ctx, "Failed to connect to kafka instance %s: %v", instance, err)
@@ -501,12 +519,22 @@ func (helper *HelperImpl) GetListTopics(ctx context.Context, instance *model.Kaf
 			}
 		}()
 
-		if topics, err := admin.ListTopics(); err == nil {
-			return topics, nil
-		} else {
-			log.ErrorC(ctx, "Failed to get list of topics from kafka instance %s: %v", instance, err)
+		metadata, err := admin.DescribeTopics(topicNames)
+		if err != nil {
+			log.ErrorC(ctx, "Failed to describe topics on kafka instance %s: %v", instance, err)
 			return nil, err
 		}
+		for _, m := range metadata {
+			switch {
+			case errors.Is(m.Err, sarama.ErrNoError):
+				result[m.Name] = true
+			case errors.Is(m.Err, sarama.ErrUnknownTopicOrPartition):
+				// registered in maas but missing on the broker
+			default:
+				return nil, utils.LogError(log, ctx, "kafka: failed to describe topic %s: %w", m.Name, m.Err)
+			}
+		}
+		return result, nil
 	})
 }
 
@@ -580,6 +608,26 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 	if err != nil {
 		return utils.LogError(log, ctx, "error describe topics: %v: %w", topicNames, err)
 	}
+
+	resources := make([]*sarama.ConfigResource, 0, len(topicNames))
+	for _, name := range topicNames {
+		resources = append(resources, &sarama.ConfigResource{
+			Type: sarama.TopicResource,
+			Name: name,
+		})
+	}
+	configResults, err := admin.DescribeConfigs(resources, sarama.DescribeConfigsOptions{})
+	if err != nil {
+		return utils.LogError(log, ctx, "error getting topics config for: %v: %w", topicNames, err)
+	}
+	configsByName := make(map[string][]sarama.ConfigEntry, len(configResults))
+	for _, result := range configResults {
+		if result.ErrorCode != 0 {
+			return utils.LogError(log, ctx, "error getting topic's config for: %v: %w", result.Name, &sarama.DescribeConfigError{Err: result.ErrorCode, ErrMsg: result.ErrorMsg})
+		}
+		configsByName[result.Name] = result.Configs
+	}
+
 	for _, topicMetadata := range metadata {
 		if !errors.Is(topicMetadata.Err, sarama.ErrNoError) {
 			return utils.LogError(log, ctx, "kafka: failed to get topic's %s metadata: %w", topicMetadata.Name, topicMetadata.Err)
@@ -597,14 +645,7 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 			topic.ActualSettings.ReplicationFactor = &replicationFactor
 		}
 
-		topicResource := sarama.ConfigResource{
-			Type: sarama.TopicResource,
-			Name: topic.Name,
-		}
-		configs, err := admin.DescribeConfig(topicResource)
-		if err != nil {
-			return utils.LogError(log, ctx, "error getting topic's config for: %v: %w", topic.Name, err)
-		}
+		configs := configsByName[topic.Name]
 		topic.ActualSettings.Configs = make(map[string]*string, len(configs))
 		for _, configEntry := range configs {
 			configValue := configEntry.Value
@@ -617,6 +658,26 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 func IsInstanceAvailable(kafkaInstance *model.KafkaInstance) error {
 	healthChecker := NewInstanceHealthChecker(*kafkaInstance, NewHelperImpl(10*time.Second))
 	return healthChecker.IsAvailable()
+}
+
+func describeTopicConfig(admin sarama.ClusterAdmin, topic string) ([]sarama.ConfigEntry, error) {
+	results, err := admin.DescribeConfigs([]*sarama.ConfigResource{{
+		Type: sarama.TopicResource,
+		Name: topic,
+	}}, sarama.DescribeConfigsOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, result := range results {
+		if result.Name != topic {
+			continue
+		}
+		if result.ErrorCode != 0 {
+			return nil, &sarama.DescribeConfigError{Err: result.ErrorCode, ErrMsg: result.ErrorMsg}
+		}
+		return result.Configs, nil
+	}
+	return nil, nil
 }
 
 func buildTopicDetail(topic *model.TopicRegistration) *sarama.TopicDetail {
@@ -716,6 +777,7 @@ func newMetricCounter(methodName string) prometheus.Histogram {
 	}
 	return metric
 }
+
 
 func measureTime(m prometheus.Histogram, f func() error) error {
 	_, err := measureTimeValue(m, func() (any, error) { return nil, f() })

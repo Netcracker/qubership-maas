@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-maas/controller"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/composite"
-	"golang.org/x/exp/slices"
 )
 
 type RegistrationController struct {

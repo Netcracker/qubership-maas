@@ -325,22 +325,28 @@ func TestKafkaService_GetDiscrepancyReport(t *testing.T) {
 		Namespace:  "test-namespace",
 	}
 
+	topicRegThird := &model.TopicRegistration{
+		Classifier: &model.Classifier{Name: "third", Namespace: "test-namespace", TenantId: "3"},
+		Topic:      "test-namespace.third",
+		Namespace:  "test-namespace",
+	}
+
 	gomock.InOrder(
 		mockDao.EXPECT().
 			FindTopicsBySearchRequest(eqCtx, &model.TopicSearchRequest{Namespace: "test-namespace"}).
-			Return([]*model.TopicRegistration{topicRegFirst, topicRegSecond}, nil).
+			Return([]*model.TopicRegistration{topicRegFirst, topicRegSecond, topicRegThird}, nil).
 			Times(1),
 		kafkaInstanceServiceMock.EXPECT().
 			GetById(eqCtx, gomock.Any()).
 			Return(kafkaInstance, nil).
 			Times(1),
 		kafkaHelper.EXPECT().
-			DoesTopicExistOnKafka(gomock.Any(), gomock.Eq(kafkaInstance), "test-namespace.first").
-			Return(true, nil).
-			Times(1),
-		kafkaHelper.EXPECT().
-			DoesTopicExistOnKafka(gomock.Any(), gomock.Eq(kafkaInstance), "test-namespace.second").
-			Return(false, nil).
+			GetExistingTopics(gomock.Any(), gomock.Eq(kafkaInstance), gomock.Any()).
+			Return(map[string]bool{
+				"test-namespace.first": true, // present -> ok
+				// "test-namespace.second" omitted -> absent
+				"test-namespace.third": true, // present -> ok
+			}, nil).
 			Times(1),
 	)
 
@@ -362,6 +368,10 @@ func TestKafkaService_GetDiscrepancyReport(t *testing.T) {
 	assert.Equal(t, "test-namespace.second", report[1].Name)
 	assert.Equal(t, model.StatusAbsent, report[1].Status)
 	assert.Equal(t, model.Classifier{Name: "second", Namespace: "test-namespace", TenantId: "2"}, report[1].Classifier)
+
+	assert.Equal(t, "test-namespace.third", report[2].Name)
+	assert.Equal(t, model.StatusOk, report[2].Status)
+	assert.Equal(t, model.Classifier{Name: "third", Namespace: "test-namespace", TenantId: "3"}, report[2].Classifier)
 }
 
 func TestKafkaService_CreateTopicDefinition(t *testing.T) {

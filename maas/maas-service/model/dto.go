@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/netcracker/qubership-maas/msg"
-	"github.com/netcracker/qubership-maas/utils"
 	"reflect"
 	"strconv"
+
+	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/utils"
 
 	"github.com/pkg/errors"
 )
@@ -172,7 +173,7 @@ func getNumPartitionsFromRequest(value interface{}) (*int32, error) {
 	numPartitionsStr := ""
 	if value != nil {
 		val := reflect.ValueOf(value)
-		if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Int {
+		if val.Kind() == reflect.Pointer && val.Elem().Kind() == reflect.Int {
 			numPartitionsStr = strconv.FormatInt(val.Elem().Int(), 10)
 		} else {
 			numPartitionsStr = fmt.Sprintf("%v", value)
@@ -199,7 +200,7 @@ func getMinNumPartitionsFromRequest(value interface{}) (*int32, error) {
 	numPartitionsStr := ""
 	if value != nil {
 		val := reflect.ValueOf(value)
-		if val.Kind() == reflect.Ptr && val.Elem().Kind() == reflect.Int {
+		if val.Kind() == reflect.Pointer && val.Elem().Kind() == reflect.Int {
 			numPartitionsStr = strconv.FormatInt(val.Elem().Int(), 10)
 		} else {
 			numPartitionsStr = fmt.Sprintf("%v", value)
@@ -226,7 +227,7 @@ func getReplicationFactorFromRequest(value interface{}) (*int16, error) {
 	replicationFactorStr := ""
 	if value != nil {
 		val := reflect.ValueOf(value)
-		if val.Kind() == reflect.Ptr {
+		if val.Kind() == reflect.Pointer {
 			if val.Elem().Kind() == reflect.Int {
 				replicationFactorStr = strconv.FormatInt(val.Elem().Int(), 10)
 			} else {

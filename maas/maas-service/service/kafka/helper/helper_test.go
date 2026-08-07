@@ -90,6 +90,19 @@ func initTest(t *testing.T) {
 	configs = []sarama.ConfigEntry{{Name: "flush.ms", Value: "1000"}}
 }
 
+func expectDescribeTopicConfigs(configs []sarama.ConfigEntry) *gomock.Call {
+	return clusterAdmin.EXPECT().
+		DescribeConfigs(
+			gomock.Eq([]*sarama.ConfigResource{&topicResource}),
+			gomock.Eq(sarama.DescribeConfigsOptions{}),
+		).
+		Return([]*sarama.ConfigResourceResult{{
+			Type:    sarama.TopicResource,
+			Name:    TestTopicName,
+			Configs: configs,
+		}}, nil)
+}
+
 func TestCreateTopicWithDefaults(t *testing.T) {
 	initTest(t)
 	gomock.InOrder(
@@ -105,9 +118,7 @@ func TestCreateTopicWithDefaults(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			Close().
@@ -157,9 +168,7 @@ func TestCreateTopicWithSettings(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			Close().
@@ -218,9 +227,7 @@ func TestUpdateTopicSettings(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadataBefore, nil).
 			MinTimes(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configsBefore, nil).
+		expectDescribeTopicConfigs(configsBefore).
 			MinTimes(1),
 		clusterAdmin.EXPECT().
 			AlterConfig(sarama.TopicResource, gomock.Eq(TestTopicName), expectedTopic.RequestedSettings.Configs, false).
@@ -242,9 +249,7 @@ func TestUpdateTopicSettings(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadataAfter, nil).
 			MinTimes(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configsAfter, nil).
+		expectDescribeTopicConfigs(configsAfter).
 			MinTimes(1),
 		clusterAdmin.EXPECT().
 			Close().
@@ -269,9 +274,7 @@ func TestUpdateTopicSettingsNoChanges(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			AlterConfig(sarama.TopicResource, gomock.Eq(TestTopicName), gomock.Any(), gomock.Any()).
@@ -311,9 +314,7 @@ func TestUpdateTopicSettingsShouldRetry(t *testing.T) {
 			DescribeTopics(gomock.Eq([]string{TestTopicName})).
 			Return(metadata, nil).
 			Times(1),
-		clusterAdmin.EXPECT().
-			DescribeConfig(topicResource).
-			Return(configs, nil).
+		expectDescribeTopicConfigs(configs).
 			Times(1),
 		clusterAdmin.EXPECT().
 			AlterConfig(sarama.TopicResource, gomock.Eq(TestTopicName), gomock.Any(), gomock.Any()).
@@ -558,6 +559,121 @@ func TestIsTopicExistingOnKafka_Error(t *testing.T) {
 	result, err := helper.DoesTopicExistOnKafka(ctx, kafkaInstance, topic.Topic)
 	assert.NotNil(err)
 	assert.False(result)
+}
+
+func TestCheckHealth_WithoutClientCredentials(t *testing.T) {
+	initTest(t)
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{dummyNonExistenceTopic})).
+			Return([]*sarama.TopicMetadata{{Name: dummyNonExistenceTopic, Err: sarama.ErrUnknownTopicOrPartition}}, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			Close().
+			Return(nil).
+			Times(1),
+	)
+
+	err := helper.CheckHealth(ctx, kafkaInstance)
+	assert.Nil(err)
+}
+
+func TestCheckHealth_WithClientCredentials(t *testing.T) {
+	initTest(t)
+	kafkaInstance.Credentials = map[model.KafkaRole][]model.KafkaCredentials{
+		model.Admin:  {{AuthType: model.PlainAuth, Username: "admin", Password: "plain:admin-pass"}},
+		model.Client: {{AuthType: model.PlainAuth, Username: "client", Password: "plain:client-pass"}},
+	}
+	kafkaClient := &closerStub{}
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{dummyNonExistenceTopic})).
+			Return([]*sarama.TopicMetadata{{Name: dummyNonExistenceTopic, Err: sarama.ErrUnknownTopicOrPartition}}, nil).
+			Times(1),
+		saramaClient.EXPECT().
+			NewClient(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(kafkaClient, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			Close().
+			Return(nil).
+			Times(1),
+	)
+
+	err := helper.CheckHealth(ctx, kafkaInstance)
+	assert.Nil(err)
+	assert.True(kafkaClient.closed)
+}
+
+func TestCheckHealth_ClientCredentialsFail(t *testing.T) {
+	initTest(t)
+	kafkaInstance.Credentials = map[model.KafkaRole][]model.KafkaCredentials{
+		model.Client: {{AuthType: model.PlainAuth, Username: "client", Password: "plain:wrong"}},
+	}
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{dummyNonExistenceTopic})).
+			Return([]*sarama.TopicMetadata{{Name: dummyNonExistenceTopic, Err: sarama.ErrUnknownTopicOrPartition}}, nil).
+			Times(1),
+		saramaClient.EXPECT().
+			NewClient(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(nil, errors.New("SASL authentication failed")).
+			Times(1),
+		clusterAdmin.EXPECT().
+			Close().
+			Return(nil).
+			Times(1),
+	)
+
+	err := helper.CheckHealth(ctx, kafkaInstance)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "SASL authentication failed")
+}
+
+func TestCheckHealth_ClientCredentialsConfigError(t *testing.T) {
+	initTest(t)
+	kafkaInstance.Credentials = map[model.KafkaRole][]model.KafkaCredentials{
+		model.Client: {{AuthType: "oauth"}},
+	}
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{dummyNonExistenceTopic})).
+			Return([]*sarama.TopicMetadata{{Name: dummyNonExistenceTopic, Err: sarama.ErrUnknownTopicOrPartition}}, nil).
+			Times(1),
+		clusterAdmin.EXPECT().
+			Close().
+			Return(nil).
+			Times(1),
+	)
+
+	err := helper.CheckHealth(ctx, kafkaInstance)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "not supported")
+}
+
+type closerStub struct {
+	closed bool
+}
+
+func (c *closerStub) Close() error {
+	c.closed = true
+	return nil
 }
 
 type VersionMatcher struct {
