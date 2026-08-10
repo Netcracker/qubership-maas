@@ -22,12 +22,6 @@ const (
 
 var ErrNoCACert = errors.New("kafka: CA certificate must be configured for SSL connection to kafka")
 
-// Sarama 1.60 uses the flexible AlterConfigs v2 protocol when Version is 2.8+
-// (https://github.com/IBM/sarama/compare/v1.50.3...v1.60.1). Some supported
-// Kafka brokers close the connection for that request, returning EOF. Version
-// 2.7 keeps AlterConfigs on v1 while supporting all MaaS topic operations.
-var saramaProtocolVersion = sarama.V2_7_0_0
-
 func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *model.KafkaInstance) (sarama.ClusterAdmin, error) {
 	config, err := helper.buildConfig(ctx, instance, model.Admin)
 	if err != nil {
@@ -62,7 +56,7 @@ func (helper *HelperImpl) buildConfig(ctx context.Context, instance *model.Kafka
 	config.Admin.Timeout = helper.KafkaClientTimeout
 	config.Metadata.Timeout = helper.KafkaClientTimeout
 	config.ClientID = "maas"
-	config.Version = saramaProtocolVersion
+	config.Version = sarama.V2_8_0_0
 
 	useTls := instance.MaasProtocol == model.Ssl || instance.MaasProtocol == model.SaslSsl
 	if useTls {

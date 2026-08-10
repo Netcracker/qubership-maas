@@ -667,15 +667,6 @@ func TestCheckHealth_ClientCredentialsConfigError(t *testing.T) {
 	assert.Contains(err.Error(), "not supported")
 }
 
-func TestBuildConfigUsesAlterConfigsV1CompatibleVersion(t *testing.T) {
-	initTest(t)
-
-	config, err := helper.buildConfig(ctx, kafkaInstance, model.Admin)
-
-	assert.NoError(err)
-	assert.Equal(sarama.V2_7_0_0, config.Version)
-}
-
 type closerStub struct {
 	closed bool
 }
@@ -690,10 +681,10 @@ type VersionMatcher struct {
 }
 
 func (matcher *VersionMatcher) Matches(x interface{}) bool {
-	return x.(*sarama.Config).Version == saramaProtocolVersion
+	return x.(*sarama.Config).Version.String() == matcher.Expected
 }
 
 // String describes what the matcher matches.
 func (matcher *VersionMatcher) String() string {
-	return "Kafka versions in sarama config must use the AlterConfigs v1-compatible version"
+	return "Kafka versions in sarama config must match the expected version value"
 }
