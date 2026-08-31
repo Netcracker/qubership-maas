@@ -23,7 +23,7 @@ USER root
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories  \
     && echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk add --update --upgrade --no-cache \
-        pcre2 curl gnutls libcurl jq openssl libcrypto3 binutils libssl3 zlib musl musl-utils
+        pcre2 curl gnutls libcurl jq openssl libcrypto3 libssl3 zlib musl musl-utils
 
 WORKDIR /app
 
