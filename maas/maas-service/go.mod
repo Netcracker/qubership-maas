@@ -1,6 +1,6 @@
 module github.com/netcracker/qubership-maas
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/IBM/sarama v1.60.2
@@ -25,7 +25,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/netcracker/qubership-core-lib-go/v3 v3.14.0
-	github.com/onsi/gomega v1.42.1
+	github.com/onsi/gomega v1.43.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.1
 	github.com/proullon/ramsql v0.1.4
