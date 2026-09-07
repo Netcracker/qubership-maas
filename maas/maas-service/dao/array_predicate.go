@@ -13,7 +13,8 @@ const sqliteDialect = "sqlite"
 // Elements PostgreSQL renders quoted - those holding a comma, a quote or a brace -
 // are not matched on the cache.
 func ArrayContains(cnn *gorm.DB, column string, value string) (string, []any) {
-	if cnn.Dialector.Name() == sqliteDialect {
+	dialector := cnn.Dialector
+	if dialector.Name() == sqliteDialect {
 		return "instr(',' || trim(" + column + ", '{}') || ',', ?) > 0", []any{"," + value + ","}
 	}
 	return "?=ANY(" + column + ")", []any{value}
