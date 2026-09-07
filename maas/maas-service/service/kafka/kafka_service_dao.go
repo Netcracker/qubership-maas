@@ -217,9 +217,10 @@ func (d *KafkaDaoImpl) FindTopicTemplateByNameAndNamespace(ctx context.Context, 
 	log.InfoC(ctx, "Querying kafka topic template by name: %v", name)
 	obj := new(model.TopicTemplate)
 	if err := d.base.UsingDb(ctx, func(cnn *gorm.DB) error {
+		inDomain, args := dao.ArrayContains(cnn, "domain_namespaces", namespace)
 		err := cnn.
 			Where("name=?", name).
-			Where(cnn.Where("?=ANY(domain_namespaces)", namespace).Or("namespace=?", namespace)).
+			Where(cnn.Where(inDomain, args...).Or("namespace=?", namespace)).
 			First(obj).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			obj = nil
