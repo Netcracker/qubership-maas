@@ -14,8 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// masterIsGone is the error IsMasterAvailabilityError recognises.
-var masterIsGone = errors.New("unexpected EOF")
+// errMasterIsGone is the error IsMasterAvailabilityError recognises.
+var errMasterIsGone = errors.New("unexpected EOF")
 
 // newCacheBackedDao builds a dao with a cache, so the fallback can be driven
 // from the query closure.
@@ -47,7 +47,7 @@ func TestUsingDb_CacheFailureIsReportedAsUnavailable(t *testing.T) {
 	err := baseDao.UsingDb(context.Background(), func(conn *gorm.DB) error {
 		calls++
 		if calls == 1 {
-			return masterIsGone
+			return errMasterIsGone
 		}
 		return errors.New("SQL logic error: no such function: ANY")
 	})
@@ -65,7 +65,7 @@ func TestUsingDb_MissingRowOnCacheIsAnAnswer(t *testing.T) {
 	err := baseDao.UsingDb(context.Background(), func(conn *gorm.DB) error {
 		calls++
 		if calls == 1 {
-			return masterIsGone
+			return errMasterIsGone
 		}
 		return gorm.ErrRecordNotFound
 	})
