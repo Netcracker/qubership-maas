@@ -15,11 +15,11 @@ require (
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/gofiber/fiber/v3 v3.5.0
-	github.com/gofiber/utils/v2 v2.4.2
+	github.com/gofiber/utils/v2 v2.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jucardi/go-streams/v2 v2.0.3
 	github.com/knadh/koanf/providers/confmap v1.0.1
 	github.com/lib/pq v1.12.3
