@@ -3,7 +3,9 @@ SERVICE_NAME: maas-service
 APPLICATION_NAME: maas
 NAMESPACE: maas
 
-READONLY_CONTAINER_FILE_SYSTEM_ENABLED: false
+# Read-only root filesystem is enabled by default on Kubernetes (PAAS_PLATFORM=KUBERNETES).
+# Set to false to opt out. Ignored on OpenShift.
+READONLY_CONTAINER_FILE_SYSTEM_ENABLED: true
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
 MAAS_ACCOUNT_MANAGER_USERNAME: manager
