@@ -122,45 +122,154 @@ func TestRabbitVhostHelperImpl_CreateQueueInequivArg(t *testing.T) {
 	_, err = buf.Write(queueBytes)
 	assert.NoError(err)
 
-	httpHelper.EXPECT().
-		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, &RabbitHttpError{
-			Code:          http.StatusBadRequest,
-			ExpectedCodes: []int{http.StatusOK},
-			Message:       "error during creating queue",
-			Response:      []byte("{\"reason\": \"inequivalent arg\"}"),
-		}).
-		Times(1)
-	httpHelper.EXPECT().
-		DoRequest(gomock.Any(), "DELETE", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&resty.Response{
-			RawResponse: &http.Response{
-				StatusCode: http.StatusNoContent,
-				Body:       buf,
-			},
-		}, nil).
-		Times(1)
-	httpHelper.EXPECT().
-		DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&resty.Response{
-			Request: &resty.Request{URL: "url"},
-			RawResponse: &http.Response{
-				StatusCode: http.StatusOK,
-			}}, nil).
-		Times(1)
-	httpHelper.EXPECT().
-		DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(&resty.Response{
-			RawResponse: &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       buf,
-			},
-		}, nil).
-		Times(1)
+	getShovelsBuf := gbytes.NewBuffer()
+	_, err = getShovelsBuf.Write([]byte("[]"))
+	assert.NoError(err)
+
+	gomock.InOrder(
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, &RabbitHttpError{
+				Code:          http.StatusBadRequest,
+				ExpectedCodes: []int{http.StatusOK},
+				Message:       "error during creating queue",
+				Response:      []byte("{\"reason\": \"inequivalent arg\"}"),
+			}),
+		// deleteAssociatedShovels calls GET parameters/shovel before deleting the queue
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       getShovelsBuf,
+				},
+			}, nil),
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "DELETE", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{
+					StatusCode: http.StatusNoContent,
+					Body:       buf,
+				},
+			}, nil),
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				Request: &resty.Request{URL: "url"},
+				RawResponse: &http.Response{
+					StatusCode: http.StatusOK,
+				}}, nil),
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       buf,
+				},
+			}, nil),
+	)
 
 	resp, _, err := rabbitHelper.CreateQueue(context.Background(), queue)
 	assert.NoError(err)
 	assert.Equal("test-queue", (*resp.(*map[string]interface{}))["name"])
+}
+
+// TestRabbitVhostHelperImpl_CreateQueueInequivArg_ShovelDeletedFirst verifies that when a queue is
+// inequivalent and must be deleted+recreated, any shovel sourcing from that queue is deleted
+// BEFORE the queue itself is deleted, so there is no gap where the queue is absent but the shovel exists.
+func TestRabbitVhostHelperImpl_CreateQueueInequivArg_ShovelDeletedFirst(t *testing.T) {
+	assert := assert.New(t)
+	mockCtrl := gomock.NewController(t)
+	httpHelper := mock_helper.NewMockHttpHelper(mockCtrl)
+
+	const (
+		srcVhost      = "source-vhost"
+		exportedVhost = "exported-vhost"
+		queueName     = "my-queue"
+		shovelName    = "my-queue-ns-exported"
+	)
+
+	rabbitHelper := NewRabbitHelperWithHttpHelper(
+		model.RabbitInstance{},
+		model.VHostRegistration{Vhost: srcVhost},
+		httpHelper,
+	)
+
+	queue := map[string]interface{}{"name": queueName}
+	queueBytes, err := json.Marshal(queue)
+	assert.NoError(err)
+
+	// shovel in exported vhost sourcing from the queue in source-vhost
+	shovels := []model.Shovel{{
+		Name:  shovelName,
+		Vhost: exportedVhost,
+		Value: model.ShovelValue{
+			SrcProtocol:  "amqp091",
+			SrcUri:       "amqp://user:pass@rabbitmq/" + srcVhost,
+			SrcQueue:     queueName,
+			DestProtocol: "amqp091",
+			DestUri:      "amqp://user:pass@rabbitmq/" + exportedVhost,
+			DestQueue:    queueName,
+		},
+	}}
+	shovelsBytes, err := json.Marshal(shovels)
+	assert.NoError(err)
+
+	shovelsBuf := gbytes.NewBuffer()
+	_, err = shovelsBuf.Write(shovelsBytes)
+	assert.NoError(err)
+
+	queueBuf := gbytes.NewBuffer()
+	_, err = queueBuf.Write(queueBytes)
+	assert.NoError(err)
+
+	// InOrder guarantees: shovel DELETE happens before queue DELETE
+	gomock.InOrder(
+		// 1. initial PUT → inequiv 400
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, &RabbitHttpError{
+				Code:          http.StatusBadRequest,
+				ExpectedCodes: []int{http.StatusOK},
+				Message:       "inequivalent arg",
+				Response:      []byte(`{"reason": "inequivalent arg"}`),
+			}),
+		// 2. GET parameters/shovel → returns the shovel referencing our queue
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{StatusCode: http.StatusOK, Body: shovelsBuf},
+			}, nil),
+		// 3. DELETE parameters/shovel/exported-vhost/shovel-name — BEFORE queue deletion
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "DELETE", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody},
+			}, nil),
+		// 4. DELETE queue
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "DELETE", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody},
+			}, nil),
+		// 5. PUT queue recreate
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "PUT", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				Request:     &resty.Request{URL: "url"},
+				RawResponse: &http.Response{StatusCode: http.StatusOK},
+			}, nil),
+		// 6. GET queue (post-create verification)
+		httpHelper.EXPECT().
+			DoRequest(gomock.Any(), "GET", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&resty.Response{
+				RawResponse: &http.Response{StatusCode: http.StatusOK, Body: queueBuf},
+			}, nil),
+	)
+
+	resp, _, err := rabbitHelper.CreateQueue(context.Background(), queue)
+	assert.NoError(err)
+	assert.Equal(queueName, (*resp.(*map[string]interface{}))["name"])
 }
 
 func TestRabbitVhostHelperImpl_CreateQueueBadRequest(t *testing.T) {
