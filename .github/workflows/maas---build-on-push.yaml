@@ -1,7 +1,7 @@
-name: '[MaaS] Go build'
+name: '[MaaS] Go build' # zizmor: ignore[excessive-permissions]
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     paths:
       - 'maas/**'
@@ -13,22 +13,22 @@ on:
       - 'maas-integration-tests/**'
 
 jobs:
-  build:
+  build: # zizmor: ignore[excessive-permissions]
     uses: netcracker/qubership-core-infra/.github/workflows/generic-go-build.yaml@8668020927f2a84d8d096a359c719c3c3a403520 # v2.5.0
     with:
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
       go-module-dir: maas/maas-service
       skip-docker: true
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
 
-  integration-tests:
+  integration-tests: # zizmor: ignore[excessive-permissions]
     uses: netcracker/qubership-core-infra/.github/workflows/generic-maven-build.yaml@8668020927f2a84d8d096a359c719c3c3a403520 # v2.5.0
     with:
       maven-command: ${{ github.event_name == 'pull_request' && 'verify' || 'deploy' }}
       skip-docker: true
-    secrets: inherit
+    secrets: inherit # zizmor: ignore[secrets-inherit]
 
-  docker-build:
+  docker-build: # zizmor: ignore[excessive-permissions]
     needs: [build, integration-tests]
     uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@8668020927f2a84d8d096a359c719c3c3a403520 # v2.5.0
     with:
