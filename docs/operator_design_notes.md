@@ -27,7 +27,7 @@ Operator Deployment in the same namespace, same image/chart, separate SA. `maas-
 
 ```mermaid
 flowchart TB
-  crB[MaasKafkaInstance / MaasRabbitInstance]
+  crB[KafkaInstance / RabbitInstance]
   subgraph opB [maas-operator pod]
     recB[Informers Watch CR and Secrets]
     processB[ProcessCR]
@@ -268,7 +268,7 @@ Two pods both handling the **same delete** (both Get Terminating, Unregister, re
 MaaS allows one default Kafka and one default Rabbit per database. First insert into an empty DB becomes default even if ProcessCR sent `default: false` (`ForcedDefault`). That “first” is whichever Register commits first — not a chosen id.
 
 - Two replicas Register two new instance CRs at once: whichever insert lands first is default. Status `isDefault` on both CRs can disagree until the next Get. Lease keeps one ProcessCR at a time.
-- Switching default is `MaasDefaultInstance` in the operator namespace, not `spec.default` on two instance CRs. Two pods both reconciling that singleton still flap `SetDefault` without a Lease; with a Lease it is one writer.
+- Switching default is `DefaultInstance` in the operator namespace, not `spec.default` on two instance CRs. Two pods both reconciling that singleton still flap `SetDefault` without a Lease; with a Lease it is one writer.
 
 Update refuses `default: false` on the current default. Unregister refuses deleting the default while another instance exists.
 
@@ -311,7 +311,7 @@ Platform’s existing Kubernetes operator: a **separate Quarkus microservice** (
 
 **What it does not do:** register Kafka/Rabbit **broker instances**. Kind `MaaS` is entity declarations. No broker SecretRefs.
 
-**Do not reuse `kind: MaaS` for broker instances** — core-operator already owns it. Keep `MaasKafkaInstance` / `MaasRabbitInstance` (`maas.netcracker.com`).
+**Do not reuse `kind: MaaS` for broker instances** — core-operator already owns it. Use `KafkaInstance` / `RabbitInstance` (`maas.netcracker.com`), not `Kafka` (Strimzi).
 
 **Do not put instance discovery inside core-operator.** It runs in *app* namespaces and only watches that namespace. Broker CRs sit next to Kafka/Rabbit or next to MaaS. Putting discovery there would mean ClusterRole and every app operator racing to register platform Kafka.
 
@@ -351,7 +351,7 @@ Neither registers MaaS broker instances.
 
 The design chose **`spec.operatorNamespace`** ([Multi-MaaS and ownership](operator_design.md#multi-maas-and-ownership)). This section is the rejected options and the bug they were meant to stop.
 
-**The case.** Platform `maas-core` and tenant `maas-tenant` in one cluster. Kafka lives in `kafka-infra`. Someone applies `MaasKafkaInstance/kafka-infra/platform-kafka`. Both operators can Watch that object if they have ClusterRole / `WATCH=*`. Each would Register `platform-kafka` into **its own** DB, PATCH the same CR status, and apps in each install would create topics against a different copy of the broker.
+**The case.** Platform `maas-core` and tenant `maas-tenant` in one cluster. Kafka lives in `kafka-infra`. Someone applies `KafkaInstance/kafka-infra/platform-kafka`. Both operators can Watch that object if they have ClusterRole / `WATCH=*`. Each would Register `platform-kafka` into **its own** DB, PATCH the same CR status, and apps in each install would create topics against a different copy of the broker.
 
 ```mermaid
 flowchart LR
@@ -390,34 +390,3 @@ Examples (two MaaS: `maas-core` and `maas-tenant`; two CRs: `platform-kafka` and
 - **Neither CR has operatorNamespace.** Nobody claims. Skip both.
 - **Same `metadata.name` on both CRs, both name maas-core** (different namespaces). Core: first Register, second `Ready=False` `DuplicateInstanceName` (`Stalled=True`). Tenant skips both.
 - **Same `metadata.name`, each CR names a different MaaS.** Each install Registers that name into **its own** PG. Not a conflict.
-
----
-
-## Name and id in the database
-
-Draft for the open item in [operator_design.md](operator_design.md#name-and-id-in-the-database). Not decided.
-
-Always use both `metadata.name` and `metadata.namespace`. Do not treat “put the old REST id as the CR name” as the main path — people have several instances or do not know the previous id.
-
-**New instance.** PG `id` = CR `metadata.namespace`. One Kafka and one Rabbit per namespace. For a new broker, set `metadata.name` equal to the namespace. Insert a new row (`managed_by_operator` true on that row). An old REST row with some other id is left alone — no adopt, no `managed_by_operator` switch on that old id.
-
-If the CR is new (no row for that namespace) but Kafka `addresses` already belong to another id → unique error (`23505`). They forgot the old id and must use the migrate path below. Rabbit has no URL unique today.
-
-**Migrate when the old id already equals the namespace.** CR in ns `X`, REST row `id = X`. `GetById(namespace)` hits. Update that row (topics/vhosts keep the short id — do not rename). No name-as-old-id; no switch to a different id.
-
-**Migrate when the old id is not the namespace.** `metadata.name` = old REST id. `metadata.namespace` is stored on the row (new `namespace` column). First CR: Update, set `managed_by_operator` true, write that namespace. Second CR with the same name from another NS: if `managed_by_operator` and stored namespace ≠ this CR namespace → error. Do not allow changing an instance from another namespace.
-
-```mermaid
-flowchart TD
-  cr["CR metadata.name + metadata.namespace"]
-  cr --> byNs{"GetById namespace"}
-  byNs -->|hit| sameNs["Update / adopt that row. id stays"]
-  byNs -->|miss| byName{"name != ns AND GetById name?"}
-  byName -->|hit, not managed_by_operator| migr["Adopt: set managed_by_operator, store CR namespace"]
-  byName -->|"hit, managed_by_operator, stored ns != this ns"| deny["Ready=False. Do not Update"]
-  byName -->|"hit, managed_by_operator, same ns"| upd["Update"]
-  byName -->|miss| reg["Register id = namespace"]
-  reg -->|Kafka addresses already used| uniq["unique error. forgot old id"]
-```
-
-Do not rename an existing PG `id`. Topics, vhosts, and designators FK that id.

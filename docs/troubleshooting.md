@@ -7,6 +7,7 @@
     - [How to register instance](#how-to-register-instance)
   - [Why Kafka instance could be unhealthy](#why-kafka-instance-could-be-unhealthy)
     - [Amazon case](#amazon-case)
+  - [Why maas-agent responds with Bad Gateway (502) status](#why-maas-agent-responds-with-bad-gateway-502-status)
   - [Change instance after crash](#change-instance-after-crash)
   - [Kafka broker operations timeout](#kafka-broker-operations-timeout)
   - [Recover Kafka topics and Rabbit vhosts](#recover-kafka-topics-and-rabbit-vhosts)
@@ -78,6 +79,19 @@ Amazon's Kafka (Amazon MSK) is fully supported by MaaS, but it could have its sp
 ```
 
 where CA cert is an Amazon root certificate
+
+## Why maas-agent responds with Bad Gateway (502) status
+
+Reason: Cloud-Core / maas-agent was installed without MaaS enabled in CMDB, and the checkbox was turned on only afterwards.
+
+Applications that talk to MaaS must enable the MaaS integration checkbox in CMDB for the tenant/namespace. When it is on:
+
+1. Deployer looks for `maas-configuration.yaml` in application microservices, aggregates them, and sends them to MaaS.
+2. External Route and Internal Address properties are set so maas-agent can create secrets and reach MaaS.
+
+If Cloud-Core was already installed and the checkbox is turned on later, maas-agent stays broken until Cloud-Core is rolling-updated with the checkbox enabled so secrets are created.
+
+Applications must not call MaaS directly — they go through maas-agent with an M2M token. See [Architecture](../README.md#architecture).
 
 ## Change instance after crash
 
