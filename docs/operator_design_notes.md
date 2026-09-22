@@ -268,11 +268,11 @@ Two pods both handling the **same delete** (both Get Terminating, Unregister, re
 MaaS allows one default Kafka and one default Rabbit per database. First insert into an empty DB becomes default even if ProcessCR sent `default: false` (`ForcedDefault`). That “first” is whichever Register commits first — not a chosen id.
 
 - Two replicas Register two new instance CRs at once: whichever insert lands first is default. Status `isDefault` on both CRs can disagree until the next Get. Lease keeps one ProcessCR at a time.
-- Switching default is `DefaultInstance` in the operator namespace, not `spec.default` on two instance CRs. Two pods both reconciling that singleton still flap `SetDefault` without a Lease; with a Lease it is one writer.
+- Switching default is `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` on the MaaS Application, not `spec.default` on two instance CRs. Two pods both applying `SetDefault` still flap without a Lease; with a Lease it is one writer.
 
 Update refuses `default: false` on the current default. Unregister refuses deleting the default while another instance exists.
 
-- User deletes the current default instance while others remain: Unregister 400. The Default CR still names that id → `Ready=False` `InstanceNotFound` (or keep requeue until they point `spec.kafka` at another registered id). Do not clear the PG flag from the Default reconciler just because Unregister failed.
+- User deletes the current default instance while others remain: Unregister 400. `DEFAULT_*_INSTANCE` still names that CR. Update the MaaS Application with another registered name and Sync (`SetDefault`), then retry delete. Do not clear the PG flag just because Unregister failed.
 
 **Case 3. CR status does not match PostgreSQL**
 
