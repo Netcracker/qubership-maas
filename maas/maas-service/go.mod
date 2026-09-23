@@ -24,7 +24,7 @@ require (
 	github.com/knadh/koanf/providers/confmap v1.0.1
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.14.0
+	github.com/netcracker/qubership-core-lib-go/v3 v3.14.1
 	github.com/onsi/gomega v1.43.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.1
@@ -159,7 +159,7 @@ require (
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/time v0.15.0 // indirect
+	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
