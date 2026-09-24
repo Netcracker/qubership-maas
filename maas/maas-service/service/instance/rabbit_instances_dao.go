@@ -158,24 +158,7 @@ func (k RabbitInstancesDaoImpl) SetDefaultInstance(ctx context.Context, instance
 }
 
 func (k RabbitInstancesDaoImpl) GetDefaultInstance(ctx context.Context) (*model.RabbitInstance, error) {
-	data := model.RabbitInstance{}
-	err := k.base.WithTx(ctx, func(_ context.Context, cnn *gorm.DB) error {
-		return cnn.Where("is_default=true").Take(&data).Error
-	})
-
-	switch {
-	// a registered instance exists in every working installation, so not finding one on the
-	// cache means it cannot be read, not that nobody registered it
-	case errors.Is(err, dao.RecordNotFoundInCache):
-		return nil, utils.LogError(log, ctx, "default rabbitmq instance is not readable: %w", dao.MasterDatabaseUnavailable)
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		log.WarnC(ctx, "no rabbitmq instance registered yet")
-		return nil, nil
-	case err != nil:
-		return nil, utils.LogError(log, ctx, "unknown database error: %w", err)
-	default:
-		return &data, nil
-	}
+	return defaultInstance[model.RabbitInstance](ctx, k.base, "rabbitmq")
 }
 
 func (k RabbitInstancesDaoImpl) RemoveInstanceRegistration(ctx context.Context, instanceId string) (*model.RabbitInstance, error) {
