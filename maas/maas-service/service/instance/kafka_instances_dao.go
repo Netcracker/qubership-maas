@@ -163,6 +163,10 @@ func (k KafkaInstancesDaoImpl) GetDefaultInstance(ctx context.Context) (*model.K
 	})
 
 	switch {
+	// a registered instance exists in every working installation, so not finding one on the
+	// cache means it cannot be read, not that nobody registered it
+	case errors.Is(err, dao.RecordNotFoundInCache):
+		return nil, utils.LogError(log, ctx, "default kafka instance is not readable: %w", dao.MasterDatabaseUnavailable)
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		log.WarnC(ctx, "no kafka instance registered yet")
 		return nil, nil

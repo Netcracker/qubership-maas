@@ -74,6 +74,36 @@ func TestUsingDb_MissingRowOnCacheIsAnAnswer(t *testing.T) {
 	assert.NotErrorIs(t, err, MasterDatabaseUnavailable)
 }
 
+// Test where it came from, so a lookup whose row always exists can report the
+// outage instead of an empty table.
+func TestUsingDb_MissingRowOnCacheIsMarked(t *testing.T) {
+	baseDao := newCacheBackedDao(t)
+
+	calls := 0
+	err := baseDao.UsingDb(context.Background(), func(conn *gorm.DB) error {
+		calls++
+		if calls == 1 {
+			return errMasterIsGone
+		}
+		return gorm.ErrRecordNotFound
+	})
+
+	assert.ErrorIs(t, err, RecordNotFoundInCache)
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "callers matching on gorm must keep working")
+}
+
+// A row the master does not hold is not marked: nothing was served by the cache.
+func TestUsingDb_MissingRowOnMasterIsNotMarked(t *testing.T) {
+	baseDao := newCacheBackedDao(t)
+
+	err := baseDao.UsingDb(context.Background(), func(conn *gorm.DB) error {
+		return gorm.ErrRecordNotFound
+	})
+
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	assert.NotErrorIs(t, err, RecordNotFoundInCache)
+}
+
 // A query the master answers never reaches the cache.
 func TestUsingDb_MasterAnswerIsNotReplayed(t *testing.T) {
 	baseDao := newCacheBackedDao(t)

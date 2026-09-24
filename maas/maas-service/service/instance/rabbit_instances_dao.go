@@ -164,6 +164,10 @@ func (k RabbitInstancesDaoImpl) GetDefaultInstance(ctx context.Context) (*model.
 	})
 
 	switch {
+	// a registered instance exists in every working installation, so not finding one on the
+	// cache means it cannot be read, not that nobody registered it
+	case errors.Is(err, dao.RecordNotFoundInCache):
+		return nil, utils.LogError(log, ctx, "default rabbitmq instance is not readable: %w", dao.MasterDatabaseUnavailable)
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		log.WarnC(ctx, "no rabbitmq instance registered yet")
 		return nil, nil
