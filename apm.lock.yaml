@@ -1,0 +1,47 @@
+lockfile_version: '1'
+generated_at: '2026-09-25T12:02:43.021964+00:00'
+apm_version: 0.28.0
+dependencies:
+- repo_url: _local/troubleshoot-maas
+  name: troubleshoot-maas
+  version: 1.0.0
+  package_type: apm_package
+  deployed_files:
+  - .claude/rules/troubleshoot-maas.md
+  - .cursor/rules/troubleshoot-maas.mdc
+  - .github/instructions/troubleshoot-maas.instructions.md
+  deployed_file_hashes:
+    .claude/rules/troubleshoot-maas.md: sha256:fdea3cf4e64027bd7e9bbfb7d4aa3954fa98d81c1140a435db77bc257e0379b0
+    .cursor/rules/troubleshoot-maas.mdc: sha256:76a70f3a020d9237d45cbe0bf0fd1cd79e4f1b37cb1f98fc1e9c7c157045c14f
+    .github/instructions/troubleshoot-maas.instructions.md: sha256:2616de9ef5d78454e387bb5f84bfacece7f28dcccdb99e9aa79f50f52062a8e9
+  source: local
+  local_path: ./agent-packages/troubleshoot-maas/
+  is_dev: true
+deployments:
+- kind: project-relative
+  target: claude
+  value: .claude/rules/troubleshoot-maas.md
+  runtime: null
+  scope: project
+  owners:
+  - ./agent-packages/troubleshoot-maas/
+  active_owner: ./agent-packages/troubleshoot-maas/
+  content_hash: sha256:fdea3cf4e64027bd7e9bbfb7d4aa3954fa98d81c1140a435db77bc257e0379b0
+- kind: project-relative
+  target: copilot
+  value: .github/instructions/troubleshoot-maas.instructions.md
+  runtime: null
+  scope: project
+  owners:
+  - ./agent-packages/troubleshoot-maas/
+  active_owner: ./agent-packages/troubleshoot-maas/
+  content_hash: sha256:2616de9ef5d78454e387bb5f84bfacece7f28dcccdb99e9aa79f50f52062a8e9
+- kind: project-relative
+  target: cursor
+  value: .cursor/rules/troubleshoot-maas.mdc
+  runtime: null
+  scope: project
+  owners:
+  - ./agent-packages/troubleshoot-maas/
+  active_owner: ./agent-packages/troubleshoot-maas/
+  content_hash: sha256:76a70f3a020d9237d45cbe0bf0fd1cd79e4f1b37cb1f98fc1e9c7c157045c14f
