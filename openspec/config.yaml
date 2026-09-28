@@ -1,0 +1,39 @@
+schema: spec-driven
+
+context: |
+  Product: MaaS (Messaging as a Service). Registers Kafka and RabbitMQ brokers,
+  then provisions topics, vhosts, exchanges, queues. It does not proxy broker
+  traffic. Clients reach MaaS through maas-agent with M2M tokens.
+  Module: github.com/netcracker/qubership-maas
+  Code: Go in maas/maas-service (Fiber, PostgreSQL, Sarama). Helm chart under
+  helm-templates/maas-service. Deployed via Argo CD. Dependencies are vendored.
+  Product and architecture docs live in docs/.
+  Team flow: larger changes get a separate SPEC PR, then Code PR(s). Smaller
+  changes may put spec and code in one PR. Verify and archive in the completing
+  Code PR.
+
+rules:
+  proposal:
+    - State problem, solution, scope, and explicit non-goals.
+    - Include Jira acceptance criteria when a ticket exists.
+    - Cover compatibility for existing users (REST API, upgrade, downgrade).
+    - Link related docs/ files instead of copying their content.
+  specs:
+    - Use SHALL in requirements and GIVEN / WHEN / THEN scenarios.
+    - Spec observable behavior, not library internals.
+    - Every acceptance criterion maps to at least one scenario.
+  design:
+    - Record decisions, trade-offs, and rejected alternatives.
+    - List open questions with an owner, or mark them non-goals.
+  tasks:
+    - Map each task to a spec requirement.
+    - Include tests and docs updates.
+
+operations:
+  apply:
+    guidance:
+      - Implement only after the change's SPEC PR is merged when one is required.
+      - After Go dependency changes run go mod tidy and go mod vendor.
+  archive:
+    guidance:
+      - Merge delta specs into openspec/specs/, then move the change under openspec/changes/archive/.

@@ -1278,6 +1278,8 @@ DR standby does not reconcile. Replica HA for **one** MaaS is the Lease ([Scalin
 
 ## Related notes
 
+OpenSpec change (proposal, design, delta specs, tasks): `[openspec/changes/maas-broker-instance-operator](../openspec/changes/maas-broker-instance-operator)`. This document stays the architecture write-up (diagrams, CRD sketch). Implement from the OpenSpec tasks after the SPEC PR merges.
+
 See `[operator_design_notes.md](operator_design_notes.md)`: [Scenario A vs B recommendation](operator_design_notes.md#scenario-a-vs-b-recommendation), [Kubernetes Lease lock](operator_design_notes.md#kubernetes-lease-lock), [How replicas know who is watching](operator_design_notes.md#how-replicas-know-who-is-watching), [Why several MaaS replicas watching the same CRs is a bug](operator_design_notes.md#why-several-maas-replicas-watching-the-same-crs-is-a-bug), [Multi-MaaS alternatives](operator_design_notes.md#multi-maas-alternatives).
 
 ---
