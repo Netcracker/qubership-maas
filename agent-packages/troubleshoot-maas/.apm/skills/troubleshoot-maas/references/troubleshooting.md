@@ -113,9 +113,6 @@ authentication, then typical configuration for instance is:
 
 where CA cert is an Amazon root certificate
 
-More info in this ticket:
-[PDSDNREQ-5206](https://psup.netcracker.com/browse/PDSDNREQ-5206)
-
 ## Why maas-agent responds with Bad Gateway (502) status
 
 Reason: maas-agent (Cloud-Core) was installed without MaaS checkbox in
@@ -172,8 +169,6 @@ If your Kafka responds too long for some reason for Kafka broker operations
 like list/update/create/delete, you may want to increase timeout for Kafka
 broker client. You can do it by changing client timeout property via env
 variable `KAFKA_CLIENT_TIMEOUT`. Default value is 10s.
-
-Source: [PSUPCLFRM-5218](https://psup.netcracker.com/browse/PSUPCLFRM-5218)
 
 ## Recover Kafka topics and Rabbit vhosts
 
