@@ -27,12 +27,13 @@ on:
         default: false
         description: 'Dry run'
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   create-tag:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Create Tag
         uses: netcracker/qubership-workflow-hub/actions/tag-action@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
@@ -44,6 +45,9 @@ jobs:
 
   docker-build-publish:
     needs: create-tag
+    permissions:
+      contents: read
+      packages: write
     uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
     with:
       ref: v${{ inputs.version }}
@@ -67,6 +71,8 @@ jobs:
     needs: docker-build-publish
     if: failure()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Delete Tag
         uses: netcracker/qubership-workflow-hub/actions/tag-action@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
@@ -79,6 +85,8 @@ jobs:
   github-release:
     needs: docker-build-publish
     if: ${{ github.event.inputs.dry-run == 'false' }}
+    permissions:
+      contents: write
     uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
     with:
       version: ${{ github.event.inputs.version }}

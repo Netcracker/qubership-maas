@@ -31,17 +31,27 @@ on:
 jobs:
     cleanup:
       runs-on: ubuntu-latest
+      permissions:
+        contents: read
 
       steps:
         - name: "Summary"
+          env:
+            EVENT_NAME: ${{ github.event_name }}
+            ACTOR: ${{ github.actor }}
+            THRESHOLD_DAYS: ${{ github.event.inputs.threshold-days || '8' }}
+            INCLUDED_TAGS: ${{ github.event.inputs.included-tags || '*' }}
+            EXCLUDED_TAGS: ${{ github.event.inputs.excluded-tags || 'latest,release*,*.*' }}
+            DRY_RUN: ${{ github.event.inputs.dry-run || 'false' }}
+            DEBUG: ${{ github.event.inputs.debug || 'false' }}
           run: |
-            echo "**Event**: ${{ github.event_name }}"
-            echo "**Actor**: ${{ github.actor }}"
-            echo "**Threshold days**: ${{ github.event.inputs.threshold-days || 8 }}"
-            echo "**Included tags**: ${{ github.event.inputs.included-tags || '*' }}"
-            echo "**Excluded tags**: ${{ github.event.inputs.excluded-tags || 'latest,release*,*.*' }}"
-            echo "**Dry-run**: ${{ github.event.inputs.dry-run || 'false' }}"
-            echo "**Debug**: ${{ github.event.inputs.debug || 'false' }}"
+            echo "**Event**: ${EVENT_NAME}"
+            echo "**Actor**: ${ACTOR}"
+            echo "**Threshold days**: ${THRESHOLD_DAYS}"
+            echo "**Included tags**: ${INCLUDED_TAGS}"
+            echo "**Excluded tags**: ${EXCLUDED_TAGS}"
+            echo "**Dry-run**: ${DRY_RUN}"
+            echo "**Debug**: ${DEBUG}"
         - name: Run Container Package Cleanup Action
           uses: netcracker/qubership-workflow-hub/actions/container-package-cleanup@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
           with:
