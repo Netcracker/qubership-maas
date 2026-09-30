@@ -37,6 +37,13 @@ var MasterDatabaseUnavailableForUpdate = errors.New("master database is unavaila
 //nolint:staticcheck // ST1012: matches the naming of MasterDatabaseUnavailableForUpdate
 var MasterDatabaseUnavailable = errors.New("master database is unavailable and the data cache could not serve the request. Check PG availability")
 
+// RecordNotFoundInCache wraps a missing row the cache answered with, so that a lookup whose
+// row exists in every working installation can tell it apart from an empty table and report
+// unavailability instead. The wrapped error still matches gorm.ErrRecordNotFound.
+//
+//nolint:staticcheck // ST1012: matches the naming of MasterDatabaseUnavailable
+var RecordNotFoundInCache = errors.New("record not found in the data cache while the master database is unavailable")
+
 //go:generate mockgen -source=dao.go -destination=mock_dao/mock.go
 type BaseDao interface {
 	StartMonitor(ctx context.Context, masterMonitorCheckInterval time.Duration) error
@@ -259,6 +266,11 @@ func (d *BaseDaoImpl) UsingDb(ctx context.Context, f func(conn *gorm.DB) error) 
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			log.ErrorC(ctx, "in-memory cache could not serve the request: %v", err)
 			return fmt.Errorf("%w: master: %v: cache: %v", MasterDatabaseUnavailable, masterErr, err)
+		}
+
+		// the answer is still "no row", but the caller can now see where it came from
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("%w: %w", RecordNotFoundInCache, err)
 		}
 	}
 
