@@ -177,7 +177,7 @@ This means:
 `consumers` - Number of running consumers on specific queue. If queue is not empty and no consumers, then re-check application configuration or consumer program logic 
 
 ## M2M auth with Kubernetes OIDC
-M2M through Kubernetes OIDC is disabled by default. To enable it set `KUBERNETES_M2M_ENABLED` to `true`.
+MaaS accepts Kubernetes service account tokens when `M2M_AUTH_MODE` is `hybrid` or `k8s`. In `legacy`, the default, it accepts only Basic and rejects Bearer tokens. Any other value, `true` and `false` included, stops MaaS at startup with `M2M_AUTH_MODE has unsupported value "<value>": set it to legacy, hybrid, or k8s`.
 
 ### How it works?
 At start MaaS reads the default service account token at /var/run/secrets/kubernetes.io/serviceaccount/token, gets the url of the Kubernetes OIDC from there and does OIDC discovery to get JWKS. When a request comes with using a Kubernetes token MaaS uses the public keys in that JWKS to verify the signature of the token and its claims. Only `agent` role is supported and all requests with Kubernetes tokens are assigned `agent` role.

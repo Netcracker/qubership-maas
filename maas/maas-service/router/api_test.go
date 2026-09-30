@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/netcracker/qubership-core-lib-go/v3/configloader"
+	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-maas/controller"
 	controllerBluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
 	controllerCompositeV1 "github.com/netcracker/qubership-maas/controller/composite/v1"
@@ -81,38 +82,34 @@ spec:
   version: v1
 `
 
-	// k8sJwtEnabled set to true
-	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
-		app := initApp(t, baseDao, tokenVerifier, true)
+	tests := []struct {
+		mode       security.M2MAuthMode
+		wantStatus int
+	}{
+		{mode: security.M2MAuthModeLegacy, wantStatus: http.StatusUnauthorized},
+		{mode: security.M2MAuthModeHybrid, wantStatus: http.StatusOK},
+		{mode: security.M2MAuthModeK8s, wantStatus: http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.mode), func(t *testing.T) {
+			prometheus.DefaultRegisterer = prometheus.NewRegistry()
+			dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+				app := initApp(t, baseDao, tokenVerifier, tt.mode)
 
-		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
-		req.Header.Set("Content-Type", "application/x-yaml")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
+				req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
+				req.Header.Set("Content-Type", "application/x-yaml")
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
 
-		resp, err := app.Test(req)
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-	})
-
-	prometheus.DefaultRegisterer = prometheus.NewRegistry()
-
-	// k8sJwtEnabled set to false
-	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
-		app := initApp(t, baseDao, tokenVerifier, false)
-
-		req := httptest.NewRequest(http.MethodPost, "/api/v2/config", strings.NewReader(config))
-		req.Header.Set("Content-Type", "application/x-yaml")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", validToken))
-
-		resp, err := app.Test(req)
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
-		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-	})
+				resp, err := app.Test(req)
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, tt.wantStatus, resp.StatusCode)
+			})
+		})
+	}
 }
 
-func initApp(t *testing.T, baseDao *dao.BaseDaoImpl, tokenVerifier mockTokenVerifier, k8sJwtEnabled bool) *fiber.App {
+func initApp(t *testing.T, baseDao *dao.BaseDaoImpl, tokenVerifier mockTokenVerifier, m2mAuthMode security.M2MAuthMode) *fiber.App {
 	ctx := t.Context()
 	configloader.InitWithSourcesArray(configloader.BasePropertySources(configloader.YamlPropertySourceParams{ConfigFilePath: "../application.yaml"}))
 
@@ -186,5 +183,5 @@ func initApp(t *testing.T, baseDao *dao.BaseDaoImpl, tokenVerifier mockTokenVeri
 		CompositeRegistrationController: controllerCompositeV1.NewRegistrationController(compositeRegistrationService),
 	}
 	healthAggregator := watchdog.NewHealthAggregator(baseDao.IsAvailable, instanceWatchdog.All)
-	return router.CreateApi(ctx, controllers, healthAggregator, authService, k8sJwtEnabled)
+	return router.CreateApi(ctx, controllers, healthAggregator, authService, m2mAuthMode)
 }

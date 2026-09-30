@@ -24,7 +24,7 @@ require (
 	github.com/knadh/koanf/providers/confmap v1.0.1
 	github.com/lib/pq v1.12.3
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/netcracker/qubership-core-lib-go/v3 v3.14.1
+	github.com/netcracker/qubership-core-lib-go/v3 v3.14.2-0.20260930115738-1de4576730ab
 	github.com/onsi/gomega v1.44.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.1
