@@ -7,7 +7,9 @@ MaaS (Messaging as a Service) manages messaging entities on RabbitMQ and Kafka b
 - **RabbitMQ** — vhosts, exchanges, queues, bindings
 - **Kafka** — topics (including templates, lazy topics, tenant topics)
 
-Entities can be created via declarative configuration or REST API. MaaS also supports Blue/Green application deployments. It persists state in PostgreSQL and returns broker connection metadata/credentials to clients — it does **not** proxy traffic to brokers.
+Entities can be created via declarative configuration or REST API. MaaS also supports Blue/Green application
+deployments. It persists state in PostgreSQL and returns broker connection metadata/credentials to clients — it does
+**not** proxy traffic to brokers.
 
 Applications talk to MaaS through **maas-agent** (security proxy) with M2M tokens, not directly.
 
@@ -26,7 +28,7 @@ Module path: `github.com/netcracker/qubership-maas`
 
 ## Project structure
 
-```
+```text
 maas/
   Dockerfile                 # Multi-stage Go build → qubership-core-base runtime
   maas-service/              # Main Go module (source of truth for the service)
@@ -82,7 +84,8 @@ Integration tests (Maven, repo root):
 mvn -pl maas-integration-tests verify
 ```
 
-CI for Go runs via `.github/workflows/maas---build-on-push.yaml` with `go-module-dir: maas/maas-service`. Prefer matching that module path locally.
+CI for Go runs via `.github/workflows/maas---build-on-push.yaml` with `go-module-dir: maas/maas-service`. Prefer
+matching that module path locally.
 
 ## Code style & conventions
 
@@ -104,22 +107,28 @@ Classifier identity for entities: `name` + `namespace` (required), optional `ten
 
 ## OpenSpec
 
-Spec-driven changes live under `openspec/`. Main specs (`openspec/specs/`) are empty until a change is archived. Active work is one folder per change under `openspec/changes/`.
+Spec-driven changes live under `openspec/`. Main specs (`openspec/specs/`) are empty until a change is archived. Active
+work is one folder per change under `openspec/changes/`.
 
-Before implementing a change, read its folder under `openspec/changes/`. If it needs a SPEC PR, do not implement until that PR merges.
+Before implementing a change, read its folder under `openspec/changes/`. If it needs a SPEC PR, do not implement until
+that PR merges.
 
-Team path for larger changes: Jira → `/opsx-propose` artifacts → SPEC PR → Code PR(s) with `/opsx-apply` → `/opsx-verify` → `/opsx-archive` in the completing Code PR.
+Team path for larger changes: Jira → `/opsx-propose` artifacts → SPEC PR → Code PR(s) with `/opsx-apply` →
+`/opsx-verify` → `/opsx-archive` in the completing Code PR.
 
-Cursor commands (filename form `/opsx-propose`): explore, propose, apply, update, verify, archive, sync. They live in `.cursor/commands/`. After Node is available, `npx @fission-ai/openspec init` / `update` can refresh generated tool files; do not hand-edit a vendored CLI copy.
+Cursor commands (filename form `/opsx-propose`): explore, propose, apply, update, verify, archive, sync. They live in
+`.cursor/commands/`. After Node is available, `npx @fission-ai/openspec init` / `update` can refresh generated tool
+files; do not hand-edit a vendored CLI copy.
 
 ## Git workflow (strict)
 
 **Never** create a git commit or push to a remote unless the user sends the exact text command:
 
-```
+```text
 commit and push
 ```
 
 - Phrases like “commit”, “push”, “ship it”, “create a PR”, or implied approval are **not** enough.
-- Until that exact command appears, only edit files locally; show a diff summary and a proposed commit message if useful, then wait.
+- Until that exact command appears, only edit files locally; show a diff summary and a proposed commit message if
+  useful, then wait.
 - Do not amend, force-push, or skip hooks unless the user explicitly asks in addition to `commit and push`.
