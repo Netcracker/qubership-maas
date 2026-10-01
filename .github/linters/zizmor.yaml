@@ -1,0 +1,7 @@
+rules:
+  excessive-permissions:
+    ignore:
+      - maas---build-on-push.yaml
+  secrets-inherit:
+    ignore:
+      - maas---build-on-push.yaml

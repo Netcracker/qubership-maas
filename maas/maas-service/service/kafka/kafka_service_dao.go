@@ -14,6 +14,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// namespaceMatches selects the rows owned by one namespace.
+const namespaceMatches = "namespace=?"
+
 var ErrTopicAlreadyExists = errors.New("dao: kafka topic with such classifier or topic name and instance already exists")
 var ErrTopicTemplateAlreadyExists = errors.New("dao: kafka topic template with such name already exists")
 var ErrTopicTemplateIsUsedByTopic = errors.New("dao: kafka topic template is used by one or more topics. Update topic without template field to unlink them")
@@ -217,9 +220,10 @@ func (d *KafkaDaoImpl) FindTopicTemplateByNameAndNamespace(ctx context.Context, 
 	log.InfoC(ctx, "Querying kafka topic template by name: %v", name)
 	obj := new(model.TopicTemplate)
 	if err := d.base.UsingDb(ctx, func(cnn *gorm.DB) error {
+		inDomain, args := dao.ArrayContains(cnn, "domain_namespaces", namespace)
 		err := cnn.
 			Where("name=?", name).
-			Where(cnn.Where("?=ANY(domain_namespaces)", namespace).Or("namespace=?", namespace)).
+			Where(cnn.Where(inDomain, args...).Or(namespaceMatches, namespace)).
 			First(obj).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			obj = nil
@@ -329,7 +333,7 @@ func (d *KafkaDaoImpl) FindAllTopicTemplatesByNamespace(ctx context.Context, nam
 	log.InfoC(ctx, "getting all kafka topic templates for namespace: `%v'", namespace)
 	obj := new([]model.TopicTemplate)
 	err := d.base.UsingDb(ctx, func(cnn *gorm.DB) error {
-		return cnn.Where("namespace=?", namespace).Find(obj).Error
+		return cnn.Where(namespaceMatches, namespace).Find(obj).Error
 	})
 	if err != nil {
 		return nil, utils.LogError(log, ctx, "error query topic templates for namespace `%v': %w", namespace, err)
@@ -363,7 +367,7 @@ func (d *KafkaDaoImpl) DeleteTopicTemplatesByNamespace(ctx context.Context, name
 	var template model.TopicTemplate
 	if err := d.base.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
 		if e := cnn.
-			Where("namespace=?", namespace).
+			Where(namespaceMatches, namespace).
 			Delete(&template).Error; e != nil {
 			return e
 		}
@@ -503,7 +507,7 @@ func (d *KafkaDaoImpl) DeleteTopicDefinitionsByNamespace(ctx context.Context, na
 	if err := d.base.WithTx(ctx, func(ctx context.Context, cnn *gorm.DB) error {
 		var topicDef model.TopicDefinition
 		if e := cnn.
-			Where("namespace=?", namespace).
+			Where(namespaceMatches, namespace).
 			Delete(topicDef).Error; e != nil {
 			return e
 		}

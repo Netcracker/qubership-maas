@@ -3,12 +3,14 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/auth"
@@ -39,6 +41,10 @@ func (c *TopicController) GetOrCreateTopic(fiberCtx fiber.Ctx, topicRegistration
 
 	topicTemplate, err := c.kafkaService.GetTopicTemplateByNameAndNamespace(ctx, topicRegistrationReqDto.Template, topicRegistrationReqDto.Classifier.Namespace)
 	if err != nil {
+		// only a rejected template is the caller's fault
+		if errors.Is(err, dao.MasterDatabaseUnavailable) {
+			return utils.LogError(log, ctx, "error resolve topic template: %w", err)
+		}
 		return utils.LogError(log, ctx, "error resolve topic template: %s: %w", err.Error(), msg.BadRequest)
 	}
 

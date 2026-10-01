@@ -327,6 +327,8 @@ func TmfErrorHandler(ctx fiber.Ctx, err error) error {
 		code = http.StatusGone
 	case errors.Is(err, msg.UnauthorizedError):
 		code = http.StatusUnauthorized
+	case errors.Is(err, dao.MasterDatabaseUnavailable), errors.Is(err, dao.MasterDatabaseUnavailableForUpdate):
+		code = http.StatusServiceUnavailable
 	case errors.Is(err, dao.DatabaseIsNotActiveError):
 		code = http.StatusMethodNotAllowed
 	case errors.Is(err, dao.DatabaseIsReadonlyError):

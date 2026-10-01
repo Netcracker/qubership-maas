@@ -34,6 +34,9 @@ var ErrEntityAlreadyExists = errors.New("dao: entity already exists")
 //nolint:staticcheck // ST1012: legacy exported name used across the project
 var MasterDatabaseUnavailableForUpdate = errors.New("master database is unavailable. Check PG availability. Service use data cache and supports all requests ONLY in READ-ONLY mode")
 
+//nolint:staticcheck // ST1012: matches the naming of MasterDatabaseUnavailableForUpdate
+var MasterDatabaseUnavailable = errors.New("master database is unavailable and the data cache could not serve the request. Check PG availability")
+
 //go:generate mockgen -source=dao.go -destination=mock_dao/mock.go
 type BaseDao interface {
 	StartMonitor(ctx context.Context, masterMonitorCheckInterval time.Duration) error
@@ -237,6 +240,8 @@ func (d *BaseDaoImpl) UsingDb(ctx context.Context, f func(conn *gorm.DB) error) 
 		// and we have an backup data replica run
 		d.replica != nil {
 
+		masterErr := err
+
 		log.DebugC(ctx, "detected connectivity problems to master db, retry on in-memory cache")
 		// retry request on slave if it exists
 		err = withMetrics(
@@ -248,6 +253,12 @@ func (d *BaseDaoImpl) UsingDb(ctx context.Context, f func(conn *gorm.DB) error) 
 		if d.replica.IsReadOnlyError(err) {
 			// user attempts to perform create/update/delete operations on read-only cache
 			return MasterDatabaseUnavailableForUpdate
+		}
+
+		// a missing row is an answer; any other cache failure means the request was not served
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.ErrorC(ctx, "in-memory cache could not serve the request: %v", err)
+			return fmt.Errorf("%w: master: %v: cache: %v", MasterDatabaseUnavailable, masterErr, err)
 		}
 	}
 

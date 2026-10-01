@@ -3,7 +3,10 @@ set -e
 set -x
 
 apk upgrade --no-cache
-apk add --no-cache postgresql curl bash python3
+apk add --no-cache \
+  "postgresql18>=18.5-r0" \
+  "python3>=3.14.7-r0" \
+  curl bash
 
 mkdir /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2
 
