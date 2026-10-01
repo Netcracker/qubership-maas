@@ -6,11 +6,13 @@ on:
     paths:
       - 'maas/**'
       - 'maas-integration-tests/**'
+      - '.github/workflows/maas---build-on-push.yaml'
   pull_request:
     types: [ opened, synchronize, reopened ]
     paths:
       - 'maas/**'
       - 'maas-integration-tests/**'
+      - '.github/workflows/maas---build-on-push.yaml'
 
 jobs:
   build: # zizmor: ignore[excessive-permissions]
