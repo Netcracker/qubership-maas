@@ -27,3 +27,8 @@ KUBERNETES_M2M_ENABLED: false
 KUBERNETES_M2M_AUDIENCE: maas
 
 MONITORING_ENABLED: true
+
+# ============== OPERATOR VARIABLES ============================
+OPERATOR_ENABLED: false
+K8S_EVENTS_ENABLED: true
+restrictedEnvironment: false
