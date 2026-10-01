@@ -27,9 +27,9 @@ status PATCH, no Register. Rejected: watch-only-own-NS, static watch-list, names
 
 ### Namespaced Secret Roles, not ClusterRole `secrets`
 
-ClusterRole: instance CRs `get/list/watch`, status PATCH, finalizers; `events` create/patch when `K8S_EVENTS_ENABLED`.
-No `secrets`. Each CR namespace grants Secret `get/watch` via Role + RoleBinding. v1: Secret is in the same namespace as
-the CR (`secretRef.namespace` out of scope).
+ClusterRole: instance CRs `get/list/watch/patch` (patch for the finalizer), status PATCH; `events` create/patch when
+`K8S_EVENTS_ENABLED`. No `secrets`. Each CR namespace grants Secret `get/list/watch` via Role + RoleBinding.
+v1: Secret is in the same namespace as the CR (`secretRef.namespace` out of scope).
 
 ### Application default params, not `spec.default`
 

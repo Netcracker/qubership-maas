@@ -157,12 +157,40 @@ instance CRDs in that chart).
 
 ### Secret access (namespaced)
 
-The ClusterRole is for cluster watch of instance CRs only (`get` / `list` / `watch` / status PATCH / finalizers). It
-does **not** include `secrets`.
+The ClusterRole is for cluster watch of instance CRs only (`get` / `list` / `watch`, `patch` for the finalizer, status
+PATCH). It does **not** include `secrets`. Chart templates: `ClusterRole.yaml`, `ClusterRoleBinding.yaml`, `Role.yaml`
+(Lease), `RoleBinding.yaml` under `helm-templates/maas-service/templates/`. All bind the existing `maas-service`
+ServiceAccount.
 
 Each namespace that holds a `KafkaInstance` or `RabbitInstance` (and their `*SecretRef` Secrets) needs a Role +
-RoleBinding on the operator SA: `get` / `watch` of Secrets in that namespace. Same NS as the CR in v1
-(`secretRef.namespace` is out of scope).
+RoleBinding on the operator SA: `get` / `list` / `watch` of Secrets in that namespace (the Secret informer needs `list`).
+Same NS as the CR in v1 (`secretRef.namespace` is out of scope). The broker namespace owner applies it, for example:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: maas-operator-secrets
+  namespace: kafka-infra            # namespace of the instance CR and its Secrets
+rules:
+  - apiGroups: [ "" ]
+    resources: [ secrets ]
+    verbs: [ get, list, watch ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maas-operator-secrets
+  namespace: kafka-infra
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: maas-operator-secrets
+subjects:
+  - kind: ServiceAccount
+    name: maas-service              # SERVICE_NAME
+    namespace: maas                 # MaaS CLOUD_NAMESPACE
+```
 
 ### Restricted environment
 
@@ -170,9 +198,9 @@ Use when the MaaS Application cannot create cluster-scoped objects. Watch stays 
 only the MaaS namespace” (rejected — broker CRs live in `kafka-infra` / `rabbit-infra`).
 
 Default (`restrictedEnvironment: false`): the chart creates CRDs, `ClusterRole` / `ClusterRoleBinding` (instance CRs
-cluster-wide: `get` / `list` / `watch`, status PATCH, finalizers; **no `secrets`**; `events` `create` / `patch` when
-`K8S_EVENTS_ENABLED`), plus namespaced `ServiceAccount`, `Role` / `RoleBinding` for `Lease` `maas-operator-leader` in
-`CLOUD_NAMESPACE`.
+cluster-wide: `get` / `list` / `watch`, `patch` for the finalizer, status PATCH; **no `secrets`**; `events` `create` /
+`patch` when `K8S_EVENTS_ENABLED`), plus namespaced `Role` / `RoleBinding` for `Lease` `maas-operator-leader` in
+`CLOUD_NAMESPACE`, bound to the existing `maas-service` ServiceAccount.
 
 `restrictedEnvironment: true`: the chart creates only the namespaced objects. Apply CRDs, `ClusterRole`, and
 `ClusterRoleBinding` out of band (cluster-admin) **before** the MaaS Application Syncs. Per-namespace Secret Roles stay

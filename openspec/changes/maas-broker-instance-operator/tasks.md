@@ -15,8 +15,8 @@ Implementation starts after this SPEC PR merges. Do not check these off from des
       immutability on `operatorNamespace`, selectableFields, Kubernetes 1.32+)
 - [ ] 2.2 Helm values: `OPERATOR_ENABLED` (default false), `DEFAULT_KAFKA_INSTANCE`, `DEFAULT_RABBIT_INSTANCE`,
       `K8S_EVENTS_ENABLED` (default true), `restrictedEnvironment` (default false)
-- [ ] 2.3 ClusterRole: instance CRs watch/status/finalizers; no `secrets`; events create/patch when events enabled
-- [ ] 2.4 Namespaced Lease Role for `maas-operator-leader`; document per-namespace Secret Role + RoleBinding
+- [x] 2.3 ClusterRole: instance CRs watch/status/finalizers; no `secrets`; events create/patch when events enabled
+- [x] 2.4 Namespaced Lease Role for `maas-operator-leader`; document per-namespace Secret Role + RoleBinding
 - [ ] 2.5 `restrictedEnvironment: true` skips CRDs and ClusterRole in-chart
 
 ## 3. ProcessCR runtime

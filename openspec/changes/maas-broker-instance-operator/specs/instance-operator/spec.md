@@ -101,7 +101,7 @@ the same reason strings as status except `ForcedDefault`.
 ### Requirement: Restricted environment
 
 When `restrictedEnvironment` is true, the chart SHALL create only namespaced objects (ServiceAccount, Lease Role). CRDs,
-ClusterRole, and ClusterRoleBinding SHALL be applied out of band. Watch SHALL remain cluster-wide.
+ClusterRole, and ClusterRoleBinding SHALL be applied out of band. Watch SHALL remain cluster-wide. TODO: watch only namespaces list
 
 #### Scenario: Restricted env without cluster objects
 
