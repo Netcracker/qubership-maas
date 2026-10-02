@@ -115,7 +115,7 @@ public abstract class AbstractMaasWithInitsIT extends AbstractMaasIT {
                             "DB_POSTGRESQL_PASSWORD", POSTGRES_CONTAINER.getPassword(),
                             "HEALTH_CHECK_INTERVAL", "1s",
                             "DISCREPANCY_METRICS_INTERVAL", "2s",
-                            "KUBERNETES_M2M_ENABLED", "true"
+                            "M2M_AUTH_MODE", "hybrid"
                     )
             )
             .withNetwork(TEST_NETWORK)
