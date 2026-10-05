@@ -14,13 +14,25 @@ rules:
   - apiGroups: [ maas.netcracker.com ]
     resources: [ kafkainstances, rabbitinstances ]
     verbs: [ get, list, watch, patch ]
+  # Declaration CRs live in application namespaces. Deleting a CR does not delete the topic/vhost, so there is
+  # no finalizer and no patch on the resource itself.
   - apiGroups: [ maas.netcracker.com ]
-    resources: [ kafkainstances/status, rabbitinstances/status ]
+    resources: [ kafkatopics, kafkatenanttopics, kafkalazytopics, kafkatopictemplates, rabbitvhosts ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ maas.netcracker.com ]
+    resources:
+      - kafkainstances/status
+      - rabbitinstances/status
+      - kafkatopics/status
+      - kafkatenanttopics/status
+      - kafkalazytopics/status
+      - kafkatopictemplates/status
+      - rabbitvhosts/status
     verbs: [ get, update, patch ]
   # No Secret rule here: the operator holds NO cluster-wide Secret RBAC. Each namespace with
   # instance CRs grants get/list/watch on its Secrets through a Role + RoleBinding.
   {{- if .Values.K8S_EVENTS_ENABLED }}
-  # Events are written to the instance CR namespace, not to the MaaS namespace.
+  # Events are written to the namespace of the reconciled CR, not to the MaaS namespace.
   - apiGroups: [ "" ]
     resources: [ events ]
     verbs: [ create, patch ]
