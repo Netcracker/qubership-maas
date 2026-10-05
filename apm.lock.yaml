@@ -1,5 +1,5 @@
 lockfile_version: '1'
-apm_version: 0.32.0
+apm_version: 0.33.0
 dependencies:
 - repo_url: _local/troubleshoot-maas
   name: troubleshoot-maas
@@ -21,7 +21,7 @@ dependencies:
     .claude/rules/troubleshoot-maas.md: sha256:43841a8d69484d64045c0793ded99105c58ce03d8734ff6f521da3a04d676234
     .claude/skills/troubleshoot-maas/SKILL.md: sha256:7b7ce2e701e46e425ecbea4f7590dbd098a1ce5ec78649a25335d799d2f37321
     .claude/skills/troubleshoot-maas/references/troubleshooting.md: sha256:a027206291b101526b422e1366e22ecfd153279ac6098bc40bdd43fe9a25a4bb
-    .cursor/rules/troubleshoot-maas.mdc: sha256:4c3284a5f9c227fad56eea3c3e4183918eaf5167d7b0d6d951863703e95add94
+    .cursor/rules/troubleshoot-maas.mdc: sha256:d13a1e736a1b0c482b343cd44e87c5af9e179a8ae67dc6752029e73904d3e550
     .github/instructions/troubleshoot-maas.instructions.md: sha256:9832732172e95e39d974f36107c5f2ba00301707374f82cc4360454e715f9ed9
   source: local
   local_path: ./agent-packages/troubleshoot-maas/
@@ -107,4 +107,4 @@ deployments:
   owners:
   - ./agent-packages/troubleshoot-maas/
   active_owner: ./agent-packages/troubleshoot-maas/
-  content_hash: sha256:4c3284a5f9c227fad56eea3c3e4183918eaf5167d7b0d6d951863703e95add94
+  content_hash: sha256:d13a1e736a1b0c482b343cd44e87c5af9e179a8ae67dc6752029e73904d3e550
