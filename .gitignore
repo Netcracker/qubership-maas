@@ -3,3 +3,6 @@
 /.vscode/
 /.run/
 /maas-integration-tests/target/
+
+# APM dependencies
+apm_modules/

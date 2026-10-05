@@ -1,0 +1,13 @@
+name: troubleshoot-maas
+version: 1.0.0
+description: Diagnose MaaS broker registration, auth, Kafka/Rabbit recovery, and deploy validation failures.
+author: Netcracker
+targets:
+  - claude
+  - copilot
+  - cursor
+dependencies:
+  apm: []
+  mcp: []
+includes: auto
+scripts: {}

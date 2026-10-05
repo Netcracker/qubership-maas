@@ -27,15 +27,16 @@ on:
         default: false
         description: 'Dry run'
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   create-tag:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Create Tag
-        uses: netcracker/qubership-workflow-hub/actions/tag-action@8c6dbeb901920bae9f40d7d7b646d8d9127e1ce7 # v2.4.0
+        uses: netcracker/qubership-workflow-hub/actions/tag-action@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
         with:
           ref: ${{ github.ref }}
           tag-name: v${{ github.event.inputs.version }}
@@ -44,7 +45,10 @@ jobs:
 
   docker-build-publish:
     needs: create-tag
-    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@8c6dbeb901920bae9f40d7d7b646d8d9127e1ce7 # v2.4.0
+    permissions:
+      contents: read
+      packages: write
+    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
     with:
       ref: v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
@@ -67,9 +71,11 @@ jobs:
     needs: docker-build-publish
     if: failure()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Delete Tag
-        uses: netcracker/qubership-workflow-hub/actions/tag-action@8c6dbeb901920bae9f40d7d7b646d8d9127e1ce7 # v2.4.0
+        uses: netcracker/qubership-workflow-hub/actions/tag-action@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
         with:
           ref: ${{ github.ref }}
           tag-name: v${{ github.event.inputs.version }}
@@ -79,7 +85,9 @@ jobs:
   github-release:
     needs: docker-build-publish
     if: ${{ github.event.inputs.dry-run == 'false' }}
-    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@8c6dbeb901920bae9f40d7d7b646d8d9127e1ce7 # v2.4.0
+    permissions:
+      contents: write
+    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@0eefd4976131d113c986281eed8bc642b6da303d # v2.8.1
     with:
       version: ${{ github.event.inputs.version }}
       publish: false
