@@ -7,8 +7,9 @@ file is the decision record.
 
 ProcessCR runs in the same `maas-service` process as Fiber. A Kubernetes Lease `maas-operator-leader` in
 `CLOUD_NAMESPACE` elects the watcher. HPA still scales HTTP. Only the leader Watches instance CRs (cluster-wide) and
-referenced Secrets (namespaced Roles). Apply calls existing `KafkaInstanceService` / `RabbitInstanceService` with a
-mapped `model.KafkaInstance` / `RabbitInstance` (resolved credentials, never Secret names). PostgreSQL stays the source
+reads referenced Secrets on every reconcile (namespaced Roles, no Secret Watch). Apply calls existing
+`KafkaInstanceService` / `RabbitInstanceService` with a mapped `model.KafkaInstance` / `RabbitInstance` (resolved
+credentials, never Secret names). PostgreSQL stays the source
 of runtime instance ids for topics/vhosts.
 
 Register vs Update is chosen by `GetById`, not by Watch ADDED vs MODIFIED.
@@ -28,8 +29,15 @@ status PATCH, no Register. Rejected: watch-only-own-NS, static watch-list, names
 ### Namespaced Secret Roles, not ClusterRole `secrets`
 
 ClusterRole: instance CRs `get/list/watch/patch` (patch for the finalizer), status PATCH; `events` create/patch when
-`K8S_EVENTS_ENABLED`. No `secrets`. Each CR namespace grants Secret `get/list/watch` via Role + RoleBinding.
+`K8S_EVENTS_ENABLED`. No `secrets`. Each CR namespace grants Secret `get` via Role + RoleBinding.
 v1: Secret is in the same namespace as the CR (`secretRef.namespace` out of scope).
+
+### Read Secrets on reconcile, no Secret Watch
+
+Secrets are read with Get on every reconcile. A Secret change alone does not enqueue the CR. Rotation is picked up by
+the 10m resync, any CR change, or the `maas.netcracker.com/refresh` annotation. `status.secretRevisions` holds the
+`resourceVersion`s from the last apply; a different revision means MaaS Update. The CR informer must not filter on
+`generation` only, because the annotation does not bump it.
 
 ### Application default params, not `spec.default`
 
@@ -80,7 +88,8 @@ Documented install/upgrade is Argo CD Application Sync, not `helm upgrade`.
 ### Reconcile backoff
 
 Error (SecretError, HealthCheckFailed, apiserver/network): workqueue exponential, base 1s, cap 5m, 10% jitter.
-`InstanceInUse`: `RequeueAfter 30s`, not an error. Stalled (`InvalidSpec`, `DuplicateInstanceName`): wait for Watch.
+`InstanceInUse`: `RequeueAfter 30s`, not an error. Stalled (`InvalidSpec`, `DuplicateInstanceName`): wait for a CR
+change (spec or refresh annotation).
 Resync claimed CRs every 10m.
 
 ## Rejected alternatives
@@ -90,6 +99,7 @@ Resync claimed CRs every 10m.
 | Sibling operator pod | Extra process, REST hop, auth surface. |
 | Watch only MaaS namespace | Instance CRs live with brokers. |
 | ClusterRole for Secrets | Broader than needed; Secret Roles stay per CR namespace. |
+| Secret Watch | Needs `list`/`watch` (read of every Secret in the namespace) and one informer per CR namespace. Rotation latency is covered by resync and the refresh annotation. |
 | `spec.default` / DefaultInstance CR | Defaults are install params; one default per kind in PG. |
 | Unregister when operator disabled | Breaks topics/vhosts on rollback. |
 | Own-NS watch as restricted-env mode | Restricted env is out-of-band CRDs/ClusterRole, not a smaller watch. |

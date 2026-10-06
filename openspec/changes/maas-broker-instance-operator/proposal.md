@@ -21,8 +21,9 @@ does not proxy broker traffic.
 ## In scope
 
 - CRDs, Helm (`OPERATOR_ENABLED`, default-instance params, `K8S_EVENTS_ENABLED`, `restrictedEnvironment`), Lease,
-  ProcessCR, Secret Watch, status (`Ready` + `Stalled`), Kubernetes Events, `managed_by_operator` REST lock,
-  `deletionPolicy` Unregister/Orphan, install order (MaaS first, then instance CRs), downgrade without Unregister.
+  ProcessCR, Secrets read on every reconcile (no Secret Watch) plus refresh annotation, status (`Ready` + `Stalled`),
+  Kubernetes Events, `managed_by_operator` REST lock, `deletionPolicy` Unregister/Orphan, install order (MaaS first,
+  then instance CRs), downgrade without Unregister.
 - Kubernetes 1.32+ (CEL + selectable fields).
 
 ## Non-goals

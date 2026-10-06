@@ -23,7 +23,9 @@ Implementation starts after this SPEC PR merges. Do not check these off from des
 
 - [ ] 3.1 Lease election; only leader Watches; Fiber stays on all replicas
 - [ ] 3.2 Cluster Watch of instance CRs; skip when `operatorNamespace` ≠ `CLOUD_NAMESPACE` (no PATCH)
-- [ ] 3.3 Namespaced Secret Watch; enqueue CRs on Secret `resourceVersion` change
+- [ ] 3.3 Get Secrets on every reconcile (no Secret Watch); Update when `resourceVersion` differs from
+      `status.secretRevisions`; `maas.netcracker.com/refresh` annotation triggers reconcile (CR informer not filtered
+      on `generation`)
 - [ ] 3.4 Mapper CR + Secrets → `model.KafkaInstance` / `RabbitInstance` (`Default: false`); call InstanceService
 - [ ] 3.5 Finalizer `maas.netcracker.com/instance`; `deletionPolicy` Unregister/Orphan; `InstanceInUse` + RequeueAfter
       30s

@@ -38,7 +38,7 @@ ProcessCR SHALL apply a CR only when `spec.operatorNamespace` equals this MaaS `
 ### Requirement: Reconcile backoff
 
 Transient apply failures SHALL retry with exponential workqueue backoff. Expected InUse SHALL use `RequeueAfter` without
-that limiter. Permanent stall SHALL wait for the next Watch.
+that limiter. Permanent stall SHALL wait for the next CR change.
 
 #### Scenario: Secret or health-check failure
 
@@ -61,18 +61,31 @@ that limiter. Permanent stall SHALL wait for the next Watch.
 - GIVEN `InvalidSpec` or `DuplicateInstanceName`
 - WHEN ProcessCR finishes
 - THEN `Stalled` SHALL be True
-- AND the key SHALL NOT be requeued until a Watch (spec or Secret change)
+- AND the key SHALL NOT be requeued until a CR change (spec or refresh annotation)
 
 ### Requirement: Periodic resync
 
 The leader SHALL reconcile each claimed instance CR on interval `MAAS_INSTANCE_RESYNC_INTERVAL` (default 10m) even when
-spec and Secrets did not change.
+spec and Secrets did not change. The resync SHALL re-read Secrets; it is how rotated credentials arrive without a
+manual step. An unparsable or non-positive interval SHALL be logged and the default used.
 
 #### Scenario: Skip apply
 
-- GIVEN spec and Secrets unchanged, `Ready=True`, and this is not a resync
-- WHEN a Watch fires
+- GIVEN spec, Secret `resourceVersion`s and the refresh annotation unchanged, `Ready=True`, and this is not a resync
+- WHEN a CR Watch event fires
 - THEN ProcessCR SHALL skip apply and keep status
+
+### Requirement: Refresh annotation
+
+Changing annotation `maas.netcracker.com/refresh` on a claimed CR SHALL trigger a reconcile that re-reads Secrets and
+applies, without waiting for the resync. The operator SHALL NOT Watch Secrets.
+
+#### Scenario: Forced refresh after rotation
+
+- GIVEN a referenced Secret was rotated
+- WHEN the user changes `maas.netcracker.com/refresh` on the CR
+- THEN ProcessCR SHALL re-read the Secret and Update the PG row
+- AND `generation` SHALL NOT change
 
 ### Requirement: Kubernetes Events
 
@@ -101,7 +114,8 @@ the same reason strings as status except `ForcedDefault`.
 ### Requirement: Restricted environment
 
 When `restrictedEnvironment` is true, the chart SHALL create only namespaced objects (ServiceAccount, Lease Role). CRDs,
-ClusterRole, and ClusterRoleBinding SHALL be applied out of band. Watch SHALL remain cluster-wide. TODO: watch only namespaces list
+ClusterRole, and ClusterRoleBinding SHALL be applied out of band. Watch SHALL remain cluster-wide. TODO: watch only
+namespaces list
 
 #### Scenario: Restricted env without cluster objects
 

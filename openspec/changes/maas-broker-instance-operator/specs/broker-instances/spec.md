@@ -18,13 +18,19 @@ names `mkafi` / `mrabi`). Credentials SHALL be read from Secrets in the same nam
 - AND finalizer `maas.netcracker.com/instance` SHALL be present
 - AND `managed_by_operator` SHALL be true on that row
 
-#### Scenario: Secret change without spec generation
+#### Scenario: Secret rotation picked up on reconcile
 
-- GIVEN a referenced Secret's `resourceVersion` changes
-- WHEN the Secret informer fires
-- THEN the CR SHALL be enqueued
+- GIVEN a referenced Secret's `resourceVersion` differs from `status.secretRevisions`
+- WHEN the CR is next reconciled (resync, CR change, or refresh annotation)
+- THEN ProcessCR SHALL Update the PG row with the new credentials
 - AND `generation` SHALL NOT be required to change
-- AND `status.secretRevisions` SHALL store those revisions, never secret bytes
+- AND `status.secretRevisions` SHALL store the new revisions, never secret bytes
+
+#### Scenario: Secret change alone
+
+- GIVEN a referenced Secret changes and nothing else happens
+- WHEN no resync, CR change, or refresh annotation has occurred
+- THEN the operator SHALL NOT be notified and SHALL NOT reconcile the CR
 
 ### Requirement: Mapping layer
 

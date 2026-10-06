@@ -76,11 +76,11 @@ flowchart TD
   policy -->|"Unregister, MaaS 400 topics still on instance"| inUse["PATCH CR status Ready=False reason=InstanceInUse. Keep finalizer. RequeueAfter 30s"]
   del -->|"no: live CR"| claim{"Does this MaaS install claim the CR?\n(we own spec.operatorNamespace)"}
   claim -->|"no"| stop["Stop. Do not PATCH status"]
-  claim -->|"yes"| stale{"Spec or Secret changed, Ready not True, or 10m resync?"}
+  claim -->|"yes"| secrets["Read Secrets (every reconcile, no Secret Watch)"]
+  secrets --> stale{"Spec, Secret resourceVersion, or refresh annotation changed,\nReady not True, or 10m resync?"}
   stale -->|no| skip["Skip apply. Keep status"]
-  stale -->|yes| val["Validate spec"]
-  val --> secrets["Read Secrets. Map to KafkaInstance or RabbitInstance"]
-  secrets --> apply{"Do we store a row in DB for this CR?"}
+  stale -->|yes| val["Validate spec. Map to KafkaInstance or RabbitInstance"]
+  val --> apply{"Do we store a row in DB for this CR?"}
   apply -.-> nameId["TODO: name vs id in PG"]
   apply -->|no row| reg["New instance: add new row to DB,\n set managed_by_operator true, set default true if no prev default"]
   apply -->|"managed_by_operator true, origin_cr is this CR"| upd["MaaS Update. Same CR, not a new one"]
@@ -102,12 +102,22 @@ flowchart TD
 - Each managed CR declares its operator in immutable `spec.operatorNamespace`.
 - CRs whose `spec.operatorNamespace` differs from this MaaS `CLOUD_NAMESPACE` are silently skipped (no PATCH, no
   Register).
-- Credentials for `KafkaInstance` / `RabbitInstance` are read from Kubernetes Secrets at reconcile. The operator
-  **Watches** those Secrets. A Secret `resourceVersion` change enqueues the CR even when spec `generation` did not
-  change. `status.secretRevisions` stores those revisions, never secret bytes.
+- Credentials for `KafkaInstance` / `RabbitInstance` are read from Kubernetes Secrets on **every reconcile**. The
+  operator does **not** Watch Secrets: a Secret change alone does not enqueue the CR. A rotated Secret is picked up by
+  the next reconcile (periodic resync, CR change, or the refresh annotation below). `status.secretRevisions` stores the
+  Secret `resourceVersion`s seen at the last apply, never secret bytes; a different revision means MaaS Update.
 - **Periodic resync every 10 minutes.** Each claimed instance CR is reconciled again (`MAAS_INSTANCE_RESYNC_INTERVAL`,
-  default `10m`) even when spec and Secrets did not change. Re-reads Secrets, refreshes `status.isDefault` from PG
-  (install default names), and retries InUse / SecretError. When ProcessCR runs and backoff: [Reconcile](#reconcile).
+  default `10m`) even when spec and Secrets did not change. Re-reads Secrets (this is how rotated credentials arrive),
+  refreshes `status.isDefault` from PG (install default names), and retries InUse / SecretError. An unparsable or
+  non-positive value is logged and the default applies. When ProcessCR runs and backoff: [Reconcile](#reconcile).
+- **Force a refresh** after rotating a Secret, instead of waiting for the resync: change the
+  `maas.netcracker.com/refresh` annotation on the CR. It does not bump `generation`, so the CR informer must not filter
+  on generation changes only.
+
+  ```bash
+  kubectl annotate kafkainstance <name> maas.netcracker.com/refresh="$(date +%s)" --overwrite
+  ```
+
 - Secret access is **namespaced**, not cluster-wide: the ClusterRole carries no `secrets` permission. Each namespace
   containing Secret-backed CRs grants access through a small Role + RoleBinding — see [Secret access
   (namespaced)](#secret-access-namespaced).
@@ -163,7 +173,7 @@ PATCH). It does **not** include `secrets`. Chart templates: `ClusterRole.yaml`, 
 ServiceAccount.
 
 Each namespace that holds a `KafkaInstance` or `RabbitInstance` (and their `*SecretRef` Secrets) needs a Role +
-RoleBinding on the operator SA: `get` / `list` / `watch` of Secrets in that namespace (the Secret informer needs `list`).
+RoleBinding on the operator SA: `get` of Secrets in that namespace (no Secret Watch, so no `list` / `watch`).
 Same NS as the CR in v1 (`secretRef.namespace` is out of scope). The broker namespace owner applies it, for example:
 
 ```yaml
@@ -175,7 +185,7 @@ metadata:
 rules:
   - apiGroups: [ "" ]
     resources: [ secrets ]
-    verbs: [ get, list, watch ]
+    verbs: [ get ]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -215,16 +225,18 @@ restrictedEnvironment: true    # default false
 
 ### Reconcile
 
-Leader only. Claimed CRs (`operatorNamespace == CLOUD_NAMESPACE`). Skip apply if spec and Secrets unchanged,
-`Ready=True`, and not a resync.
+Leader only. Claimed CRs (`operatorNamespace == CLOUD_NAMESPACE`). Secrets are read on every reconcile. Skip apply if
+spec, Secret `resourceVersion`s (vs `status.secretRevisions`) and the refresh annotation are unchanged, `Ready=True`,
+and not a resync.
 
 #### When
 
 | Trigger | How |
 | --------- | ----- |
 | CR create / spec edit / Terminating | Informer Watch `KafkaInstance` / `RabbitInstance` |
-| Secret data change | Informer Watch referenced Secrets; enqueue CRs whose `*SecretRef.name` matches. Does not bump `generation`. |
-| Periodic resync | `MAAS_INSTANCE_RESYNC_INTERVAL`, default `10m`. Re-read Secrets, refresh `status.isDefault`, retry InUse / SecretError. |
+| Refresh annotation | `maas.netcracker.com/refresh` changed (CR Watch). Forces apply now, e.g. after a Secret rotation. Does not bump `generation`. |
+| Periodic resync | `MAAS_INSTANCE_RESYNC_INTERVAL`, default `10m`. Re-read Secrets (picks up rotation), refresh `status.isDefault`, retry InUse / SecretError. |
+| Secret data change | **Not a trigger.** No Secret Watch. Seen on the next reconcile from a row above. |
 | `RequeueAfter 30s` | Unregister `InstanceInUse` (or still default). In-process timer, no apiserver PATCH. [Delete with existing topics](#delete-with-existing-topics-or-vhosts). |
 | Error return | Transient. Workqueue rate limiter (below). |
 
@@ -234,7 +246,7 @@ Leader only. Claimed CRs (`operatorNamespace == CLOUD_NAMESPACE`). Skip apply if
    `5m`, 10% jitter. Reset on success. `MAAS_RECONCILE_BACKOFF_BASE` / `MAAS_RECONCILE_BACKOFF_MAX` (defaults `1s` /
    `5m`).
 2. **`RequeueAfter`, no error → limiter skipped.** `InstanceInUse` 30s. Resync 10m. `Stalled=True` (`InvalidSpec`,
-   `DuplicateInstanceName`): `Result{}`, wait for the next Watch.
+   `DuplicateInstanceName`): `Result{}`, wait for the next CR change (spec or refresh annotation).
 
 Health-check is sync Register/Update. No async poll (no 202 / trackingId).
 
@@ -816,7 +828,7 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | `status.lastRequestId` | ProcessCR `X-Request-Id` (no HTTP header). |
 | `status.observedGeneration` | Stamped on success or `Stalled=True`. Left behind on transient. |
 | `status.isDefault` | Observed PG default. [Default instance](#default-instance). |
-| `status.secretRevisions` | Secret `resourceVersion`s. Never secret bytes. |
+| `status.secretRevisions` | Secret `resourceVersion`s seen at the last apply. Compared on each reconcile to detect rotation. Never secret bytes. |
 
 | Ready / Stalled | Meaning |
 | ----------------- | --------- |
@@ -834,8 +846,8 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | `InvalidSpec` | False | True | Duplicate `keys[].name`, bad `maasProtocol`, etc. |
 | `DuplicateInstanceName` | False | True | Another CR owns that id. |
 
-Finalizer `maas.netcracker.com/instance` after Register. `deletionTimestamp` set means Terminating. Secret Watch does
-not bump `generation`.
+Finalizer `maas.netcracker.com/instance` after Register. `deletionTimestamp` set means Terminating. A Secret rotation
+or the refresh annotation does not bump `generation`.
 
 ---
 
@@ -928,7 +940,7 @@ flowchart TB
       leaseA[Lease maas-operator-leader]
       crA[KafkaInstance / RabbitInstance]
       fiberA[Fiber REST]
-      recA[Watch CR and Secrets]
+      recA[Watch CRs. Get Secrets on reconcile]
       instA[InstanceService]
       leaseA --> processA
       crA --> recA
@@ -1021,7 +1033,8 @@ How replicas campaign, callbacks, followers, DR, two MaaS, RBAC:
 - Start `controller-runtime` in a goroutine from `[server.go](../maas/maas-service/server.go)` with **LeaderElection =
   true**. Inject the already-constructed `kafkaInstanceService` / `rabbitInstanceService` (same objects as the REST
   controllers).
-- Size informer cache modestly (two CRDs + referenced Secrets). Do not raise HTTP CPU targets just for the operator.
+- Size informer cache modestly (two CRDs; Secrets are read with Get, not cached). Do not raise HTTP CPU targets just
+  for the operator.
 - Keep Register/Update/Unregister idempotent (in-process Unregister of missing id = success).
 
 Several replicas watching the same CRs is a bug (two writers on one PG registry). Cases: [Why several MaaS replicas
@@ -1248,7 +1261,7 @@ sequenceDiagram
   Note over Pod: time 0 start
   Pod->>API: campaign Lease maas-operator-leader
   API-->>Pod: OnStartedLeading
-  Pod->>API: start informers Watch CR and Secrets
+  Pod->>API: start informers Watch CRs (no Secret Watch)
 
   Note over Pod,DB: time 1 new CR no MaaS row
   CR->>API: create CR
@@ -1262,8 +1275,10 @@ sequenceDiagram
   Pod->>CR: PATCH status Registered
 
   Note over Pod,DB: time 2 Secret rotation row already exists
-  Sec->>API: Secret data change
-  API->>Pod: enqueue CRs that ref this Secret
+  Sec->>API: Secret data change (operator not notified)
+  Note over Pod: next 10m resync or refresh annotation enqueues the CR
+  Pod->>CR: Get CR
+  Pod->>Sec: Get SecretRefs, resourceVersion differs from status.secretRevisions
   Pod->>Svc: GetById hit
   Pod->>Svc: Update
   Svc->>DB: save
@@ -1407,7 +1422,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 How the library processes it (we do not write this loop):
 
 1. The manager runs workers that pop a key (`namespace/name`) from an in-memory queue and call our `Reconcile`.
-2. If we return `Result{}` and `err == nil`, the key is done until the next Watch (CR/Secret).
+2. If we return `Result{}` and `err == nil`, the key is done until the next CR Watch event (spec or refresh
+   annotation) or resync.
 3. If we return `Result{RequeueAfter: 30s}`, the library calls `queue.AddAfter(req, 30s)` — a timer in that process.
    After 30s the same key is pushed back. No apiserver PATCH.
 4. If we return a non-nil `error`, the library rate-limits and retries ([Reconcile](#reconcile) backoff). Prefer

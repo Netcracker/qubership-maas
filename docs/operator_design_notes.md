@@ -36,7 +36,7 @@ GET/POST/PUT/DELETE `/api/v2/{kafka,rabbit}/instance`.
 flowchart TB
   crB[KafkaInstance / RabbitInstance]
   subgraph opB [maas-operator pod]
-    recB[Informers Watch CR and Secrets]
+    recB[Informers Watch CRs. Get Secrets on reconcile]
     processB[ProcessCR]
     recB --> processB
   end
@@ -150,7 +150,8 @@ to the apiserver with the in-cluster ServiceAccount token (`/var/run/secrets/kub
 
 Callbacks:
 
-- `OnStartedLeading` — this process starts CR/Secret informers and the reconciler (it is the watcher).
+- `OnStartedLeading` — this process starts CR informers and the reconciler (it is the watcher). Secrets are not
+  watched; the reconciler reads them on every reconcile.
 - `OnStoppedLeading` — stop informers immediately. HTTP (Fiber) stays up.
 
 Until the first callback, and after the second, the replica is **not** a watcher even if it still serves `/api`.
@@ -262,7 +263,8 @@ Human check: `kubectl get lease maas-operator-leader -n <maas-ns>`. Optional gau
    Lease.
 
 **RBAC:** namespace Role on the existing `maas-service` SA: `get/list/watch/create/update` on `leases` in
-`coordination.k8s.io`. ClusterRole for CRs/Secrets (cluster watch); informers added only on the leader.
+`coordination.k8s.io`. ClusterRole for CRs (cluster watch); Secrets `get` through per-namespace Roles; informers added
+only on the leader.
 
 ---
 
