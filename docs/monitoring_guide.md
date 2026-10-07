@@ -58,16 +58,20 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 ### CPU Usage
 
-- **Metrics:** `rate(container_cpu_usage_seconds_total[$inter])` · `kube_pod_container_resource_limits_cpu_cores` · `kube_pod_container_resource_requests_cpu_cores`
+- **Metrics:** `rate(container_cpu_usage_seconds_total[$inter])` · `kube_pod_container_resource_limits_cpu_cores` ·
+  `kube_pod_container_resource_requests_cpu_cores`
 - **Unit:** Millicores
-- **What it shows:** Actual CPU usage (green fill) vs. the Kubernetes resource request (orange) and limit (red dashed line).
-- **When to act:** If the green line consistently touches the red dashed limit, the pod is CPU-throttled. Either increase the CPU limit or optimize hot code paths.
+- **What it shows:** Actual CPU usage (green fill) vs. the Kubernetes resource request (orange) and limit (red dashed
+  line).
+- **When to act:** If the green line consistently touches the red dashed limit, the pod is CPU-throttled. Either
+  increase the CPU limit or optimize hot code paths.
 
 ### Committed Memory
 
 - **Metrics:** `kube_pod_container_resource_limits_memory_bytes` · `container_memory_max_usage_bytes`
 - **What it shows:** Memory limit vs. observed peak usage over time.
-- **When to act:** If peak usage approaches the limit, the pod risks OOMKill. Increase the memory limit or investigate a heap leak (see Row 2).
+- **When to act:** If peak usage approaches the limit, the pod risks OOMKill. Increase the memory limit or investigate a
+  heap leak (see Row 2).
 
 ### Memory (pod)
 
@@ -80,13 +84,15 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 - **Metrics:** `process_max_fds` · `process_open_fds`
 - **What it shows:** OS file descriptor limit vs. open count over time.
-- **When to act:** If open count approaches the OS maximum, the process will start failing to open new connections or files. Restart the pod and investigate the source of unclosed handles.
+- **When to act:** If open count approaches the OS maximum, the process will start failing to open new connections or
+  files. Restart the pod and investigate the source of unclosed handles.
 
 ### Go Routines Count
 
 - **Metrics:** `go_goroutines` · `go_threads`
 - **What it shows:** Goroutine and OS thread count over time.
-- **When to act:** A slow, steady climb that never drops back to baseline indicates a goroutine leak. Use profiling (`/debug/pprof/goroutine`) to find the source.
+- **When to act:** A slow, steady climb that never drops back to baseline indicates a goroutine leak. Use profiling
+  (`/debug/pprof/goroutine`) to find the source.
 
 ---
 
@@ -97,12 +103,15 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 ### Heap
 
 - **Metrics:** `go_memstats_heap_sys_bytes` · `go_memstats_heap_inuse_bytes`
-- **What it shows:** Memory reserved from the OS for the heap vs. the portion currently in use. A large gap between them is normal (GC freed objects but hasn't returned memory to OS yet). A growing `inuse` line is a leak signal.
+- **What it shows:** Memory reserved from the OS for the heap vs. the portion currently in use. A large gap between them
+  is normal (GC freed objects but hasn't returned memory to OS yet). A growing `inuse` line is a leak signal.
 
 ### Off-Heap
 
-- **Metrics:** `go_memstats_gc_sys_bytes` · `go_memstats_mspan_sys_bytes` · `go_memstats_mcache_sys_bytes` · `go_memstats_buck_hash_sys_bytes` · `go_memstats_other_sys_bytes` · `go_memstats_stack_sys_bytes`
-- **What it shows:** Go runtime internal bookkeeping memory (GC metadata, span tables, stacks, etc.). These are not heap allocations. Normally small and stable.
+- **Metrics:** `go_memstats_gc_sys_bytes` · `go_memstats_mspan_sys_bytes` · `go_memstats_mcache_sys_bytes` ·
+  `go_memstats_buck_hash_sys_bytes` · `go_memstats_other_sys_bytes` · `go_memstats_stack_sys_bytes`
+- **What it shows:** Go runtime internal bookkeeping memory (GC metadata, span tables, stacks, etc.). These are not heap
+  allocations. Normally small and stable.
 
 ### Allocated Objects Count
 
@@ -114,13 +123,15 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 - **Metric:** `rate(go_memstats_frees_total[$__interval])`
 - **What it shows:** Rate at which the GC is freeing objects.
-- **When to act:** A drop to near-zero while the app is active and memory is growing indicates GC is not running — this is unusual and worth investigating with profiling.
+- **When to act:** A drop to near-zero while the app is active and memory is growing indicates GC is not running — this
+  is unusual and worth investigating with profiling.
 
 ### GC Duration
 
 - **Metric:** `rate(go_gc_duration_seconds_sum[$__interval])`
 - **What it shows:** Time per second spent in garbage collection.
-- **When to act:** High values cause stop-the-world pauses, which appear as latency spikes in the HTTP Statistics panels. Reduce allocation rate or tune `GOGC`.
+- **When to act:** High values cause stop-the-world pauses, which appear as latency spikes in the HTTP Statistics
+  panels. Reduce allocation rate or tune `GOGC`.
 
 ---
 
@@ -144,8 +155,11 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 - **Metric:** `sum by(le)(rate(http_request_duration_seconds_bucket{status_code!~"5.."}[$__interval]))`
 - **Visualization:** Heatmap
 - **Histogram buckets:** 10ms, 100ms, 1s, 10s
-- **What it shows:** Distribution of response latencies for successful requests over time. Dark orange = concentration of requests at that latency bucket.
-- **When to act:** If the heatmap shifts rightward (toward 1s–10s), request processing is slowing down. Correlate with Database Insights (slow queries) or GC Duration (GC pauses). 5xx responses are excluded so fast rejections do not skew the picture.
+- **What it shows:** Distribution of response latencies for successful requests over time. Dark orange = concentration
+  of requests at that latency bucket.
+- **When to act:** If the heatmap shifts rightward (toward 1s–10s), request processing is slowing down. Correlate with
+  Database Insights (slow queries) or GC Duration (GC pauses). 5xx responses are excluded so fast rejections do not skew
+  the picture.
 
 ---
 
@@ -155,28 +169,33 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 ### Connections Pool
 
-- **Metrics:** `go_sql_stats_connections_max_open` (limit, red dashed) · `go_sql_stats_connections_open` · `go_sql_stats_connections_in_use`
+- **Metrics:** `go_sql_stats_connections_max_open` (limit, red dashed) · `go_sql_stats_connections_open` ·
+  `go_sql_stats_connections_in_use`
 - **What it shows:** How saturated the DB connection pool is.
-- **When to act:** If `in_use` consistently equals `open` and both approach `limit`, new requests will queue up waiting for a free connection. This manifests as latency visible in the next panel.
+- **When to act:** If `in_use` consistently equals `open` and both approach `limit`, new requests will queue up waiting
+  for a free connection. This manifests as latency visible in the next panel.
 
 ### Wait Time for Available Connection from Pool
 
 - **Metric:** `rate(go_sql_stats_connections_blocked_seconds[$__rate_interval])`
 - **Unit:** Seconds/second
 - **What it shows:** Time per second the application spent blocked waiting for a free DB connection.
-- **When to act:** Any non-zero sustained value here means connection pool saturation is already causing request latency. Increase pool size or reduce query duration.
+- **When to act:** Any non-zero sustained value here means connection pool saturation is already causing request
+  latency. Increase pool size or reduce query duration.
 
 ### Master SQL Requests Rate
 
 - **Metric:** `rate(maas_db_request_count{type="master"}[$__rate_interval])` (split by `result=success/error`)
 - **What it shows:** Rate of SQL requests to the primary (read-write) database.
-- **When to act:** If error rate rises, write operations are failing. Cross-check with the **Master DB Availability** stat at the top. Check PostgreSQL logs for constraint violations, timeouts, or connectivity issues.
+- **When to act:** If error rate rises, write operations are failing. Cross-check with the **Master DB Availability**
+  stat at the top. Check PostgreSQL logs for constraint violations, timeouts, or connectivity issues.
 
 ### Replica SQL Requests Rate
 
 - **Metric:** `rate(maas_db_request_count{type="replica"}[$__rate_interval])` (split by `result=success/error`)
 - **What it shows:** Rate of SQL requests to the read replica.
-- **When to act:** If this drops to zero while the master rate is healthy, the replica may be down or unreachable. The app may have fallen back to routing all reads to the master, increasing its load.
+- **When to act:** If this drops to zero while the master rate is healthy, the replica may be down or unreachable. The
+  app may have fallen back to routing all reads to the master, increasing its load.
 
 ### SQL Requests Execution Time
 
@@ -184,7 +203,8 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 - **Visualization:** Histogram
 - **Histogram buckets:** 50ms, 200ms, 500ms, 1s
 - **What it shows:** Distribution of individual SQL statement execution times.
-- **When to act:** If the distribution shifts toward the 500ms–1s range, database performance has degraded. Check DB server CPU/IO load, index health, and lock contention.
+- **When to act:** If the distribution shifts toward the 500ms–1s range, database performance has degraded. Check DB
+  server CPU/IO load, index health, and lock contention.
 
 ---
 
@@ -209,7 +229,8 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 - **Metric:** `maas_health_broker_status{broker_type="RabbitMQ", broker_id="$rabbit_instances"}`
 - Same value/color mapping as Kafka above.
 
-> If a broker shows **PROBLEM**, MaaS cannot reach it. The service will still accept API requests but any operation requiring that broker (topic creation, vhost provisioning, etc.) will return errors to the caller.
+> If a broker shows **PROBLEM**, MaaS cannot reach it. The service will still accept API requests but any operation
+> requiring that broker (topic creation, vhost provisioning, etc.) will return errors to the caller.
 
 ---
 
@@ -217,7 +238,8 @@ All panels are scoped to a single pod at a time using the top-of-page dropdowns.
 
 **Dashboard Name:** MaaS Discrepancy Dashboard
 **UID:** `maas-discrepancy`
-**Location:** `helm-templates/maas-service/dashboards/maas-discrepancy-dashboard.json` (shipped by `templates/Dashboard.yaml`)
+**Location:** `helm-templates/maas-service/dashboards/maas-discrepancy-dashboard.json` (shipped by
+`templates/Dashboard.yaml`)
 **Collection Interval:** `discrepancy.metrics.interval`, default `5m`
 
 ### What it shows
@@ -264,15 +286,17 @@ reached the broker. A brief broker blip shows up as a gap in the timeseries, nev
 
 ### Panels
 
-The dashboard has a **Kafka Topics** row and a **RabbitMQ VHosts** row, each with the same panels: stat
-tiles, per-broker timeseries and a broker-availability state-timeline. The **Broker**, **Namespace** and
-**Tenant** filters are shared across both rows (each row is already scoped to its broker type).
+The dashboard has a **Kafka Topics** row and a **RabbitMQ VHosts** row, each with the same panels: **Registered**,
+**Present**, and **Lost** stat tiles, a per-broker timeseries (`Topics: $kafka_broker` or `VHosts: $rabbit_broker`), and
+a broker-availability state-timeline. The **Broker**, **Namespace** and **Tenant** filters are shared across both rows
+(each row is already scoped to its broker type).
 
 | Panel | Query | When to act |
 | --- | --- | --- |
-| **Lost** (stat) | `sum(maas_discrepancy_lost_entities{broker_type=…})` | Red on any non-zero value. Recreate the entity on the broker, or delete the stale registration through the MaaS API. |
 | **Registered** (stat) | `sum(maas_discrepancy_registered_entities{broker_type=…})` | Informational. A sudden drop means registrations were deleted — or the instance became unreadable and its series vanished. Cross-check against a namespace cleanup. |
-| **Topics/VHosts By Broker** (stacked timeseries) | `present` = registered − lost, and `lost`, per `broker_id` | Green = present (on the broker), red = lost; the stack height is the registered total. A red band appearing, or a gap, pinpoints when and on which broker entities went missing. |
+| **Present** (stat) | registered − lost | Entities registered in MaaS and still present on the broker. |
+| **Lost** (stat) | `sum(maas_discrepancy_lost_entities{broker_type=…})` | Red on any non-zero value. Recreate the entity on the broker, or delete the stale registration through the MaaS API. |
+| **Topics: $kafka_broker** / **VHosts: $rabbit_broker** (timeseries) | `present` = registered − lost, and `lost`, per `broker_id` | Green = present (on the broker), red = lost; the stack height is the registered total. A red band appearing, or a gap, pinpoints when and on which broker entities went missing. |
 | **Broker Availability** (state-timeline) | `maas_health_broker_status{broker_type=…}` | MaaS broker health: green = ok, orange = warning, red = problem (unreachable). A red band explains why discrepancy series went stale that cycle. |
 
 ### Diagnosing a non-zero value
