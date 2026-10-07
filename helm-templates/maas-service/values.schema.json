@@ -316,6 +316,36 @@
         "examples": [
           false
         ]
+      },
+      "OPERATOR_ENABLED": {
+        "$id": "#/properties/OPERATOR_ENABLED",
+        "type": "boolean",
+        "title": "The OPERATOR_ENABLED schema",
+        "description": "If true, maas-service watches KafkaInstance / RabbitInstance CRs and the chart creates operator RBAC",
+        "default": false,
+        "examples": [
+          true, false
+        ]
+      },
+      "K8S_EVENTS_ENABLED": {
+        "$id": "#/properties/K8S_EVENTS_ENABLED",
+        "type": "boolean",
+        "title": "The K8S_EVENTS_ENABLED schema",
+        "description": "If true, the operator records Kubernetes Events on instance CRs and the ClusterRole grants events create/patch",
+        "default": true,
+        "examples": [
+          true, false
+        ]
+      },
+      "restrictedEnvironment": {
+        "$id": "#/properties/restrictedEnvironment",
+        "type": "boolean",
+        "title": "The restrictedEnvironment schema",
+        "description": "If true, the chart skips cluster-scoped operator objects (ClusterRole, ClusterRoleBinding); apply them out of band",
+        "default": false,
+        "examples": [
+          true, false
+        ]
       }
     }
   }
