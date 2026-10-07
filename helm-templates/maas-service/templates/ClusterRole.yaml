@@ -1,0 +1,40 @@
+{{- if and .Values.OPERATOR_ENABLED (not .Values.restrictedEnvironment) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: '{{ cat .Values.NAMESPACE "-" .Values.SERVICE_NAME | nospace | trunc 63 | trimSuffix "-" }}'
+  labels:
+    app.kubernetes.io/instance: '{{ .Values.SERVICE_NAME }}'
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}'
+rules:
+  # Instance CRs live in broker namespaces, so the watch is cluster-wide.
+  # patch on the resource itself adds/removes the maas.netcracker.com/instance finalizer.
+  - apiGroups: [ maas.netcracker.com ]
+    resources: [ kafkainstances, rabbitinstances ]
+    verbs: [ get, list, watch, patch ]
+  # Declaration CRs live in application namespaces. Deleting a CR does not delete the topic/vhost, so there is
+  # no finalizer and no patch on the resource itself.
+  - apiGroups: [ maas.netcracker.com ]
+    resources: [ kafkatopics, kafkatenanttopics, kafkalazytopics, kafkatopictemplates, rabbitvhosts ]
+    verbs: [ get, list, watch ]
+  - apiGroups: [ maas.netcracker.com ]
+    resources:
+      - kafkainstances/status
+      - rabbitinstances/status
+      - kafkatopics/status
+      - kafkatenanttopics/status
+      - kafkalazytopics/status
+      - kafkatopictemplates/status
+      - rabbitvhosts/status
+    verbs: [ get, update, patch ]
+  # No Secret rule here: the operator holds NO cluster-wide Secret RBAC. Each namespace with
+  # instance CRs grants get/list/watch on its Secrets through a Role + RoleBinding.
+  {{- if .Values.K8S_EVENTS_ENABLED }}
+  # Events are written to the namespace of the reconciled CR, not to the MaaS namespace.
+  - apiGroups: [ "" ]
+    resources: [ events ]
+    verbs: [ create, patch ]
+  {{- end }}
+{{- end }}
