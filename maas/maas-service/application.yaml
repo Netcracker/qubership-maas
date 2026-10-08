@@ -30,7 +30,6 @@ db:
 
 kubernetes:
   m2m:
-    enabled: false
     audience: maas
 
 # DR mode defaults
