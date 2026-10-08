@@ -71,13 +71,16 @@ While Terminating, `deletionPolicy: Unregister` (default) SHALL Unregister the P
 
 - GIVEN `deletionPolicy: Orphan`
 - WHEN the CR is deleted
-- THEN the finalizer SHALL be removed
+- THEN `managed_by_operator` SHALL be set false and `origin_cr` cleared on the row
+- AND the finalizer SHALL be removed
 - AND the PG row SHALL remain
+- AND manager REST SHALL be able to Update or Unregister that id
 
 ### Requirement: REST lock after operator write
 
-Manager REST SHALL Update or Unregister an instance id only while `managed_by_operator` is false. After a CR Register or
-adopt, REST of that id SHALL be rejected.
+While `OPERATOR_ENABLED` is true, manager REST SHALL Update or Unregister an instance id only while
+`managed_by_operator` is false. After a CR Register or adopt, REST of that id SHALL be rejected. While `OPERATOR_ENABLED`
+is false, the lock SHALL NOT be enforced.
 
 #### Scenario: Unmanaged REST row
 
@@ -91,6 +94,38 @@ adopt, REST of that id SHALL be rejected.
 - WHEN a second CR would write that id
 - THEN status SHALL be `Ready=False` `Stalled=True` reason `DuplicateInstanceName`
 - AND ProcessCR SHALL NOT Update
+
+#### Scenario: REST lock off while operator disabled
+
+- GIVEN `OPERATOR_ENABLED` is false and a row has `managed_by_operator` true
+- WHEN manager REST Updates that id
+- THEN the Update SHALL succeed
+- AND `managed_by_operator` SHALL stay true
+
+### Requirement: Rabbit URL uniqueness
+
+PostgreSQL SHALL reject a Rabbit instance whose `api_url` or `amqp_url` is already used by another id, the same way
+Kafka `addresses` are unique. This SHALL apply to manager REST and to CRs.
+
+#### Scenario: Duplicate Rabbit URL
+
+- GIVEN a Rabbit instance row with `amqp_url` `amqp://rabbit.rabbit-infra:5672`
+- WHEN another id is Registered or Updated with the same `amqp_url` or the same `api_url`
+- THEN the write SHALL fail with a unique violation
+- AND a CR write SHALL surface it as `Ready=False` `Stalled=True` reason `InvalidSpec`, with a message naming the URL
+
+#### Scenario: Existing duplicates at upgrade
+
+- GIVEN two existing Rabbit rows share an `api_url` or `amqp_url`
+- WHEN the uniqueness migration runs
+- THEN it SHALL create no index and `maas-service` SHALL fail to start
+- AND the error SHALL list every shared `api_url` / `amqp_url` with the instance ids that use it
+
+#### Scenario: Upgrade after fixing duplicates
+
+- GIVEN the duplicate rows named in that error were fixed
+- WHEN `maas-service` starts again
+- THEN the migration SHALL create both unique indexes and startup SHALL continue
 
 ### Requirement: Default instance params
 

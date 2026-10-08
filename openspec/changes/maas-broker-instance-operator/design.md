@@ -54,7 +54,7 @@ defaults false).
 ### `deletionPolicy` Unregister (default) vs Orphan
 
 Unregister: drop CR and PG row (400 + `InstanceInUse` if topics/vhosts remain; keep finalizer; `RequeueAfter 30s`).
-Orphan: drop CR, keep row. Finalizer `maas.netcracker.com/instance` after successful Register.
+Orphan: drop CR, keep row, hand it back to REST. Finalizer `maas.netcracker.com/instance` after successful Register.
 
 ### Status Ready + Stalled; Events optional
 
@@ -76,10 +76,22 @@ Do not rename an existing PG `id` (topics/vhosts FK it).
 - Else if `metadata.name` ≠ namespace and `GetById(name)` hits an unmanaged row → adopt (set `managed_by_operator`,
   store CR namespace).
 - Same name already managed from another namespace → `DuplicateInstanceName`, do not Update.
-- Kafka `addresses` unique (`23505`) is the “forgot old id” net. Rabbit has no URL unique in v1.
+- Kafka `addresses` and Rabbit `api_url` / `amqp_url` unique (`23505`) are the “forgot old id” net.
 
-Applying the CR **is** the migrate. No `spec.takeOver` in v1. After `managed_by_operator` true, manager REST
-Update/Unregister of that id is rejected.
+Applying the CR **is** the migrate. After `managed_by_operator` true, manager REST Update/Unregister of that id is
+rejected while the operator is enabled.
+
+### Rabbit URL uniqueness
+
+A DB migration adds a unique index on `rabbit_instances.api_url` and one on `amqp_url`, like Kafka `addresses`. It
+applies to manager REST and CRs: Register/Update with a URL used by another id fails with `23505`. Strings are compared
+as stored. Existing duplicates fail the upgrade: the migration creates no index and `maas-service` exits at startup
+with one error listing each shared URL and the instance ids using it. Ops keep one id per URL, then restart.
+
+### Migrate back to REST
+
+`deletionPolicy: Orphan` sets `managed_by_operator` false and clears `origin_cr` before removing the finalizer, so
+manager REST owns the row again. `OPERATOR_ENABLED=false` disables the REST lock for all rows without changing them.
 
 ### Update path
 
@@ -104,17 +116,10 @@ Resync claimed CRs every 10m.
 | Unregister when operator disabled | Breaks topics/vhosts on rollback. |
 | Own-NS watch as restricted-env mode | Restricted env is out-of-band CRDs/ClusterRole, not a smaller watch. |
 
-## Open questions (v1 non-goals unless SPEC PR closes them)
-
-| Question | Owner until closed | v1 stance |
-| ---------- | -------------------- | ----------- |
-| Blue/Green adopt onto a new operator (`operatorNamespace`, finalizers, `origin_cr`) | SPEC review | Non-goal |
-| Rabbit URL uniqueness (like Kafka addresses) | SPEC review | Non-goal; Kafka `23505` stays |
-| Migrate back: Orphan sets `managed_by_operator` false vs REST-only after disable | SPEC review | Orphan keeps the row; lock behavior after Orphan is still TODO |
-| `spec.takeOver` to refuse auto-adopt | Later | v1 auto-adopts |
-
 ## Risks
 
 - CRDs + finalizers on downgrade: a leftover finalizer blocks CR delete until removed or the CRD is deleted.
 - Restricted env without out-of-band ClusterRole: informers fail.
 - Instance CRs applied before MaaS CRDs: apply fails (install MaaS first).
+- Existing Rabbit rows sharing `api_url` or `amqp_url`: the upgrade stops (new pods fail at startup, the previous
+  version keeps serving) until ops fix the rows named in the error.
