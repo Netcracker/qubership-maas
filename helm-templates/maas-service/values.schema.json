@@ -287,15 +287,17 @@
           "postgresql=>postgresql-sample||mongodb=>mongo-sample;"
         ]
       },
-      "KUBERNETES_M2M_ENABLED": {
-        "$id": "#/properties/KUBERNETES_M2M_ENABLED",
-        "type": "boolean",
-        "title": "The KUBERNETES_M2M_ENABLED schema",
-        "description": "If true enable Kubernetes OIDC m2m authentication",
-        "default": false,
-        "examples": [
-          true, false
-        ]
+      "M2M_AUTH_MODE": {
+        "$id": "#/properties/M2M_AUTH_MODE",
+        "type": "string",
+        "title": "The M2M_AUTH_MODE schema",
+        "description": "Machine-to-machine authentication mode: legacy, hybrid, or k8s",
+        "enum": [
+          "legacy",
+          "hybrid",
+          "k8s"
+        ],
+        "default": "legacy"
       },
       "KUBERNETES_M2M_AUDIENCE": {
         "$id": "#/properties/KUBERNETES_M2M_AUDIENCE",
@@ -313,6 +315,36 @@
         "description": "Is monitoring enabled",
         "examples": [
           false
+        ]
+      },
+      "OPERATOR_ENABLED": {
+        "$id": "#/properties/OPERATOR_ENABLED",
+        "type": "boolean",
+        "title": "The OPERATOR_ENABLED schema",
+        "description": "If true, maas-service watches KafkaInstance / RabbitInstance CRs and the chart creates operator RBAC",
+        "default": false,
+        "examples": [
+          true, false
+        ]
+      },
+      "K8S_EVENTS_ENABLED": {
+        "$id": "#/properties/K8S_EVENTS_ENABLED",
+        "type": "boolean",
+        "title": "The K8S_EVENTS_ENABLED schema",
+        "description": "If true, the operator records Kubernetes Events on instance CRs and the ClusterRole grants events create/patch",
+        "default": true,
+        "examples": [
+          true, false
+        ]
+      },
+      "restrictedEnvironment": {
+        "$id": "#/properties/restrictedEnvironment",
+        "type": "boolean",
+        "title": "The restrictedEnvironment schema",
+        "description": "If true, the chart skips cluster-scoped operator objects (ClusterRole, ClusterRoleBinding); apply them out of band",
+        "default": false,
+        "examples": [
+          true, false
         ]
       }
     }

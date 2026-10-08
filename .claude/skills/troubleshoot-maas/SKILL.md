@@ -62,7 +62,7 @@ attachments for logs and custom resources before asking for them.
 | `KAFKA_CLIENT_TIMEOUT` | `10s` | Kafka admin client timeout for list/create/update/delete. |
 | `DB_POOL_SIZE` | `5` | PostgreSQL pool size. |
 | `MONITORING_ENABLED` | `true` | PodMonitor / Grafana dashboards. |
-| `KUBERNETES_M2M_ENABLED` | `false` | Kubernetes M2M token auth. |
+| `M2M_AUTH_MODE` | `legacy` | Kubernetes M2M token auth. |
 
 Phrase config changes as «set `<helm-value>: <value>` in the
 `maas-service` chart and redeploy through the normal delivery
