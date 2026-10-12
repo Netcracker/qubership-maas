@@ -44,6 +44,45 @@ REST SHALL keep resolved credentials, not SecretRef or `operatorNamespace`.
 - THEN the mapped model `Default` field SHALL be false
 - AND default selection SHALL follow `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` after Register/Update
 
+### Requirement: Kafka credentials by role
+
+`KafkaInstance` SHALL carry admin and client credentials like manager REST. `spec.credentials` is optional; when set,
+`admin` (exactly one entry) and `client` (one or more) SHALL both be present. Each entry SHALL name an auth `type` and a
+Secret whose keys map to Auth DTO fields. The CRD SHALL reject an entry missing the fields its `type` needs.
+
+#### Scenario: Admin and client credentials
+
+- GIVEN a claimed `KafkaInstance` with `credentials.admin` and two `credentials.client` entries
+- WHEN ProcessCR maps it
+- THEN `Credentials["admin"]` SHALL hold the admin entry and `Credentials["client"]` both client entries, in order
+- AND passwords SHALL be sent as `plain:<value>` from the raw Secret value
+- AND topic responses SHALL return the client entries, as for REST-registered instances
+
+#### Scenario: Kafka without authentication
+
+- GIVEN a claimed `KafkaInstance` with no `spec.credentials`
+- WHEN ProcessCR maps it
+- THEN `Credentials` SHALL be empty and MaaS SHALL connect without authentication
+
+#### Scenario: Incomplete credentials
+
+- GIVEN a `KafkaInstance` with `credentials.admin` but no `credentials.client`, or a `SCRAM` entry without a
+  `password` key
+- WHEN it is applied
+- THEN the API server SHALL reject it
+
+### Requirement: Kafka addresses
+
+`spec.addresses` SHALL accept every protocol MaaS accepts (`PLAINTEXT`, `SASL_PLAINTEXT`, `SSL`, `SASL_SSL`) and SHALL
+contain an entry for `spec.maasProtocol`. MaaS connects with `addresses[maasProtocol]`; topic responses return the whole
+map.
+
+#### Scenario: Missing maasProtocol entry
+
+- GIVEN `maasProtocol: SASL_SSL` and `addresses` with only `SASL_PLAINTEXT`
+- WHEN the CR is applied
+- THEN the API server SHALL reject it
+
 ### Requirement: Status conditions
 
 Status SHALL expose `Ready` and `Stalled` only. `phase` is for kubectl.

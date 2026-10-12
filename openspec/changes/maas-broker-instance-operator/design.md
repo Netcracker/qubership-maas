@@ -39,6 +39,18 @@ the 10m resync, any CR change, or the `maas.netcracker.com/refresh` annotation. 
 `resourceVersion`s from the last apply; a different revision means MaaS Update. The CR informer must not filter on
 `generation` only, because the annotation does not bump it.
 
+### Kafka credentials by role, validated in the CRD
+
+`spec.credentials` mirrors REST `credentials`: `admin` (exactly one, MaaS only uses the first) and `client` (one or
+more, returned to applications). Optional as a whole, because REST allows a Kafka without auth. Each entry is
+`{type, secretRef: {name, keys}}`; `type` is in the spec, not in the Secret, so the CRD can check with CEL that the
+Secret keys match the auth type. Secrets hold raw passwords; the mapper adds the `plain:` prefix. Rejected: one
+`credentialsSecretRef` (no client credentials) and per-field Secret refs (verbose).
+
+Schema checks that would otherwise only fail at Register: `addresses` must contain `maasProtocol`, address keys are
+the four Kafka protocols, Rabbit `apiUrl` is `http(s)://`, `amqpUrl` is `amqp(s)://`, Rabbit keys are exactly `user` and
+`password`.
+
 ### Application default params, not `spec.default`
 
 `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` are CR `metadata.name`. Empty: first Register of that kind is

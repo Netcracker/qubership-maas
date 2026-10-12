@@ -91,6 +91,14 @@ spec:
               value: "{{ .Values.KUBERNETES_M2M_ENABLED }}"
             - name: KUBERNETES_M2M_AUDIENCE
               value: "{{ .Values.KUBERNETES_M2M_AUDIENCE }}"
+            - name: OPERATOR_ENABLED
+              value: "{{ .Values.OPERATOR_ENABLED }}"
+            - name: K8S_EVENTS_ENABLED
+              value: "{{ .Values.K8S_EVENTS_ENABLED }}"
+            - name: DEFAULT_KAFKA_INSTANCE
+              value: "{{ .Values.DEFAULT_KAFKA_INSTANCE }}"
+            - name: DEFAULT_RABBIT_INSTANCE
+              value: "{{ .Values.DEFAULT_RABBIT_INSTANCE }}"
           resources:
             requests:
               cpu: "{{ .Values.CPU_REQUEST }}"

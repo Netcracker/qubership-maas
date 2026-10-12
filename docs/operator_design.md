@@ -375,21 +375,32 @@ metadata:
     - maas.netcracker.com/instance
 spec:
   operatorNamespace: maas-core         # required. Claim: must equal this operator CLOUD_NAMESPACE. CEL immutable (self == oldSelf). RFC-1123
-  addresses:
+  addresses:                           # every protocol the cluster serves. Applications get the whole map
     SASL_PLAINTEXT: ["kafka.kafka-infra:9092"]
-  maasProtocol: SASL_PLAINTEXT         # PLAINTEXT | SASL_PLAINTEXT | SSL | SASL_SSL. Protocol MaaS uses to talk to the broker
+    SASL_SSL: ["kafka.kafka-infra:9093"]
+  maasProtocol: SASL_PLAINTEXT         # PLAINTEXT | SASL_PLAINTEXT | SSL | SASL_SSL. MaaS connects with addresses[maasProtocol]
   caCertSecretRef:
     name: kafka-ca
     key: ca.crt
-  credentialsSecretRef:
-    name: kafka-admin
-    keys:
-      - key: type
-        name: type
-      - key: username
-        name: username
-      - key: password
-        name: password
+  credentials:                         # omit for a Kafka without auth. When set, admin and client are both required
+    admin:                             # exactly one entry. MaaS manages topics with it
+      - type: SCRAM                    # plain | SCRAM | sslCert | sslCert+plain | sslCert+SCRAM
+        secretRef:
+          name: kafka-admin
+          keys:                        # Secret.data key -> Auth DTO field (username, password, clientKey, clientCert)
+            - key: username
+              name: username
+            - key: password
+              name: password
+    client:                            # one or more. All are returned to applications with topic responses
+      - type: SCRAM
+        secretRef:
+          name: kafka-client
+          keys:
+            - key: username
+              name: username
+            - key: password
+              name: password
   deletionPolicy: Unregister           # Unregister (default): delete CR and PG row. Orphan: delete CR, keep PG row. Only read while Terminating
 status:
   phase: BackingOff                    # kubectl column only. Processing | Succeeded | BackingOff | InvalidConfiguration. Automate on conditions, not phase
@@ -398,6 +409,7 @@ status:
   secretRevisions:                     # Secret resourceVersions. Never secret bytes
     kafka-ca: "184291"
     kafka-admin: "184310"
+    kafka-client: "184312"
   conditions:                          # Ready + Stalled. list-type=map keyed by type
     - type: Ready                      # True = this generation applied successfully and instance is usable (or Terminating cleanup done)
       status: "False"
@@ -420,10 +432,10 @@ status:
 | ------- | :--------: | ------- |
 | `metadata.name` | Yes | DNS-1123. First install: equal to `metadata.namespace`. `DEFAULT_KAFKA_INSTANCE` matches this. Maps to PG `id`: [Name and id](#name-and-id-in-the-database). |
 | `spec.operatorNamespace` | Yes | Claim (`CLOUD_NAMESPACE`). CEL immutable. Skip, no PATCH, if it does not match. |
-| `spec.addresses` | Yes | One protocol key, matching `maasProtocol`. |
-| `spec.maasProtocol` | Yes | `PLAINTEXT` \| `SASL_PLAINTEXT` \| `SSL` \| `SASL_SSL`. |
+| `spec.addresses` | Yes | Map protocol → bootstrap servers. Keys: `PLAINTEXT`, `SASL_PLAINTEXT`, `SSL`, `SASL_SSL`. Must contain `maasProtocol` (CEL). MaaS connects with `addresses[maasProtocol]`; topic responses return the whole map. |
+| `spec.maasProtocol` | Yes | `PLAINTEXT` \| `SASL_PLAINTEXT` \| `SSL` \| `SASL_SSL`. `SSL` / `SASL_SSL` enable TLS. |
 | `spec.caCertSecretRef` | No | `{name, key}` same NS. Omit if no CA. |
-| `spec.credentialsSecretRef` | Yes | `{name, keys[{key, name}]}` same NS. `key` = `Secret.data`; `name` = Kafka Auth DTO field. |
+| `spec.credentials` | No | Omit for a Kafka without auth. When set, `admin` (exactly one) and `client` (one or more) are both required, as in manager REST. Entry: `{type, secretRef: {name, keys[{key, name}]}}` same NS. `type`: `plain`, `SCRAM`, `sslCert`, `sslCert+plain`, `sslCert+SCRAM`. `key` = `Secret.data`; `name` = Auth DTO field (`username`, `password`, `clientKey`, `clientCert`). CEL: `plain` / `SCRAM` types need `username` + `password`; `sslCert*` types need `clientKey` + `clientCert`. |
 | `spec.deletionPolicy` | No | `Unregister` (default) or `Orphan`. Read only while Terminating. |
 
 Status: [Status](#status).
@@ -469,11 +481,16 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
+          description: Kafka cluster registered in MaaS. The CR name is the MaaS instance id.
           required: [spec]
           properties:
             spec:
               type: object
-              required: [operatorNamespace, addresses, maasProtocol, credentialsSecretRef]
+              description: Desired registration. Credentials are read from Secrets in the namespace of this CR.
+              required: [operatorNamespace, addresses, maasProtocol]
+              x-kubernetes-validations:
+                - rule: self.maasProtocol in self.addresses
+                  message: spec.addresses must have an entry for spec.maasProtocol
               properties:
                 operatorNamespace:
                   type: string
@@ -486,76 +503,201 @@ spec:
                       message: spec.operatorNamespace is immutable after creation
                 addresses:
                   type: object
-                  description: Broker addresses keyed by protocol. One key, matching maasProtocol.
+                  description: >-
+                    Broker addresses keyed by protocol (PLAINTEXT, SASL_PLAINTEXT, SSL, SASL_SSL). MaaS connects with
+                    the list under maasProtocol. Applications get the whole map and pick their own protocol.
+                  minProperties: 1
+                  maxProperties: 4
+                  x-kubernetes-validations:
+                    - rule: self.all(p, p in ['PLAINTEXT', 'SASL_PLAINTEXT', 'SSL', 'SASL_SSL'])
+                      message: spec.addresses keys must be PLAINTEXT, SASL_PLAINTEXT, SSL or SASL_SSL
                   additionalProperties:
                     type: array
+                    description: Bootstrap servers as host:port.
+                    minItems: 1
+                    maxItems: 64
                     items:
                       type: string
                       minLength: 1
-                  minProperties: 1
+                      maxLength: 512
                 maasProtocol:
                   type: string
-                  description: Protocol MaaS uses to talk to this Kafka.
+                  description: Protocol MaaS uses to talk to this Kafka. SSL and SASL_SSL enable TLS.
                   enum: [PLAINTEXT, SASL_PLAINTEXT, SSL, SASL_SSL]
                 caCertSecretRef:
                   type: object
-                  description: CA certificate Secret in the same namespace as this CR. Omit if no CA.
+                  description: >-
+                    Secret with the CA certificate (PEM or base64 DER), in the same namespace as this CR. MaaS uses it
+                    for TLS and returns it to applications. Omit if the broker certificate is publicly trusted or TLS
+                    is off.
                   required: [name, key]
                   properties:
                     name:
                       type: string
+                      description: Secret name.
                       minLength: 1
+                      maxLength: 253
                     key:
                       type: string
+                      description: Key in Secret data that holds the certificate.
                       minLength: 1
-                credentialsSecretRef:
+                      maxLength: 253
+                      pattern: '^[-._a-zA-Z0-9]+$'
+                credentials:
                   type: object
-                  description: Credentials Secret in the same namespace. keys map Secret.data to Kafka Auth DTO fields.
-                  required: [name, keys]
+                  description: >-
+                    Kafka credentials by role. Omit for a Kafka without authentication. When set, both admin and client
+                    are required.
+                  required: [admin, client]
                   properties:
-                    name:
-                      type: string
-                      minLength: 1
-                    keys:
+                    admin:
                       type: array
+                      description: Credentials MaaS uses to manage topics. One entry.
                       minItems: 1
+                      maxItems: 1
                       items:
                         type: object
-                        required: [key, name]
+                        description: One Kafka Auth DTO, built from a Secret.
+                        required: [type, secretRef]
+                        x-kubernetes-validations:
+                          - rule: >-
+                              !(self.type in ['plain', 'SCRAM', 'sslCert+plain', 'sslCert+SCRAM']) ||
+                              (self.secretRef.keys.exists(k, k.name == 'username') &&
+                              self.secretRef.keys.exists(k, k.name == 'password'))
+                            message: plain and SCRAM auth need username and password keys
+                          - rule: >-
+                              !self.type.startsWith('sslCert') ||
+                              (self.secretRef.keys.exists(k, k.name == 'clientKey') &&
+                              self.secretRef.keys.exists(k, k.name == 'clientCert'))
+                            message: sslCert auth needs clientKey and clientCert keys
                         properties:
-                          key:
+                          type:
                             type: string
-                            minLength: 1
-                            description: Key in Secret.data
-                          name:
+                            description: Auth type. plain and SCRAM are SASL; sslCert is mutual TLS.
+                            enum: [plain, SCRAM, sslCert, sslCert+plain, sslCert+SCRAM]
+                          secretRef:
+                            type: object
+                            description: Secret in the same namespace as this CR.
+                            required: [name, keys]
+                            properties:
+                              name:
+                                type: string
+                                description: Secret name.
+                                minLength: 1
+                                maxLength: 253
+                              keys:
+                                type: array
+                                description: Maps Secret data keys to Auth DTO fields. One entry per field.
+                                minItems: 1
+                                maxItems: 4
+                                x-kubernetes-list-type: map
+                                x-kubernetes-list-map-keys: [name]
+                                items:
+                                  type: object
+                                  required: [key, name]
+                                  properties:
+                                    key:
+                                      type: string
+                                      description: Key in Secret data.
+                                      minLength: 1
+                                      maxLength: 253
+                                      pattern: '^[-._a-zA-Z0-9]+$'
+                                    name:
+                                      type: string
+                                      description: Auth DTO field that gets the value.
+                                      enum: [username, password, clientKey, clientCert]
+                    client:
+                      type: array
+                      description: >-
+                        Credentials MaaS returns to applications with topic responses. Applications pick the entry that
+                        matches their auth type.
+                      minItems: 1
+                      maxItems: 8
+                      items:
+                        type: object
+                        description: One Kafka Auth DTO, built from a Secret.
+                        required: [type, secretRef]
+                        x-kubernetes-validations:
+                          - rule: >-
+                              !(self.type in ['plain', 'SCRAM', 'sslCert+plain', 'sslCert+SCRAM']) ||
+                              (self.secretRef.keys.exists(k, k.name == 'username') &&
+                              self.secretRef.keys.exists(k, k.name == 'password'))
+                            message: plain and SCRAM auth need username and password keys
+                          - rule: >-
+                              !self.type.startsWith('sslCert') ||
+                              (self.secretRef.keys.exists(k, k.name == 'clientKey') &&
+                              self.secretRef.keys.exists(k, k.name == 'clientCert'))
+                            message: sslCert auth needs clientKey and clientCert keys
+                        properties:
+                          type:
                             type: string
-                            minLength: 1
-                            description: Field name in the Kafka Auth DTO (type, username, password, clientKey, clientCert)
+                            description: Auth type. plain and SCRAM are SASL; sslCert is mutual TLS.
+                            enum: [plain, SCRAM, sslCert, sslCert+plain, sslCert+SCRAM]
+                          secretRef:
+                            type: object
+                            description: Secret in the same namespace as this CR.
+                            required: [name, keys]
+                            properties:
+                              name:
+                                type: string
+                                description: Secret name.
+                                minLength: 1
+                                maxLength: 253
+                              keys:
+                                type: array
+                                description: Maps Secret data keys to Auth DTO fields. One entry per field.
+                                minItems: 1
+                                maxItems: 4
+                                x-kubernetes-list-type: map
+                                x-kubernetes-list-map-keys: [name]
+                                items:
+                                  type: object
+                                  required: [key, name]
+                                  properties:
+                                    key:
+                                      type: string
+                                      description: Key in Secret data.
+                                      minLength: 1
+                                      maxLength: 253
+                                      pattern: '^[-._a-zA-Z0-9]+$'
+                                    name:
+                                      type: string
+                                      description: Auth DTO field that gets the value.
+                                      enum: [username, password, clientKey, clientCert]
                 deletionPolicy:
                   type: string
-                  description: On CR delete. Unregister drops the PG row; Orphan keeps it and hands it back to manager REST. Only read while Terminating.
+                  description: >-
+                    What happens on CR delete. Unregister drops the MaaS registration. Orphan keeps it and hands it back
+                    to manager REST. Only read while the CR is terminating.
                   enum: [Unregister, Orphan]
                   default: Unregister
             status:
               type: object
+              description: Written by the operator only.
               properties:
                 phase:
                   type: string
-                  description: kubectl summary. Automate on conditions, not phase.
+                  description: One-word summary for kubectl. Automate on conditions, not phase.
                 isDefault:
                   type: boolean
-                  description: Observed PG default flag.
+                  description: Whether MaaS currently uses this instance as the default. Observed, not a request.
                 lastRequestId:
                   type: string
+                  description: X-Request-Id of the last MaaS call for this CR. Use it to find the call in MaaS logs.
                 secretRevisions:
                   type: object
+                  description: >-
+                    resourceVersion of each referenced Secret at the last successful apply, keyed by Secret name. A
+                    different version means the Secret changed. Never holds secret data.
                   additionalProperties:
                     type: string
                 observedGeneration:
                   type: integer
                   format: int64
+                  description: metadata.generation the operator last finished processing.
                 conditions:
                   type: array
+                  description: Ready and Stalled. Standard Kubernetes conditions, one per type.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys: [type]
                   items:
@@ -564,20 +706,26 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition name, Ready or Stalled.
                       status:
                         type: string
+                        description: True, False or Unknown.
                         enum: ["True", "False", "Unknown"]
                       reason:
                         type: string
+                        description: Machine-readable CamelCase cause, for example InstanceRegistered or InvalidSpec.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable details.
                       lastTransitionTime:
                         type: string
                         format: date-time
+                        description: When status last changed.
                       observedGeneration:
                         type: integer
                         format: int64
+                        description: metadata.generation this condition was computed for.
 ```
 
 ### RabbitInstance
@@ -633,9 +781,9 @@ status:
 | ------- | :--------: | ------- |
 | `metadata.name` | Yes | Same rules as Kafka. `DEFAULT_RABBIT_INSTANCE` matches this. |
 | `spec.operatorNamespace` | Yes | Same claim as Kafka. CEL immutable. |
-| `spec.apiUrl` | Yes | Rabbit management HTTP API. |
-| `spec.amqpUrl` | Yes | AMQP. |
-| `spec.credentialsSecretRef` | Yes | `{name, keys[{key, name}]}` same NS. DTO fields: `user`, `password`. |
+| `spec.apiUrl` | Yes | Rabbit management HTTP API, `http://` or `https://`. MaaS appends `/api` if missing. Unique. |
+| `spec.amqpUrl` | Yes | AMQP URL returned to applications, `amqp://` or `amqps://`. Unique. |
+| `spec.credentialsSecretRef` | Yes | `{name, keys[{key, name}]}` same NS. Exactly two keys, mapping to `user` and `password`. |
 | `spec.deletionPolicy` | No | `Unregister` (default) or `Orphan`. |
 
 Status: [Status](#status).
@@ -681,10 +829,12 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
+          description: RabbitMQ cluster registered in MaaS. The CR name is the MaaS instance id.
           required: [spec]
           properties:
             spec:
               type: object
+              description: Desired registration. Credentials are read from a Secret in the namespace of this CR.
               required: [operatorNamespace, apiUrl, amqpUrl, credentialsSecretRef]
               properties:
                 operatorNamespace:
@@ -698,55 +848,83 @@ spec:
                       message: spec.operatorNamespace is immutable after creation
                 apiUrl:
                   type: string
+                  description: >-
+                    RabbitMQ management HTTP API URL MaaS calls to manage vhosts, for example
+                    http://rabbitmq:15672/api. MaaS appends /api if missing. Unique across Rabbit instances.
                   minLength: 1
-                  description: Rabbit management HTTP API URL
+                  maxLength: 2048
+                  pattern: '^https?://.+'
                 amqpUrl:
                   type: string
+                  description: AMQP URL MaaS returns to applications, for example amqp://rabbitmq:5672. Unique across Rabbit instances.
                   minLength: 1
-                  description: AMQP URL
+                  maxLength: 2048
+                  pattern: '^amqps?://.+'
                 credentialsSecretRef:
                   type: object
+                  description: Secret with the RabbitMQ admin user, in the same namespace as this CR.
                   required: [name, keys]
                   properties:
                     name:
                       type: string
+                      description: Secret name.
                       minLength: 1
+                      maxLength: 253
                     keys:
                       type: array
-                      minItems: 1
+                      description: Maps Secret data keys to the user and password fields. Both are required.
+                      minItems: 2
+                      maxItems: 2
+                      x-kubernetes-list-type: map
+                      x-kubernetes-list-map-keys: [name]
                       items:
                         type: object
                         required: [key, name]
                         properties:
                           key:
                             type: string
+                            description: Key in Secret data.
                             minLength: 1
+                            maxLength: 253
+                            pattern: '^[-._a-zA-Z0-9]+$'
                           name:
                             type: string
-                            minLength: 1
-                            description: Field name in the Rabbit payload (user, password)
+                            description: Rabbit instance field that gets the value.
+                            enum: [user, password]
                 deletionPolicy:
                   type: string
+                  description: >-
+                    What happens on CR delete. Unregister drops the MaaS registration. Orphan keeps it and hands it back
+                    to manager REST. Only read while the CR is terminating.
                   enum: [Unregister, Orphan]
                   default: Unregister
             status:
               type: object
+              description: Written by the operator only.
               properties:
                 phase:
                   type: string
+                  description: One-word summary for kubectl. Automate on conditions, not phase.
                 isDefault:
                   type: boolean
+                  description: Whether MaaS currently uses this instance as the default. Observed, not a request.
                 lastRequestId:
                   type: string
+                  description: X-Request-Id of the last MaaS call for this CR. Use it to find the call in MaaS logs.
                 secretRevisions:
                   type: object
+                  description: >-
+                    resourceVersion of each referenced Secret at the last successful apply, keyed by Secret name. A
+                    different version means the Secret changed. Never holds secret data.
                   additionalProperties:
                     type: string
                 observedGeneration:
                   type: integer
                   format: int64
+                  description: metadata.generation the operator last finished processing.
                 conditions:
                   type: array
+                  description: Ready and Stalled. Standard Kubernetes conditions, one per type.
                   x-kubernetes-list-type: map
                   x-kubernetes-list-map-keys: [type]
                   items:
@@ -755,20 +933,26 @@ spec:
                     properties:
                       type:
                         type: string
+                        description: Condition name, Ready or Stalled.
                       status:
                         type: string
+                        description: True, False or Unknown.
                         enum: ["True", "False", "Unknown"]
                       reason:
                         type: string
+                        description: Machine-readable CamelCase cause, for example InstanceRegistered or InvalidSpec.
                         minLength: 1
                       message:
                         type: string
+                        description: Human-readable details.
                       lastTransitionTime:
                         type: string
                         format: date-time
+                        description: When status last changed.
                       observedGeneration:
                         type: integer
                         format: int64
+                        description: metadata.generation this condition was computed for.
 ```
 
 ### Secrets
@@ -883,12 +1067,16 @@ change the public manager API and persist names instead of secrets.
 
 Add a **new operator layer** (not a new DB table):
 
-- CR Go types (`KafkaInstance` / `RabbitInstance`, `SecretKeyMapping`, `SecretKeyRef`) live in the operator package.
+- CR Go types (`KafkaInstance` / `RabbitInstance`, `KafkaCredentialRef`, `SecretKeyMapping`, `SecretKeyRef`) live in
+  the operator package.
   They are the apiserver schema. Kind names match the service models (`model.KafkaInstance` / `model.RabbitInstance`);
   the packages differ so the types do not collide.
 - Mapper: load CR + Secrets → fill existing `model.KafkaInstance` / `RabbitInstance` (`Id` mapping open — [Name and
   id](#name-and-id-in-the-database), `Addresses`, `Default: false`, `MaasProtocol`, `CACert`, `Credentials` / `ApiUrl`,
   `AmqpUrl`, `User`, `Password`). Instance mapper never sets `Default: true`.
+- Kafka credentials: `spec.credentials.admin[0]` → `Credentials["admin"]`, each `spec.credentials.client[]` entry →
+  `Credentials["client"]` in order. No `spec.credentials` → `Credentials` nil (no auth). Secrets hold the raw password;
+  the mapper sends `plain:<password>`, the only password format MaaS accepts for Kafka.
 - Apply still calls `KafkaInstanceService` / `RabbitInstanceService` with that model. No SecretRef in the service.
   `SetDefault` is driven by `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` after Register/Update ([Default
   instance](#default-instance)).
