@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-maas/controller"
 	bluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
 	compositeV1 "github.com/netcracker/qubership-maas/controller/composite/v1"
@@ -52,7 +53,7 @@ type ApiControllers struct {
 	CompositeRegistrationController *compositeV1.RegistrationController
 }
 
-func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService, k8sJwtEnabled bool) *fiber.App {
+func CreateApi(ctx context.Context, controllers ApiControllers, healthService *watchdog.HealthAggregator, authService auth.AuthService, m2mAuthMode security.M2MAuthMode) *fiber.App {
 	log.InfoC(ctx, "Creating API controller")
 	app := fiber.New(fiber.Config{
 		IdleTimeout:    30 * time.Second,
@@ -89,10 +90,12 @@ func CreateApi(ctx context.Context, controllers ApiControllers, healthService *w
 	apiCompositeV1 := app.Group("/api/composite/v1/")
 
 	roles := func(roles ...model.RoleName) fiber.Handler {
-		if k8sJwtEnabled {
+		switch m2mAuthMode {
+		case security.M2MAuthModeHybrid, security.M2MAuthModeK8s:
 			return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, authService.IsAccessGrantedWithToken)
+		default:
+			return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, nil)
 		}
-		return controller.SecurityMiddleware(roles, authService.IsAccessGrantedWithBasic, nil)
 	}
 
 	createV1Api(app, controllers, roles)

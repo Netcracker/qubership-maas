@@ -14,6 +14,7 @@ import (
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/baseproviders"
 	"github.com/netcracker/qubership-core-lib-go/v3/context-propagation/ctxmanager"
 	"github.com/netcracker/qubership-core-lib-go/v3/logging"
+	"github.com/netcracker/qubership-core-lib-go/v3/security"
 	"github.com/netcracker/qubership-core-lib-go/v3/security/tokenverifier"
 	"github.com/netcracker/qubership-maas/controller"
 	controllerBluegreenV1 "github.com/netcracker/qubership-maas/controller/bluegreen/v1"
@@ -84,10 +85,14 @@ func main() {
 		log.PanicC(ctx, "EventBus start failed: %v", err)
 	}
 
-	m2mEnabled := configloader.GetKoanf().Bool("kubernetes.m2m.enabled")
+	m2mAuthMode, err := security.ReadM2MAuthMode()
+	if err != nil {
+		log.PanicC(ctx, "%v", err)
+	}
 	audience := configloader.GetKoanf().String("kubernetes.m2m.audience")
 	var oidcVerifier tokenverifier.Verifier
-	if m2mEnabled {
+	switch m2mAuthMode {
+	case security.M2MAuthModeHybrid, security.M2MAuthModeK8s:
 		v, err := tokenverifier.NewKubernetesVerifier(ctx, audience)
 		if err != nil {
 			log.PanicC(ctx, "failed to create kubernetes oidc token verifier: %v", err)
@@ -181,7 +186,7 @@ func main() {
 	}
 
 	healthAggregator := watchdog.NewHealthAggregator(pg.IsAvailable, instanceWatchdog.All)
-	app := router.CreateApi(ctx, controllers, healthAggregator, authService, m2mEnabled)
+	app := router.CreateApi(ctx, controllers, healthAggregator, authService, m2mAuthMode)
 
 	utils.RegisterShutdownHook(func(code int) {
 		// save exit code to be used in Exit() call
