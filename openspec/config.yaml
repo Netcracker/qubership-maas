@@ -15,7 +15,8 @@ context: |
 rules:
   proposal:
     - State problem, solution, scope, and explicit non-goals.
-    - Include Jira acceptance criteria when a ticket exists.
+    - Include Jira acceptance criteria when a ticket exists. The repo is open source and Jira is internal, so do not
+      put ticket ids in change folder names or branch names.
     - Cover compatibility for existing users (REST API, upgrade, downgrade).
     - Link related docs/ files instead of copying their content.
   specs:

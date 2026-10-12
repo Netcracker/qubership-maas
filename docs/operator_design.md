@@ -29,14 +29,13 @@ Background (Lease lock, alternatives): `[operator_design_notes.md](operator_desi
 - [Special cases](#special-cases)
   - [Default instance](#default-instance)
   - [Name and id in the database](#name-and-id-in-the-database)
-  - [CR vs REST (and optional takeOver)](#cr-vs-rest-and-optional-takeover)
+  - [CR vs REST](#cr-vs-rest)
   - [CR lifecycle](#cr-lifecycle-watcher-create-vs-update-vs-delete-delete-with-existing-topics-or-vhosts)
     - [Watcher, create vs update vs delete](#watcher-create-vs-update-vs-delete)
     - [Delete](#delete)
     - [Delete with existing topics or vhosts](#delete-with-existing-topics-or-vhosts)
   - [Multi-MaaS and ownership](#multi-maas-and-ownership)
 - [Related notes](#related-notes)
-- [TODO](#todo)
 
 ## Overview
 
@@ -81,7 +80,6 @@ flowchart TD
   stale -->|no| skip["Skip apply. Keep status"]
   stale -->|yes| val["Validate spec. Map to KafkaInstance or RabbitInstance"]
   val --> apply{"Do we store a row in DB for this CR?"}
-  apply -.-> nameId["TODO: name vs id in PG"]
   apply -->|no row| reg["New instance: add new row to DB,\n set managed_by_operator true, set default true if no prev default"]
   apply -->|"managed_by_operator true, origin_cr is this CR"| upd["MaaS Update. Same CR, not a new one"]
   apply -->|"managed_by_operator false"| adopt["MaaS Update. Adopt: set managed_by_operator true and origin_cr"]
@@ -90,9 +88,7 @@ flowchart TD
   upd --> fin
   adopt --> fin
   fin --> patch["PATCH CR status: phase, Ready, Stalled, lastRequestId, observedGeneration, isDefault, secretRevisions"]
-  classDef todo fill:#fff4cc,stroke:#c9a227,color:#1a1a1a
   classDef tip fill:#e8f4fc,stroke:#4a90c4,color:#1a1a1a
-  class todoTake,todoReady,nameId todo
   class en tip
 ```
 
@@ -128,8 +124,8 @@ flowchart TD
   [Scaling](#scaling-if-it-is-a-single-service).
 - **Operator optional.** Helm `OPERATOR_ENABLED` enables or disables Watch + ProcessCR. See [Backward compatibility and
   downgrade](#backward-compatibility-and-downgrade).
-- **deletionPolicy.** `Unregister` (default): delete the CR and the PG row. `Orphan`: delete the CR, keep the row. Only
-  read while Terminating. See [Delete](#delete).
+- **deletionPolicy.** `Unregister` (default): delete the CR and the PG row. `Orphan`: delete the CR, keep the row and
+  hand it back to manager REST (`managed_by_operator` false). Only read while Terminating. See [Delete](#delete).
 - **Finalizer.** `maas.netcracker.com/instance` after successful Register. Without it, `kubectl delete` drops the CR
   immediately and can leave an orphan PG row. See [Delete](#delete).
 - **Create vs update.** Register vs Update from `GetById`, not from Watch ADDED vs MODIFIED. How name maps to PG `id`:
@@ -140,8 +136,8 @@ flowchart TD
 - **No SecretRef on the service model.** Mapper loads CR + Secrets into existing `model.KafkaInstance` /
   `RabbitInstance`. InstanceService and the manager REST body stay resolved credentials, not Secret names.
 - **managed_by_operator.** PG boolean. `true` after the operator Register/adopt. Existing REST rows stay `false` until a
-  CR writes that id. Manager REST may Update only while this is `false`; after `true`, REST of that id is rejected. See
-  [CR vs REST](#cr-vs-rest-and-optional-takeover).
+  CR writes that id. While the operator is enabled, manager REST may Update only while this is `false`; after `true`,
+  REST of that id is rejected. See [CR vs REST](#cr-vs-rest).
 - **Default.** MaaS Application `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` (CR `metadata.name`, first
   install = broker namespace). Empty: first Register is default. Named CR becomes default when it appears. See [Default
   instance](#default-instance).
@@ -537,7 +533,7 @@ spec:
                             description: Field name in the Kafka Auth DTO (type, username, password, clientKey, clientCert)
                 deletionPolicy:
                   type: string
-                  description: On CR delete. Unregister drops the PG row; Orphan keeps it. Only read while Terminating.
+                  description: On CR delete. Unregister drops the PG row; Orphan keeps it and hands it back to manager REST. Only read while Terminating.
                   enum: [Unregister, Orphan]
                   default: Unregister
             status:
@@ -843,7 +839,7 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | `SecretError` | False | False | Secret missing, key missing/empty, or forbidden. |
 | `HealthCheckFailed` | False | False | Register/Update health-check 400. Do not Unregister a previous good row. |
 | `InstanceInUse` | False | False | Unregister 400, topics/vhosts still on the instance. Keep finalizer. |
-| `InvalidSpec` | False | True | Duplicate `keys[].name`, bad `maasProtocol`, etc. |
+| `InvalidSpec` | False | True | Duplicate `keys[].name`, bad `maasProtocol`, Kafka address or Rabbit URL used by another id, etc. |
 | `DuplicateInstanceName` | False | True | Another CR owns that id. |
 
 Finalizer `maas.netcracker.com/instance` after Register. `deletionTimestamp` set means Terminating. A Secret rotation
@@ -1155,8 +1151,8 @@ sequenceDiagram
 
 REST instance `id` is a free-form string (Helm name, UUID, …). The CR has `metadata.name` and `metadata.namespace`.
 Those need not match the existing PG `id`. Topics, vhosts, and designators FK that id — it cannot be renamed. Two CRs
-(or a CR and a REST row) can collide on name, namespace, or Kafka `addresses` (jsonb unique). Rabbit has no URL unique.
-A CR in another namespace must not rewrite an instance already bound to one NS.
+(or a CR and a REST row) can collide on name, namespace, Kafka `addresses` (jsonb unique), or Rabbit `api_url` /
+`amqp_url` (each unique). A CR in another namespace must not rewrite an instance already bound to one NS.
 
 Always use both `metadata.name` and `metadata.namespace`. Do not treat “put the old REST id as the CR name” as the main
 path — people have several instances or do not know the previous id.
@@ -1165,8 +1161,28 @@ path — people have several instances or do not know the previous id.
 `metadata.name` equal to the namespace. Insert a new row (`managed_by_operator` true on that row). An old REST row with
 some other id is left alone — no adopt, no `managed_by_operator` switch on that old id.
 
-If the CR is new (no row for that namespace) but Kafka `addresses` already belong to another id → unique error
-(`23505`). They forgot the old id and must use the migrate path below. Rabbit has no URL unique today.
+If the CR is new (no row for that namespace) but Kafka `addresses` or Rabbit `apiUrl` / `amqpUrl` already belong to
+another id → unique error (`23505`). Status `Ready=False`, `Stalled=True`, reason `InvalidSpec`, message names the URL.
+They forgot the old id and must use the migrate path below.
+
+**Rabbit URL uniqueness.** A DB migration adds a unique index on `rabbit_instances.api_url` and one on
+`rabbit_instances.amqp_url`, matching the Kafka `addresses` constraint. It applies to manager REST and CRs alike: a
+second Register or Update with a URL already used by another id fails. URLs are compared as stored strings.
+
+**Existing duplicates fail the upgrade.** Before creating the indexes, the migration looks for rows that already share
+`api_url` or `amqp_url`. If it finds any, it creates nothing, and `maas-service` exits at startup with one error that
+lists every shared URL and the instance ids using it:
+
+```text
+rabbit_instances: URLs shared by several instances, upgrade stopped:
+  api_url  http://rabbit.rabbit-infra:15672/api used by instances [rabbit-old, rabbit-infra]
+  amqp_url amqp://rabbit.rabbit-infra:5672      used by instances [rabbit-old, rabbit-infra]
+Leave one instance per URL, then restart maas-service.
+```
+
+The new pods do not become ready, so a rolling update keeps the previous version serving. To fix, keep one id per
+broker: move the other id's vhosts and instance designators to it and Unregister the empty id, or correct the URL of a
+row registered with the wrong one. Then restart; the migration runs again.
 
 **Migrate when the old id already equals the namespace.** CR in ns `X`, REST row `id = X`. `GetById(namespace)` hits.
 Update that row (topics/vhosts keep the short id — do not rename). No name-as-old-id; no switch to a different id.
@@ -1186,19 +1202,19 @@ flowchart TD
   byName -->|"hit, managed_by_operator, stored ns != this ns"| deny["Ready=False. Do not Update"]
   byName -->|"hit, managed_by_operator, same ns"| upd["Update"]
   byName -->|miss| reg["Register id = namespace"]
-  reg -->|Kafka addresses already used| uniq["unique error. forgot old id"]
+  reg -->|Kafka addresses or Rabbit URL already used| uniq["unique error. forgot old id"]
 ```
 
 Do not rename an existing PG `id`. Topics, vhosts, and designators FK that id.
 
 ---
 
-### CR vs REST (and optional `takeOver`)
+### CR vs REST
 
 Manager REST already inserts rows into PostgreSQL. How the CR finds that row is open: [Name and id in the
 database](#name-and-id-in-the-database). Register of an existing id is **400 unique**, not merge. The first matching CR
 **Updates** the row (adopt): copy spec+Secrets, set `managed_by_operator = true`. Topics/vhosts stay. Applying the CR
-**is** the migrate. There is no `spec.takeOver` in v1.
+**is** the migrate.
 
 **One owner.** `managed_by_operator` (existing rows `false`):
 
@@ -1208,8 +1224,12 @@ database](#name-and-id-in-the-database). Register of an existing id is **400 uni
 - Two CRs for one name: second `DuplicateInstanceName`. Default switch is [Default instance](#default-instance), not a
   flag on those CRs.
 
-TODO: discuss migrate back — `deletionPolicy: Orphan` (CR gone, row stays, set `managed_by_operator` false) or REST-only
-after the operator is disabled — not two writers on a live CR.
+**Migrate back to REST.** Two ways, never two writers on a live CR:
+
+- `deletionPolicy: Orphan`, then delete the CR. ProcessCR sets `managed_by_operator` false and clears `origin_cr` on
+  the row before removing the finalizer. The row stays; manager REST may Update/Unregister it again.
+- `OPERATOR_ENABLED=false`. The REST lock is enforced only while the operator is enabled, so REST works on every row.
+  Rows keep `managed_by_operator` true; turning the operator back on locks them again.
 
 ```mermaid
 sequenceDiagram
@@ -1222,19 +1242,6 @@ sequenceDiagram
   REST->>DB: Update rejected
   CR->>DB: later Updates allowed
 ```
-
-**Optional later: spec.takeOver.** v1 auto-adopt means a CR whose `metadata.name` matches a REST row overwrites
-addresses/credentials, then locks REST out. If we later want **not** to migrate by default, and require explicit
-consent:
-
-- Default `takeOver: false`: existing `managed_by_operator` false → `Ready=False` `InstanceOwnedByOtherSource`. Do not
-  Update. Ops keeps REST for that name.
-- `takeOver: true`: same adopt as v1 (Update, set the flag). Only the first adopt cares; later reconciles are normal
-  Updates.
-- Not “steal default from another CR” and not “two CRs may share one name.” Default is [Default
-  instance](#default-instance).
-
-Until that flag exists, do not add `InstanceOwnedByOtherSource` on the CR.
 
 ---
 
@@ -1362,6 +1369,7 @@ sequenceDiagram
     Pod->>CR: remove finalizer
     API->>API: finalizers empty delete from etcd
   else deletionPolicy Orphan
+    Pod->>Svc: set managed_by_operator false, clear origin_cr
     Pod->>CR: remove finalizer leave MaaS row
     API->>API: finalizers empty delete from etcd
   else Unregister InUse
@@ -1375,9 +1383,9 @@ sequenceDiagram
 `deletionTimestamp`. The CR is going away. To keep the **MaaS row**:
 
 - Before delete: set `spec.deletionPolicy: Orphan`, then `kubectl delete`. ProcessCR removes the finalizer without
-  Unregister. CR gone, instance stays (REST can still use it).
+  Unregister and hands the row back to manager REST (`managed_by_operator` false). CR gone, instance stays.
 - Already Terminating: PATCH `spec.deletionPolicy: Orphan` (spec is still writable). Next reconcile skips Unregister,
-  removes the finalizer. CR gone, instance stays. There is no “undelete CR.”
+  hands the row back to REST, removes the finalizer. CR gone, instance stays. There is no “undelete CR.”
 
 #### Delete with existing topics or vhosts
 
@@ -1498,15 +1506,3 @@ lock](operator_design_notes.md#kubernetes-lease-lock), [How replicas know who is
 watching](operator_design_notes.md#how-replicas-know-who-is-watching), [Why several MaaS replicas watching the same CRs
 is a bug](operator_design_notes.md#why-several-maas-replicas-watching-the-same-crs-is-a-bug), [Multi-MaaS
 alternatives](operator_design_notes.md#multi-maas-alternatives).
-
----
-
-## TODO
-
-- Investigate name migration of the CR (`metadata.name`, `metadata.namespace`) vs instance `id` in the database. See
-  [Name and id in the database](#name-and-id-in-the-database).
-- Research Blue/Green when adopting existing CRs onto a new operator (MaaS BG sibling, or replacing an old operator).
-  Who claims (`operatorNamespace` vs two `CLOUD_NAMESPACE`s), finalizers on the old install, `origin_cr` /
-  `managed_by_operator` after switch, and whether the new operator auto-adopts or the CRs must be re-applied.
-- Consider making the RabbitMQ URL unique (like Kafka `addresses`). Today Rabbit has no URL unique; a new CR can reuse
-  `apiUrl` / `amqpUrl` of an old REST row. Kafka `23505` is the “forgot old id” safety net.
