@@ -957,6 +957,9 @@ spec:
 
 ### Secrets
 
+Secrets referenced by the CR examples above. They hold only values; the Kafka auth `type` and the key-to-field mapping
+are in the CR (`credentials[].type`, `secretRef.keys`). Passwords are stored raw.
+
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -976,15 +979,19 @@ metadata:
   name: kafka-admin
   namespace: kafka-infra
 type: Opaque
-stringData:
-  type: plain                     # plain | sslCert | SCRAM | sslCert+plain | sslCert+SCRAM
+stringData:                       # credentials.admin[0] (type SCRAM)
   username: admin
   password: "..."
-  # clientKey / clientCert when type is sslCert or sslCert+plain / sslCert+SCRAM:
-  # clientKey: |
-  #   -----BEGIN PRIVATE KEY-----
-  # clientCert: |
-  #   -----BEGIN CERTIFICATE-----
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-client
+  namespace: kafka-infra
+type: Opaque
+stringData:                       # credentials.client[0] (type SCRAM). sslCert types map clientKey / clientCert
+  username: app-client
+  password: "..."
 ---
 apiVersion: v1
 kind: Secret
