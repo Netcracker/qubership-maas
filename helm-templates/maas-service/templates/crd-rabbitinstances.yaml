@@ -1,0 +1,173 @@
+{{- if not .Values.restrictedEnvironment }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: rabbitinstances.maas.netcracker.com
+  annotations:
+    # Keep CRDs (and all instance CRs) when the release is uninstalled or the gate turns off.
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false
+  labels:
+    app.kubernetes.io/instance: '{{ .Values.SERVICE_NAME }}'
+    app.kubernetes.io/part-of: '{{ .Values.APPLICATION_NAME }}'
+    deployment.netcracker.com/sessionId: '{{ .Values.DEPLOYMENT_SESSION_ID | default "unimplemented" }}'
+spec:
+  group: maas.netcracker.com
+  names:
+    categories: [maas]
+    kind: RabbitInstance
+    listKind: RabbitInstanceList
+    plural: rabbitinstances
+    shortNames: [mrabi]
+    singular: rabbitinstance
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - jsonPath: .status.phase
+          name: Phase
+          type: string
+        - jsonPath: .status.conditions[?(@.type=='Ready')].status
+          name: Ready
+          type: string
+        - jsonPath: .status.isDefault
+          name: Default
+          type: boolean
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      selectableFields:
+        - jsonPath: .spec.operatorNamespace
+      subresources:
+        status: {}
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: RabbitMQ cluster registered in MaaS. The CR name is the MaaS instance id.
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              description: Desired registration. Credentials are read from a Secret in the namespace of this CR.
+              required: [operatorNamespace, apiUrl, amqpUrl, credentialsSecretRef]
+              properties:
+                operatorNamespace:
+                  type: string
+                  description: MaaS install that claims this CR. Must equal the operator CLOUD_NAMESPACE. Immutable.
+                  minLength: 1
+                  maxLength: 63
+                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+                  x-kubernetes-validations:
+                    - rule: self == oldSelf
+                      message: spec.operatorNamespace is immutable after creation
+                apiUrl:
+                  type: string
+                  description: >-
+                    RabbitMQ management HTTP API URL MaaS calls to manage vhosts, for example
+                    http://rabbitmq:15672/api. MaaS appends /api if missing. Unique across Rabbit instances.
+                  minLength: 1
+                  maxLength: 2048
+                  pattern: '^https?://.+'
+                amqpUrl:
+                  type: string
+                  description: AMQP URL MaaS returns to applications, for example amqp://rabbitmq:5672. Unique across Rabbit instances.
+                  minLength: 1
+                  maxLength: 2048
+                  pattern: '^amqps?://.+'
+                credentialsSecretRef:
+                  type: object
+                  description: Secret with the RabbitMQ admin user, in the same namespace as this CR.
+                  required: [name, keys]
+                  properties:
+                    name:
+                      type: string
+                      description: Secret name.
+                      minLength: 1
+                      maxLength: 253
+                    keys:
+                      type: array
+                      description: Maps Secret data keys to the user and password fields. Both are required.
+                      minItems: 2
+                      maxItems: 2
+                      x-kubernetes-list-type: map
+                      x-kubernetes-list-map-keys: [name]
+                      items:
+                        type: object
+                        required: [key, name]
+                        properties:
+                          key:
+                            type: string
+                            description: Key in Secret data.
+                            minLength: 1
+                            maxLength: 253
+                            pattern: '^[-._a-zA-Z0-9]+$'
+                          name:
+                            type: string
+                            description: Rabbit instance field that gets the value.
+                            enum: [user, password]
+                deletionPolicy:
+                  type: string
+                  description: >-
+                    What happens on CR delete. Unregister drops the MaaS registration. Orphan keeps it and hands it back
+                    to manager REST. Only read while the CR is terminating.
+                  enum: [Unregister, Orphan]
+                  default: Unregister
+            status:
+              type: object
+              description: Written by the operator only.
+              properties:
+                phase:
+                  type: string
+                  description: One-word summary for kubectl. Automate on conditions, not phase.
+                isDefault:
+                  type: boolean
+                  description: Whether MaaS currently uses this instance as the default. Observed, not a request.
+                lastRequestId:
+                  type: string
+                  description: X-Request-Id of the last MaaS call for this CR. Use it to find the call in MaaS logs.
+                secretRevisions:
+                  type: object
+                  description: >-
+                    resourceVersion of each referenced Secret at the last successful apply, keyed by Secret name. A
+                    different version means the Secret changed. Never holds secret data.
+                  additionalProperties:
+                    type: string
+                observedGeneration:
+                  type: integer
+                  format: int64
+                  description: metadata.generation the operator last finished processing.
+                conditions:
+                  type: array
+                  description: Ready and Stalled. Standard Kubernetes conditions, one per type.
+                  x-kubernetes-list-type: map
+                  x-kubernetes-list-map-keys: [type]
+                  items:
+                    type: object
+                    required: [lastTransitionTime, message, reason, status, type]
+                    properties:
+                      type:
+                        type: string
+                        description: Condition name, Ready or Stalled.
+                      status:
+                        type: string
+                        description: True, False or Unknown.
+                        enum: ["True", "False", "Unknown"]
+                      reason:
+                        type: string
+                        description: Machine-readable CamelCase cause, for example InstanceRegistered or InvalidSpec.
+                        minLength: 1
+                      message:
+                        type: string
+                        description: Human-readable details.
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                        description: When status last changed.
+                      observedGeneration:
+                        type: integer
+                        format: int64
+                        description: metadata.generation this condition was computed for.
+{{- end }}

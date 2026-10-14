@@ -11,13 +11,14 @@ Implementation starts after this SPEC PR merges. Do not check these off from des
 
 ## 2. CRDs and chart
 
-- [ ] 2.1 Add `KafkaInstance` / `RabbitInstance` CRDs (`maas.netcracker.com/v1`, short names, printer columns, CEL
-      immutability on `operatorNamespace`, selectableFields, Kubernetes 1.32+)
-- [ ] 2.2 Helm values: `OPERATOR_ENABLED` (default false), `DEFAULT_KAFKA_INSTANCE`, `DEFAULT_RABBIT_INSTANCE`,
+- [x] 2.1 Add `KafkaInstance` / `RabbitInstance` CRDs (`maas.netcracker.com/v1`, short names, printer columns, CEL
+      immutability on `operatorNamespace`, selectableFields, Kubernetes 1.32+, Kafka `credentials.admin` /
+      `credentials.client`, CEL checks on addresses and credential keys, Rabbit URL schemes)
+- [x] 2.2 Helm values: `OPERATOR_ENABLED` (default false), `DEFAULT_KAFKA_INSTANCE`, `DEFAULT_RABBIT_INSTANCE`,
       `K8S_EVENTS_ENABLED` (default true), `restrictedEnvironment` (default false)
 - [x] 2.3 ClusterRole: instance CRs watch/status/finalizers; no `secrets`; events create/patch when events enabled
 - [x] 2.4 Namespaced Lease Role for `maas-operator-leader`; document per-namespace Secret Role + RoleBinding
-- [ ] 2.5 `restrictedEnvironment: true` skips CRDs and ClusterRole in-chart
+- [x] 2.5 `restrictedEnvironment: true` skips CRDs and ClusterRole in-chart
 
 ## 3. ProcessCR runtime
 
@@ -26,7 +27,8 @@ Implementation starts after this SPEC PR merges. Do not check these off from des
 - [ ] 3.3 Get Secrets on every reconcile (no Secret Watch); Update when `resourceVersion` differs from
       `status.secretRevisions`; `maas.netcracker.com/refresh` annotation triggers reconcile (CR informer not filtered
       on `generation`)
-- [ ] 3.4 Mapper CR + Secrets → `model.KafkaInstance` / `RabbitInstance` (`Default: false`); call InstanceService
+- [ ] 3.4 Mapper CR + Secrets → `model.KafkaInstance` / `RabbitInstance` (`Default: false`; Kafka admin/client roles,
+      `plain:` password prefix); call InstanceService
 - [ ] 3.5 Finalizer `maas.netcracker.com/instance`; `deletionPolicy` Unregister/Orphan (Orphan sets
       `managed_by_operator` false, clears `origin_cr`); `InstanceInUse` + RequeueAfter 30s
 - [ ] 3.6 Status `Ready` + `Stalled` and reasons from the broker-instances spec

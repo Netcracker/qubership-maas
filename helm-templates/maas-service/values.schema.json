@@ -341,10 +341,30 @@
         "$id": "#/properties/restrictedEnvironment",
         "type": "boolean",
         "title": "The restrictedEnvironment schema",
-        "description": "If true, the chart skips cluster-scoped operator objects (ClusterRole, ClusterRoleBinding); apply them out of band",
+        "description": "If true, the chart skips cluster-scoped operator objects (instance CRDs, ClusterRole, ClusterRoleBinding); apply them out of band",
         "default": false,
         "examples": [
           true, false
+        ]
+      },
+      "DEFAULT_KAFKA_INSTANCE": {
+        "$id": "#/properties/DEFAULT_KAFKA_INSTANCE",
+        "type": "string",
+        "title": "The DEFAULT_KAFKA_INSTANCE schema",
+        "description": "metadata.name of the KafkaInstance CR that becomes the default Kafka instance. Empty: the first registered instance becomes default",
+        "default": "",
+        "examples": [
+          "", "kafka-infra"
+        ]
+      },
+      "DEFAULT_RABBIT_INSTANCE": {
+        "$id": "#/properties/DEFAULT_RABBIT_INSTANCE",
+        "type": "string",
+        "title": "The DEFAULT_RABBIT_INSTANCE schema",
+        "description": "metadata.name of the RabbitInstance CR that becomes the default RabbitMQ instance. Empty: the first registered instance becomes default",
+        "default": "",
+        "examples": [
+          "", "rabbit-infra"
         ]
       }
     }
