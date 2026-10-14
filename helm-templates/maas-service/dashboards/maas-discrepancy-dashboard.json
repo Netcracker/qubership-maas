@@ -38,6 +38,68 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Entities registered in the MaaS database.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 30,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"Kafka\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "instant": true,
+          "legendFormat": "Registered",
+          "refId": "A"
+        }
+      ],
+      "title": "Registered",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "Registered and present on the broker (registered - lost).",
       "fieldConfig": {
         "defaults": {
@@ -60,8 +122,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
-        "x": 0,
+        "w": 8,
+        "x": 8,
         "y": 1
       },
       "id": 22,
@@ -126,8 +188,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 1
       },
       "id": 3,
@@ -385,6 +447,68 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Entities registered in the MaaS database.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(max without (instance, pod) (maas_discrepancy_registered_entities{namespace=~\"$namespace\", container=~\"$service_name\", broker_type=\"RabbitMQ\", broker_id=~\"$broker_id\", entity_namespace=~\"$entity_namespace\", tenant_id=~\"$tenant_id\"})) OR on() vector(0)",
+          "instant": true,
+          "legendFormat": "Registered",
+          "refId": "A"
+        }
+      ],
+      "title": "Registered",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
       "description": "Registered and present on the broker (registered - lost).",
       "fieldConfig": {
         "defaults": {
@@ -407,8 +531,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
-        "x": 0,
+        "w": 8,
+        "x": 8,
         "y": 20
       },
       "id": 23,
@@ -473,8 +597,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 20
       },
       "id": 13,
