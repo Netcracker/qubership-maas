@@ -6,3 +6,16 @@
 
 # APM dependencies
 apm_modules/
+
+.DS_Store
+
+# Go build output and coverage
+/maas/maas-service/maas-service
+/maas/maas-service/qubership-maas
+*.out
+
+# Local logs and reports
+/*.txt
+/*.csv
+/*.log
+/*.xlsx
