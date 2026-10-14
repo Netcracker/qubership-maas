@@ -5,6 +5,9 @@ import (
 	"github.com/netcracker/qubership-maas/utils"
 )
 
+// KafkaAddressesUniqueConstraint is the name PostgreSQL gives the column UNIQUE constraint on kafka_instances.addresses
+const KafkaAddressesUniqueConstraint = "kafka_instances_addresses_key"
+
 func init() {
 	ctx := utils.CreateContextFromString("db-evo-#2")
 	log.InfoC(ctx, "Register db evolution #2")

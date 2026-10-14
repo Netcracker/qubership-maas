@@ -49,7 +49,7 @@ No ticket is wired yet. Delta scenarios already cover:
 | Area | Criterion |
 | ------ | ----------- |
 | Success | Claimed CR Register/Update → `Ready=True` reason `InstanceRegistered`. |
-| Errors | `SecretError`, `HealthCheckFailed` (do not Unregister a previous good row), `InstanceInUse`, `InvalidSpec`, `DuplicateInstanceName`. |
+| Errors | `SecretError`, `HealthCheckFailed` (do not Unregister a previous good row), `InstanceInUse`, `InvalidSpec`, `DuplicateInstanceName`, `DuplicateNamespace`. |
 | Compatibility | Manager REST while operator off; existing PG rows unmanaged until a CR writes them; `OPERATOR_ENABLED=false` and old-chart downgrade do not Unregister. |
 | Uniqueness | A second Rabbit instance with an `apiUrl` or `amqpUrl` already used by another id is rejected (REST and CR). |
 | Migrate back | `Orphan` delete leaves the row with `managed_by_operator` false; manager REST can Update it again. |

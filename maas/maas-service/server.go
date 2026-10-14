@@ -161,9 +161,14 @@ func main() {
 		customResourceProcessorService.CleanupNamespace,
 	)
 
+	operatorSettings := controller.OperatorSettings{
+		Enabled:               configloader.GetKoanf().Bool("operator.enabled"),
+		DefaultKafkaInstance:  configloader.GetKoanf().String("default.kafka.instance"),
+		DefaultRabbitInstance: configloader.GetKoanf().String("default.rabbit.instance"),
+	}
 	controllers := router.ApiControllers{
 		AccountController:               controller.NewAccountController(authService),
-		InstanceController:              controller.NewInstanceController(kafkaInstanceService, rabbitInstanceService, authService),
+		InstanceController:              controller.NewInstanceController(kafkaInstanceService, rabbitInstanceService, authService, operatorSettings),
 		VHostController:                 controller.NewVHostController(rabbitService, authService),
 		ConfiguratorController:          controller.NewConfiguratorController(configService, authService),
 		GeneralController:               controller.NewGeneralController(cleanupService, authService, auditService),

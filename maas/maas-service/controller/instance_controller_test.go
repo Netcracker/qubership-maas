@@ -73,7 +73,7 @@ func TestInstanceController_RegisterNewKafkaInstance(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	kafkaInstanceService := mock_instance.NewMockKafkaInstanceService(mockCtrl)
 
-	instanceController := NewInstanceController(kafkaInstanceService, nil, nil)
+	instanceController := NewInstanceController(kafkaInstanceService, nil, nil, OperatorSettings{})
 	app.Post("/kafka/instance", instanceController.RegisterNewKafkaInstance)
 
 	req := httptest.NewRequest("POST", "/kafka/instance", strings.NewReader(addInstanceReqNoClientCred))

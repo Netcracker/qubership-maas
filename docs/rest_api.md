@@ -29,13 +29,14 @@ Instance field and its value can be explicitly specified in item declaration. Bu
 * **Success Response:**
     `200` - Rabbit instance was registered successfully.
 * **Error Response:**
-    *Http code*: `409`
+    *Http code*: `409` - an instance with the same `id`, `apiUrl` or `amqpUrl` is already registered. Each RabbitMQ `apiUrl` and `amqpUrl` can belong to one instance only
     *Response body:*
     ```json
     {
-      "error": "can't register the instance. An instance with specified id/address already exists"
+      "error": "constraint violation: apiUrl `http://rabbit-service.cpq-rabbit:15672/api' is already used by another rabbit instance registration"
     }
     ```
+    ---
     *Http code*: `500`
     *Response body:*
     ```json
@@ -125,6 +126,22 @@ This API allows to update connection properties for RabbitMQ instance in Maas.
 * **Success Response:**
     `200` - Rabbit instance was updated successfully.
 * **Error Response:**
+    *Http code*: `409` - the new `apiUrl` or `amqpUrl` is already used by another instance
+    *Response body:*
+    ```json
+    {
+      "error": "constraint violation: amqpUrl `amqp://rabbit-service.cpq-rabbit:5672' is already used by another rabbit instance registration"
+    }
+    ```
+    ---
+    *Http code*: `409` - the instance is managed by a `RabbitInstance` CR and `OPERATOR_ENABLED` is `true`. Change the CR instead, or delete the CR with `deletionPolicy: Orphan` to hand the instance back to this API
+    *Response body:*
+    ```json
+    {
+      "error": "rabbit instance `rabbit-main' is managed by the MaaS operator through CR `rabbit-main' in namespace `infra'. Change the CR instead, or delete the CR with deletionPolicy: Orphan to hand the instance back to the manager REST API"
+    }
+    ```
+    ---
     *Http code*: `500`
     *Response body:*
     ```json
@@ -151,6 +168,35 @@ This API allows to update connection properties for RabbitMQ instance in Maas.
     200
     ```
 
+### Set default Rabbit instance
+This API makes a registered RabbitMQ instance the default one. Other instances lose the `default` flag.
+* **URI:**  `{maas_host}/api/v2/rabbit/instance/default`
+* **Method:** `PUT`
+* **Headers:**
+    `Content-Type: application/json`
+* **Authorization:**
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* **Request body:**
+    The full instance registration, the same body as in [Update Rabbit instance registration](#update-rabbit-instance-registration).
+* **Success Response:**
+    `200` - the instance is the default one now.
+* **Error Response:**
+    *Http code*: `409` - the MaaS operator is enabled (`OPERATOR_ENABLED`) and `DEFAULT_RABBIT_INSTANCE` is set, so the parameter selects the default instance. Change the parameter instead
+    *Response body:*
+    ```json
+    {
+      "error": "default rabbit instance is selected by the DEFAULT_RABBIT_INSTANCE parameter (`rabbit-infra') while the MaaS operator is enabled. Change the parameter instead"
+    }
+    ```
+    ---
+    *Http code*: `500`
+    *Response body:*
+    ```json
+    {
+      "error": "<error message>"
+    }
+    ```
+
 ### Remove Rabbit instance registration
 This API allows to remove RabbitMQ instance registration from Maas.
 * **URI:**  `{maas_host}/api/v2/rabbit/instance`
@@ -169,6 +215,14 @@ This API allows to remove RabbitMQ instance registration from Maas.
 * **Success Response:**
     `200` - Rabbit instance was removed successfully.
 * **Error Response:**
+    *Http code*: `409` - the instance is managed by a `RabbitInstance` CR and `OPERATOR_ENABLED` is `true`. Delete the CR instead
+    *Response body:*
+    ```json
+    {
+      "error": "rabbit instance `rabbit-main' is managed by the MaaS operator through CR `rabbit-main' in namespace `infra'. Change the CR instead, or delete the CR with deletionPolicy: Orphan to hand the instance back to the manager REST API"
+    }
+    ```
+    ---
     *Http code*: `500`
     *Response body:*
     ```json
@@ -802,13 +856,14 @@ This API allows to register Kafka instance in Maas.
 * **Success Response:**
     `200` - Kafka instance was registered successfully.
 * **Error Response:**
-    *Http code*: `409`
+    *Http code*: `409` - an instance with the same `id` or the same `addresses` is already registered
     *Response body:*
     ```json
     {
-      "error": "can't register the instance. An instance with specified id/address already exists"
+      "error": "constraint violation: addresses {\"PLAINTEXT\":[\"kafka:9092\"]} are already used by another kafka instance registration"
     }
     ```
+    ---
     *Http code*: `500`
     *Response body:*
     ```json
@@ -959,6 +1014,22 @@ This API allows to update connection properties for Kafka instance in Maas.
 * **Success Response:**
     `200` - Kafka instance was updated successfully.
 * **Error Response:**
+    *Http code*: `409` - the new `addresses` are already used by another instance
+    *Response body:*
+    ```json
+    {
+      "error": "constraint violation: addresses {\"PLAINTEXT\":[\"kafka:9092\"]} are already used by another kafka instance registration"
+    }
+    ```
+    ---
+    *Http code*: `409` - the instance is managed by a `KafkaInstance` CR and `OPERATOR_ENABLED` is `true`. Change the CR instead, or delete the CR with `deletionPolicy: Orphan` to hand the instance back to this API
+    *Response body:*
+    ```json
+    {
+      "error": "kafka instance `kafka-main' is managed by the MaaS operator through CR `kafka-main' in namespace `infra'. Change the CR instead, or delete the CR with deletionPolicy: Orphan to hand the instance back to the manager REST API"
+    }
+    ```
+    ---
     *Http code*: `500`
     *Response body:*
     ```json
@@ -1025,6 +1096,35 @@ This API allows to update connection properties for Kafka instance in Maas.
     ```
 
 
+### Set default Kafka instance
+This API makes a registered Kafka instance the default one. Other instances lose the `default` flag.
+* **URI:**  `{maas_host}/api/v2/kafka/instance/default`
+* **Method:** `PUT`
+* **Headers:**
+    `Content-Type: application/json`
+* **Authorization:**
+    Basic type with credentials with `manager` role. Specified as `MAAS_ACCOUNT_MANAGER_USERNAME` and `MAAS_ACCOUNT_MANAGER_PASSWORD` deployment parameters.
+* **Request body:**
+    The full instance registration, the same body as in [Update Kafka instance registration](#update-kafka-instance-registration).
+* **Success Response:**
+    `200` - the instance is the default one now.
+* **Error Response:**
+    *Http code*: `409` - the MaaS operator is enabled (`OPERATOR_ENABLED`) and `DEFAULT_KAFKA_INSTANCE` is set, so the parameter selects the default instance. Change the parameter instead
+    *Response body:*
+    ```json
+    {
+      "error": "default kafka instance is selected by the DEFAULT_KAFKA_INSTANCE parameter (`kafka-infra') while the MaaS operator is enabled. Change the parameter instead"
+    }
+    ```
+    ---
+    *Http code*: `500`
+    *Response body:*
+    ```json
+    {
+      "error": "<error message>"
+    }
+    ```
+
 ### Remove Kafka instance registration
 This API allows remove Kafka instance from Maas.
 * **URI:**  `{maas_host}/api/v2/kafka/instance`
@@ -1048,6 +1148,14 @@ This API allows remove Kafka instance from Maas.
     ```json
     {
       "error": "can't delete instance registration due of registered topics. Delete topics first"
+    }
+    ```
+    ---
+    *Http code*: `409` - the instance is managed by a `KafkaInstance` CR and `OPERATOR_ENABLED` is `true`. Delete the CR instead
+    *Response body:*
+    ```json
+    {
+      "error": "kafka instance `kafka-main' is managed by the MaaS operator through CR `kafka-main' in namespace `infra'. Change the CR instead, or delete the CR with deletionPolicy: Orphan to hand the instance back to the manager REST API"
     }
     ```
     ---

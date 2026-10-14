@@ -58,7 +58,7 @@ that limiter. Permanent stall SHALL wait for the next CR change.
 
 #### Scenario: Invalid spec
 
-- GIVEN `InvalidSpec` or `DuplicateInstanceName`
+- GIVEN `InvalidSpec`, `DuplicateInstanceName` or `DuplicateNamespace`
 - WHEN ProcessCR finishes
 - THEN `Stalled` SHALL be True
 - AND the key SHALL NOT be requeued until a CR change (spec or refresh annotation)

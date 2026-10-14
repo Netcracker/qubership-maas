@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/dao/schema"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/utils"
@@ -49,7 +52,7 @@ func (k RabbitInstancesDaoImpl) InsertInstanceRegistration(ctx context.Context, 
 
 			if err := cnn.Create(instance).Error; err != nil {
 				if k.base.IsUniqIntegrityViolation(err) {
-					return utils.LogError(log, ctx, "constraint violation: Instance with id=%s already registered: %w", instance.GetId(), msg.BadRequest)
+					return k.uniqueViolationError(ctx, instance, err)
 				}
 				return err
 			}
@@ -116,6 +119,7 @@ func (k RabbitInstancesDaoImpl) UpdateInstanceRegistration(ctx context.Context, 
 						return utils.LogError(log, ctx, "cancel instance update operation, because it leads to unspecified default"+
 							" instance. Please change set `default' to true or set other instance registration as defaults: %w", msg.BadRequest)
 					}
+					instance.InstanceOwnership = exising.InstanceOwnership
 				}
 			}
 
@@ -127,6 +131,9 @@ func (k RabbitInstancesDaoImpl) UpdateInstanceRegistration(ctx context.Context, 
 			}
 
 			if err := cnn.Save(instance).Error; err != nil {
+				if k.base.IsUniqIntegrityViolation(err) {
+					return k.uniqueViolationError(ctx, instance, err)
+				}
 				return utils.LogError(log, ctx, "error update %v instance: %w", instance, err)
 			}
 
@@ -135,6 +142,17 @@ func (k RabbitInstancesDaoImpl) UpdateInstanceRegistration(ctx context.Context, 
 	})
 
 	return instance, err
+}
+
+func (k RabbitInstancesDaoImpl) uniqueViolationError(ctx context.Context, instance *model.RabbitInstance, err error) error {
+	switch {
+	case strings.Contains(err.Error(), schema.RabbitApiUrlUniqueIndex):
+		return utils.LogError(log, ctx, "constraint violation: apiUrl `%s' is already used by another rabbit instance registration: %w", instance.ApiUrl, msg.Conflict)
+	case strings.Contains(err.Error(), schema.RabbitAmqpUrlUniqueIndex):
+		return utils.LogError(log, ctx, "constraint violation: amqpUrl `%s' is already used by another rabbit instance registration: %w", instance.AmqpUrl, msg.Conflict)
+	default:
+		return utils.LogError(log, ctx, "constraint violation: Instance with id=%s already registered: %w", instance.GetId(), msg.Conflict)
+	}
 }
 
 func (k RabbitInstancesDaoImpl) SetDefaultInstance(ctx context.Context, instance *model.RabbitInstance) (*model.RabbitInstance, error) {

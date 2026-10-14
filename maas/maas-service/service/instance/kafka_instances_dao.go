@@ -2,10 +2,14 @@ package instance
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/netcracker/qubership-maas/dao"
+	"github.com/netcracker/qubership-maas/dao/schema"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
@@ -50,7 +54,7 @@ func (k KafkaInstancesDaoImpl) InsertInstanceRegistration(ctx context.Context, i
 
 			if err := cnn.Create(instance).Error; err != nil {
 				if k.base.IsUniqIntegrityViolation(err) {
-					return utils.LogError(log, ctx, "constraint violation: Instance with id=%s already registered: %w", instance.GetId(), msg.BadRequest)
+					return k.uniqueViolationError(ctx, instance, err)
 				}
 				return err
 			}
@@ -116,10 +120,14 @@ func (k KafkaInstancesDaoImpl) UpdateInstanceRegistration(ctx context.Context, i
 						return utils.LogError(log, ctx, "cancel instance update operation, because it leads to unspecified default"+
 							" instance. Please change set `default' to true or set other instance registration as defaults: %w", msg.BadRequest)
 					}
+					instance.InstanceOwnership = exising.InstanceOwnership
 				}
 			}
 
 			if err := cnn.Save(instance).Error; err != nil {
+				if k.base.IsUniqIntegrityViolation(err) {
+					return k.uniqueViolationError(ctx, instance, err)
+				}
 				return utils.LogError(log, ctx, "error update %v instance: %w", instance, err)
 			}
 
@@ -134,6 +142,14 @@ func (k KafkaInstancesDaoImpl) UpdateInstanceRegistration(ctx context.Context, i
 	})
 
 	return instance, err
+}
+
+func (k KafkaInstancesDaoImpl) uniqueViolationError(ctx context.Context, instance *model.KafkaInstance, err error) error {
+	if strings.Contains(err.Error(), schema.KafkaAddressesUniqueConstraint) {
+		addresses, _ := json.Marshal(instance.Addresses)
+		return utils.LogError(log, ctx, "constraint violation: addresses %s are already used by another kafka instance registration: %w", addresses, msg.Conflict)
+	}
+	return utils.LogError(log, ctx, "constraint violation: Instance with id=%s already registered: %w", instance.GetId(), msg.Conflict)
 }
 
 func (k KafkaInstancesDaoImpl) SetDefaultInstance(ctx context.Context, instance *model.KafkaInstance) (*model.KafkaInstance, error) {

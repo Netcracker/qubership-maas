@@ -17,7 +17,7 @@ Module path: `github.com/netcracker/qubership-maas`
 
 ## Tech stack
 
-- **Language:** Go 1.26.5
+- **Language:** Go, latest stable release (exact version in `maas/maas-service/go.mod`)
 - **HTTP:** Fiber v3 (`github.com/gofiber/fiber/v3`)
 - **DB:** PostgreSQL (`go-pg`, `pgx`), SQLite for some tests
 - **Kafka client:** IBM Sarama
@@ -90,7 +90,7 @@ matching that module path locally.
 ## Code style & conventions
 
 - Prefer small, focused changes; match existing package layout (`controller` / `service` / `dao` / `model`).
-- Keep Go version in sync: `go.mod` (`go 1.26.5`) and `maas/Dockerfile` builder image.
+- Use the latest stable Go and keep it in sync: `go.mod` `go` directive and the `maas/Dockerfile` builder image.
 - After adding/updating Go deps: run `go mod tidy` and `go mod vendor` so CI and offline builds stay consistent.
 - Do not edit files under `maas/maas-service/vendor/` by hand.
 - Conventional Commits are enforced on PRs (`.github/workflows/pr-conventional-commits.yaml`).

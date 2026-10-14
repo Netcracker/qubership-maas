@@ -168,7 +168,7 @@ func initApp(t *testing.T, baseDao *dao.BaseDaoImpl, tokenVerifier mockTokenVeri
 
 	controllers := router.ApiControllers{
 		AccountController:               controller.NewAccountController(authService),
-		InstanceController:              controller.NewInstanceController(kafkaInstanceService, rabbitInstanceService, authService),
+		InstanceController:              controller.NewInstanceController(kafkaInstanceService, rabbitInstanceService, authService, controller.OperatorSettings{}),
 		VHostController:                 controller.NewVHostController(rabbitService, authService),
 		ConfiguratorController:          controller.NewConfiguratorController(configService, authService),
 		GeneralController:               controller.NewGeneralController(cleanupService, authService, auditService),

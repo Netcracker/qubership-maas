@@ -15,14 +15,61 @@ import (
 	"github.com/netcracker/qubership-maas/validator"
 )
 
+type OperatorSettings struct {
+	Enabled               bool
+	DefaultKafkaInstance  string
+	DefaultRabbitInstance string
+}
+
 type InstanceController struct {
 	kafka       instance.KafkaInstanceService
 	rabbit      instance.RabbitInstanceService
 	authService auth.AuthService
+	operator    OperatorSettings
 }
 
-func NewInstanceController(kafkaInstanceService instance.KafkaInstanceService, rabbitInstanceService instance.RabbitInstanceService, a auth.AuthService) *InstanceController {
-	return &InstanceController{kafka: kafkaInstanceService, rabbit: rabbitInstanceService, authService: a}
+func NewInstanceController(kafkaInstanceService instance.KafkaInstanceService, rabbitInstanceService instance.RabbitInstanceService, a auth.AuthService, operator OperatorSettings) *InstanceController {
+	return &InstanceController{kafka: kafkaInstanceService, rabbit: rabbitInstanceService, authService: a, operator: operator}
+}
+
+func (c *InstanceController) checkKafkaRestWritable(ctx context.Context, id string) error {
+	if !c.operator.Enabled {
+		return nil
+	}
+	existing, err := c.kafka.GetById(ctx, id)
+	if err != nil || existing == nil {
+		return err
+	}
+	return rejectIfOperatorManaged(ctx, "kafka", id, existing.InstanceOwnership)
+}
+
+func (c *InstanceController) checkRabbitRestWritable(ctx context.Context, id string) error {
+	if !c.operator.Enabled {
+		return nil
+	}
+	existing, err := c.rabbit.GetById(ctx, id)
+	if err != nil || existing == nil {
+		return err
+	}
+	return rejectIfOperatorManaged(ctx, "rabbit", id, existing.InstanceOwnership)
+}
+
+func rejectIfOperatorManaged(ctx context.Context, brokerType string, id string, ownership model.InstanceOwnership) error {
+	if !ownership.ManagedByOperator {
+		return nil
+	}
+	return utils.LogError(log, ctx, "%s instance `%s' is managed by the MaaS operator through CR `%s' in namespace `%s'. "+
+		"Change the CR instead, or delete the CR with deletionPolicy: Orphan to hand the instance back to the manager REST API: %w",
+		brokerType, id, ownership.CRName, ownership.CRNamespace, msg.Conflict)
+}
+
+// The operator moves the default back to the param's instance on every reconcile, so a REST switch would be undone.
+func (c *InstanceController) checkSetDefaultAllowed(ctx context.Context, brokerType string, param string, paramValue string) error {
+	if !c.operator.Enabled || paramValue == "" {
+		return nil
+	}
+	return utils.LogError(log, ctx, "default %s instance is selected by the %s parameter (`%s') while the MaaS operator is enabled. "+
+		"Change the parameter instead: %w", brokerType, param, paramValue, msg.Conflict)
 }
 
 // @Summary Register New Rabbit Instance using Manager Role
@@ -110,7 +157,12 @@ func (c *InstanceController) GetAllKafkaInstances(fiberCtx fiber.Ctx) error {
 // @Router /api/v1/rabbit/instance [put]
 func (c *InstanceController) UpdateRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input model.RabbitInstance
-	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.Update(ctx, &input) })
+	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) {
+		if err := c.checkRabbitRestWritable(ctx, input.GetId()); err != nil {
+			return nil, err
+		}
+		return c.rabbit.Update(ctx, &input)
+	})
 }
 
 // @Summary Update New Kafka Instance using Manager Role
@@ -128,7 +180,12 @@ func (c *InstanceController) UpdateRabbitInstance(fiberCtx fiber.Ctx) error {
 // @Router /api/v1/kafka/instance [put]
 func (c *InstanceController) UpdateKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input model.KafkaInstance
-	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.Update(ctx, &input) })
+	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) {
+		if err := c.checkKafkaRestWritable(ctx, input.GetId()); err != nil {
+			return nil, err
+		}
+		return c.kafka.Update(ctx, &input)
+	})
 }
 
 // @Summary Set Default Rabbit Instance using Manager Role
@@ -146,7 +203,12 @@ func (c *InstanceController) UpdateKafkaInstance(fiberCtx fiber.Ctx) error {
 // @Router /api/v1/rabbit/instance/default [put]
 func (c *InstanceController) SetDefaultRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input model.RabbitInstance
-	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.SetDefault(ctx, &input) })
+	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) {
+		if err := c.checkSetDefaultAllowed(ctx, "rabbit", "DEFAULT_RABBIT_INSTANCE", c.operator.DefaultRabbitInstance); err != nil {
+			return nil, err
+		}
+		return c.rabbit.SetDefault(ctx, &input)
+	})
 }
 
 // @Summary Set Default Kafka Instance using Manager Role
@@ -164,7 +226,12 @@ func (c *InstanceController) SetDefaultRabbitInstance(fiberCtx fiber.Ctx) error 
 // @Router /api/v1/kafka/instance/default [put]
 func (c *InstanceController) SetDefaultKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input model.KafkaInstance
-	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.SetDefault(ctx, &input) })
+	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) {
+		if err := c.checkSetDefaultAllowed(ctx, "kafka", "DEFAULT_KAFKA_INSTANCE", c.operator.DefaultKafkaInstance); err != nil {
+			return nil, err
+		}
+		return c.kafka.SetDefault(ctx, &input)
+	})
 }
 
 type Instance struct {
@@ -186,7 +253,12 @@ type Instance struct {
 // @Router /api/v1/rabbit/instance [delete]
 func (c *InstanceController) UnregisterRabbitInstance(fiberCtx fiber.Ctx) error {
 	var input Instance
-	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.rabbit.Unregister(ctx, input.Id) })
+	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) {
+		if err := c.checkRabbitRestWritable(ctx, input.Id); err != nil {
+			return nil, err
+		}
+		return c.rabbit.Unregister(ctx, input.Id)
+	})
 }
 
 // @Summary Unregister Kafka Instance using Manager Role
@@ -204,7 +276,12 @@ func (c *InstanceController) UnregisterRabbitInstance(fiberCtx fiber.Ctx) error 
 // @Router /api/v1/kafka/instance [delete]
 func (c *InstanceController) UnregisterKafkaInstance(fiberCtx fiber.Ctx) error {
 	var input Instance
-	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) { return c.kafka.Unregister(ctx, input.Id) })
+	return c.executeOperation(fiberCtx, &input, func(ctx context.Context) (any, error) {
+		if err := c.checkKafkaRestWritable(ctx, input.Id); err != nil {
+			return nil, err
+		}
+		return c.kafka.Unregister(ctx, input.Id)
+	})
 }
 
 func (c *InstanceController) executeOperation(fiberCtx fiber.Ctx, input any, serviceFunction func(context.Context) (any, error)) error {

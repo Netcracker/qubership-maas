@@ -51,11 +51,29 @@ Schema checks that would otherwise only fail at Register: `addresses` must conta
 the four Kafka protocols, Rabbit `apiUrl` is `http(s)://`, `amqpUrl` is `amqp(s)://`, Rabbit keys are exactly `user` and
 `password`.
 
+### CRDs generated from Go types
+
+The Go CR types with `+kubebuilder` markers are the only source of the CRD schema. `controller-gen` writes
+`config/crd/bases`, and `make sync-helm-crds` wraps each CRD in the chart condition into
+`helm-templates/maas-service/templates/crd-*.yaml`, the same way as dbaas-operator. The templates are never edited by
+hand, and CI fails on a stale copy. `docs/operator_design.md` keeps sample CRs and field tables, not a CRD copy.
+Status conditions use `metav1.Condition`, so `type`, `reason`, `message` and `observedGeneration` get the upstream
+validation. The hand-written CRDs from section 2 stay until the Go types exist (section 4). Rejected: hand-written CRD
+YAML next to Go types (two schemas drift; the Kafka credential entry and conditions were already copied by hand).
+
 ### Application default params, not `spec.default`
 
-`DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` are CR `metadata.name`. Empty: first Register of that kind is
-`ForcedDefault`. Named CR becomes default when it appears. Instance mapper never sets `Default: true`. Rejected:
-`DefaultInstance` CR and `spec.default`.
+`DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` are the broker namespace: the `metadata.namespace` of the claimed
+CR of that kind. Empty: first Register of that kind is `ForcedDefault`. Named CR becomes default when it appears.
+Instance mapper never sets `Default: true`. Rejected: `DefaultInstance` CR and `spec.default`; CR `metadata.name`
+(unique only inside a namespace, so two claimed CRs with one name in two namespaces would both match and the default
+would flip on every resync); PG id (known before registration only from the DB state, and may name a REST-only row);
+`namespace/name` (longer, and the one-broker-per-namespace rule already makes the namespace unique).
+
+While the operator is enabled and the param for a kind is set, manager REST SetDefault for that kind returns 409: the
+operator would move the default back on the next reconcile, so the REST call would be silently undone. With the param
+empty, REST SetDefault stays the way to pick a default, for CR-managed rows too. Rejected: lock SetDefault whenever a
+managed row is involved (blocks the only default switch when the param is empty), and allow it always (silent revert).
 
 ### Optional operator and safe downgrade
 
@@ -83,12 +101,19 @@ only the MaaS namespace”.
 
 Do not rename an existing PG `id` (topics/vhosts FK it).
 
+- One broker namespace holds one broker: at most one claimed `KafkaInstance` and one claimed `RabbitInstance` per
+  namespace. A partial unique index `(cr_namespace) WHERE managed_by_operator` on each table enforces it. ProcessCR
+  checks it first; a second CR of that kind in the namespace gets `DuplicateNamespace` (message names the owning CR)
+  and is not applied. Orphan clears `managed_by_operator`, so it frees the namespace.
 - New instance: PG `id` = CR `metadata.namespace`. Prefer `metadata.name` equal to the namespace.
 - `GetById(namespace)` hit → Update/adopt that row.
 - Else if `metadata.name` ≠ namespace and `GetById(name)` hits an unmanaged row → adopt (set `managed_by_operator`,
-  store CR namespace).
+  store CR namespace and name).
 - Same name already managed from another namespace → `DuplicateInstanceName`, do not Update.
 - Kafka `addresses` and Rabbit `api_url` / `amqp_url` unique (`23505`) are the “forgot old id” net.
+- Owner columns: `cr_namespace` = CR `metadata.namespace`, `cr_name` = CR `metadata.name`; together they identify the
+  owning CR. Not `origin_cr` with `namespace/name` (would repeat the namespace) and not a bare `namespace` column (reads
+  like a topic/vhost classifier namespace).
 
 Applying the CR **is** the migrate. After `managed_by_operator` true, manager REST Update/Unregister of that id is
 rejected while the operator is enabled.
@@ -102,8 +127,9 @@ with one error listing each shared URL and the instance ids using it. Ops keep o
 
 ### Migrate back to REST
 
-`deletionPolicy: Orphan` sets `managed_by_operator` false and clears `origin_cr` before removing the finalizer, so
-manager REST owns the row again. `OPERATOR_ENABLED=false` disables the REST lock for all rows without changing them.
+`deletionPolicy: Orphan` sets `managed_by_operator` false and clears `cr_namespace` and `cr_name` before removing the
+finalizer, so manager REST owns the row again. `OPERATOR_ENABLED=false` disables the REST lock for all rows without
+changing them.
 
 ### Update path
 
@@ -112,8 +138,8 @@ Documented install/upgrade is Argo CD Application Sync, not `helm upgrade`.
 ### Reconcile backoff
 
 Error (SecretError, HealthCheckFailed, apiserver/network): workqueue exponential, base 1s, cap 5m, 10% jitter.
-`InstanceInUse`: `RequeueAfter 30s`, not an error. Stalled (`InvalidSpec`, `DuplicateInstanceName`): wait for a CR
-change (spec or refresh annotation).
+`InstanceInUse`: `RequeueAfter 30s`, not an error. Stalled (`InvalidSpec`, `DuplicateInstanceName`,
+`DuplicateNamespace`): wait for a CR change (spec or refresh annotation).
 Resync claimed CRs every 10m.
 
 ## Rejected alternatives
@@ -135,3 +161,7 @@ Resync claimed CRs every 10m.
 - Instance CRs applied before MaaS CRDs: apply fails (install MaaS first).
 - Existing Rabbit rows sharing `api_url` or `amqp_url`: the upgrade stops (new pods fail at startup, the previous
   version keeps serving) until ops fix the rows named in the error.
+- REST lock race (accepted): the controller reads `managed_by_operator`, then the DAO writes in a separate transaction,
+  so a REST Update/Unregister can land just after a CR adopts the row. Rare (REST change and adopt at the same moment)
+  and the next reconcile restores the row from the CR. Closing it means checking ownership in the DAO transaction
+  (`SELECT … FOR UPDATE`).

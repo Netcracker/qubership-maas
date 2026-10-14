@@ -92,7 +92,7 @@ Status SHALL expose `Ready` and `Stalled` only. `phase` is for kubectl.
 - GIVEN ProcessCR finishes an apply
 - WHEN it PATCHes status
 - THEN reason SHALL be one of `InstanceRegistered`, `ForcedDefault`, `SecretError`, `HealthCheckFailed`,
-  `InstanceInUse`, `InvalidSpec`, `DuplicateInstanceName`
+  `InstanceInUse`, `InvalidSpec`, `DuplicateInstanceName`, `DuplicateNamespace`
 
 ### Requirement: deletionPolicy
 
@@ -110,7 +110,7 @@ While Terminating, `deletionPolicy: Unregister` (default) SHALL Unregister the P
 
 - GIVEN `deletionPolicy: Orphan`
 - WHEN the CR is deleted
-- THEN `managed_by_operator` SHALL be set false and `origin_cr` cleared on the row
+- THEN `managed_by_operator` SHALL be set false and `cr_namespace` and `cr_name` cleared on the row
 - AND the finalizer SHALL be removed
 - AND the PG row SHALL remain
 - AND manager REST SHALL be able to Update or Unregister that id
@@ -129,10 +129,29 @@ is false, the lock SHALL NOT be enforced.
 
 #### Scenario: Duplicate CR
 
-- GIVEN `managed_by_operator` true and `origin_cr` is another CR
+- GIVEN `managed_by_operator` true and `cr_namespace` and `cr_name` name another CR
 - WHEN a second CR would write that id
 - THEN status SHALL be `Ready=False` `Stalled=True` reason `DuplicateInstanceName`
 - AND ProcessCR SHALL NOT Update
+
+### Requirement: One broker per namespace
+
+A broker namespace SHALL hold at most one claimed `KafkaInstance` and at most one claimed `RabbitInstance`. PG SHALL
+enforce it with a partial unique index on `cr_namespace` over rows where `managed_by_operator` is true. Kafka and Rabbit
+SHALL be independent.
+
+#### Scenario: Second CR of a kind in one namespace
+
+- GIVEN a row with `managed_by_operator` true and `cr_namespace` X owned by CR X/A
+- WHEN ProcessCR applies claimed CR X/B of the same kind
+- THEN status SHALL be `Ready=False` `Stalled=True` reason `DuplicateNamespace`, and the message SHALL name CR X/A
+- AND ProcessCR SHALL NOT Register or Update
+
+#### Scenario: Orphan frees the namespace
+
+- GIVEN CR X/A was deleted with `deletionPolicy: Orphan`
+- WHEN ProcessCR applies claimed CR X/B of the same kind
+- THEN the namespace rule SHALL NOT reject it
 
 #### Scenario: REST lock off while operator disabled
 
@@ -166,10 +185,30 @@ Kafka `addresses` are unique. This SHALL apply to manager REST and to CRs.
 - WHEN `maas-service` starts again
 - THEN the migration SHALL create both unique indexes and startup SHALL continue
 
+### Requirement: REST SetDefault while a default param is set
+
+While `OPERATOR_ENABLED` is true and the `DEFAULT_*_INSTANCE` param for a kind is set, manager REST SetDefault for that
+kind SHALL be rejected, because the param owns the default. While the param is empty or the operator is disabled, REST
+SetDefault SHALL work.
+
+#### Scenario: REST SetDefault while the param is set
+
+- GIVEN `OPERATOR_ENABLED` is true and `DEFAULT_KAFKA_INSTANCE` is set
+- WHEN manager REST sets a Kafka default instance
+- THEN the request SHALL be rejected with a message naming the param
+- AND the PG default SHALL NOT change
+
+#### Scenario: REST SetDefault while the param is empty
+
+- GIVEN `OPERATOR_ENABLED` is true and `DEFAULT_RABBIT_INSTANCE` is empty
+- WHEN manager REST sets a Rabbit default instance
+- THEN the default SHALL change, whether or not the row is managed by a CR
+
 ### Requirement: Default instance params
 
 The default Kafka and Rabbit instance SHALL be selected by Application params `DEFAULT_KAFKA_INSTANCE` /
-`DEFAULT_RABBIT_INSTANCE` (value = CR `metadata.name`). There SHALL be no `spec.default` and no `DefaultInstance` CR.
+`DEFAULT_RABBIT_INSTANCE` (value = broker namespace, the `metadata.namespace` of the claimed CR of that kind; empty or a
+DNS-1123 label). There SHALL be no `spec.default` and no `DefaultInstance` CR.
 
 #### Scenario: Empty params
 
@@ -180,10 +219,17 @@ The default Kafka and Rabbit instance SHALL be selected by Application params `D
 
 #### Scenario: Named CR appears
 
-- GIVEN the param is set to a CR `metadata.name` and that row exists and is not default
+- GIVEN the param equals the namespace of a claimed CR whose row exists and is not default
 - WHEN ProcessCR runs
-- THEN it SHALL `SetDefault` that id
+- THEN it SHALL `SetDefault` that row's id
 - AND `status.isDefault` SHALL reflect PG
+
+#### Scenario: Same CR name in two namespaces
+
+- GIVEN claimed Kafka CRs `ns-a/platform-kafka` and `ns-b/platform-kafka`, and `DEFAULT_KAFKA_INSTANCE` is `ns-a`
+- WHEN ProcessCR reconciles both CRs, including later resyncs
+- THEN the `ns-a` row SHALL be default and SHALL stay default
+- AND ProcessCR of `ns-b/platform-kafka` SHALL NOT `SetDefault`
 
 #### Scenario: Clearing the param
 
@@ -211,7 +257,7 @@ ProcessCR SHALL NOT rename an existing PG `id`.
 
 - GIVEN `metadata.name` is not the namespace and `GetById(name)` hits an unmanaged row
 - WHEN ProcessCR applies
-- THEN it SHALL Update that row, set `managed_by_operator` true, and store the CR namespace
+- THEN it SHALL Update that row, set `managed_by_operator` true, and store the CR namespace and name
 - AND it SHALL NOT rename the id
 
 ### Requirement: Downgrade without Unregister

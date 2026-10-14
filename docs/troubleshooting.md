@@ -22,6 +22,8 @@
       level)](#rabbit-vhost-recovery-namespace-level)
   - [Entity exists in MaaS registry but missing in Kafka or
     RabbitMQ](#entity-exists-in-maas-registry-but-missing-in-kafka-or-rabbitmq)
+  - [maas-service fails to start after upgrade: Rabbit URLs shared by several
+    instances](#maas-service-fails-to-start-after-upgrade-rabbit-urls-shared-by-several-instances)
 
 ## Why MaaS responds with Forbidden (403) error code with correct credentials
 
@@ -214,6 +216,34 @@ You have 2 options:
        [Remove Kafka instance registration][docs-rmk]
      - RabbitMQ:
        [Remove Rabbit instance registration][docs-rmr]
+
+## maas-service fails to start after upgrade: Rabbit URLs shared by several instances
+
+Each RabbitMQ `apiUrl` and `amqpUrl` can belong to one registered Rabbit
+instance only. If the MaaS database already holds several Rabbit instances
+with the same URL, the database upgrade stops before it adds the uniqueness
+check, and the new `maas-service` fails at startup with an error like this:
+
+```text
+rabbit_instances: URLs shared by several instances, upgrade stopped:
+  api_url  http://rabbit:15672/api used by instances [rabbit-infra, rabbit-old]
+  amqp_url amqp://rabbit:5672 used by instances [rabbit-infra, rabbit-old]
+Leave one instance per URL, then restart maas-service.
+```
+
+The upgrade changes nothing in this case, so the previous `maas-service`
+version keeps working with the same database. To fix it:
+
+1. Run the previous `maas-service` version (roll back if it is not running).
+2. For each URL in the error, choose the instance to keep. List the instances
+   with [Get Rabbit instances][docs-get-rabbit].
+3. Remove every other instance from the list with
+   [Remove Rabbit instance registration][docs-rmr]. Removal fails while
+   virtual hosts still use the instance: first move them to the kept instance
+   by setting its id as `instanceId` (or in the instance designator) in the
+   application MaaS configuration and redeploying the application, see the first
+   method of [Instance update][docs-instance-update].
+4. Upgrade `maas-service` again.
 
 [docs-rest-api]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md
 [docs-security]: https://github.com/Netcracker/qubership-maas/blob/main/README.md#security-model

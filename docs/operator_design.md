@@ -79,11 +79,13 @@ flowchart TD
   secrets --> stale{"Spec, Secret resourceVersion, or refresh annotation changed,\nReady not True, or 10m resync?"}
   stale -->|no| skip["Skip apply. Keep status"]
   stale -->|yes| val["Validate spec. Map to KafkaInstance or RabbitInstance"]
-  val --> apply{"Do we store a row in DB for this CR?"}
+  val --> nsTaken{"Another CR of this kind already owns this namespace?"}
+  nsTaken -->|yes| dupNs["PATCH status Ready=False reason=DuplicateNamespace"]
+  nsTaken -->|no| apply{"Do we store a row in DB for this CR?"}
   apply -->|no row| reg["New instance: add new row to DB,\n set managed_by_operator true, set default true if no prev default"]
-  apply -->|"managed_by_operator true, origin_cr is this CR"| upd["MaaS Update. Same CR, not a new one"]
-  apply -->|"managed_by_operator false"| adopt["MaaS Update. Adopt: set managed_by_operator true and origin_cr"]
-  apply -->|"managed_by_operator true, origin_cr is another CR"| dup["PATCH status Ready=False reason=DuplicateInstanceName"]
+  apply -->|"managed_by_operator true, cr_namespace and cr_name are this CR"| upd["MaaS Update. Same CR, not a new one"]
+  apply -->|"managed_by_operator false"| adopt["MaaS Update. Adopt: set managed_by_operator true, cr_namespace and cr_name"]
+  apply -->|"managed_by_operator true, cr_namespace and cr_name are another CR"| dup["PATCH status Ready=False reason=DuplicateInstanceName"]
   reg --> fin["Ensure finalizer on CR metadata"]
   upd --> fin
   adopt --> fin
@@ -138,8 +140,11 @@ flowchart TD
 - **managed_by_operator.** PG boolean. `true` after the operator Register/adopt. Existing REST rows stay `false` until a
   CR writes that id. While the operator is enabled, manager REST may Update only while this is `false`; after `true`,
   REST of that id is rejected. See [CR vs REST](#cr-vs-rest).
-- **Default.** MaaS Application `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` (CR `metadata.name`, first
-  install = broker namespace). Empty: first Register is default. Named CR becomes default when it appears. See [Default
+- **One broker per namespace.** At most one claimed `KafkaInstance` and one claimed `RabbitInstance` per namespace. A
+  second CR of that kind in the namespace gets `DuplicateNamespace`. See [Name and id in the
+  database](#name-and-id-in-the-database).
+- **Default.** MaaS Application `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` (broker namespace: the CR
+  `metadata.namespace`). Empty: first Register is default. Named CR becomes default when it appears. See [Default
   instance](#default-instance).
 
 ### Backward compatibility and downgrade
@@ -242,7 +247,8 @@ and not a resync.
    `5m`, 10% jitter. Reset on success. `MAAS_RECONCILE_BACKOFF_BASE` / `MAAS_RECONCILE_BACKOFF_MAX` (defaults `1s` /
    `5m`).
 2. **`RequeueAfter`, no error → limiter skipped.** `InstanceInUse` 30s. Resync 10m. `Stalled=True` (`InvalidSpec`,
-   `DuplicateInstanceName`): `Result{}`, wait for the next CR change (spec or refresh annotation).
+   `DuplicateInstanceName`, `DuplicateNamespace`): `Result{}`, wait for the next CR change (spec or refresh
+   annotation).
 
 Health-check is sync Register/Update. No async poll (no 202 / trackingId).
 
@@ -272,10 +278,10 @@ restrictedEnvironment: false                 # true: chart skips CRDs and Cluste
 
 - `OPERATOR_ENABLED: true` — with the default `false` the chart does not start Watch + ProcessCR (no Lease). Manager
   REST still runs.
-- `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` — optional. CR `metadata.name` to make the MaaS default for that
-  kind. On first install set each to the broker **namespace** (same string as the instance CR name). Empty: first
-  registered instance of that kind becomes default. Names unknown yet: omit, then update the MaaS Application and Sync.
-  See [Default instance](#default-instance).
+- `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` — optional. Broker **namespace** of the instance CR to make the
+  MaaS default for that kind (the CR `metadata.namespace`, not its name). Empty or a DNS-1123 label. Empty: first
+  registered instance of that kind becomes default. Namespaces unknown yet: omit, then update the MaaS Application and
+  Sync. See [Default instance](#default-instance).
 - `K8S_EVENTS_ENABLED: true` — [Kubernetes Events](#kubernetes-events). Default on. `false` is a no-op recorder and
   drops `events` from the ClusterRole.
 - `restrictedEnvironment: true` — [Restricted environment](#restricted-environment). Cluster-admin applies CRDs +
@@ -430,7 +436,8 @@ status:
 
 | Field | Required | Notes |
 | ------- | :--------: | ------- |
-| `metadata.name` | Yes | DNS-1123. First install: equal to `metadata.namespace`. `DEFAULT_KAFKA_INSTANCE` matches this. Maps to PG `id`: [Name and id](#name-and-id-in-the-database). |
+| `metadata.name` | Yes | DNS-1123. First install: equal to `metadata.namespace`. Maps to PG `id`: [Name and id](#name-and-id-in-the-database). |
+| `metadata.namespace` | Yes | The broker namespace. One claimed `KafkaInstance` per namespace. `DEFAULT_KAFKA_INSTANCE` matches this. |
 | `spec.operatorNamespace` | Yes | Claim (`CLOUD_NAMESPACE`). CEL immutable. Skip, no PATCH, if it does not match. |
 | `spec.addresses` | Yes | Map protocol → bootstrap servers. Keys: `PLAINTEXT`, `SASL_PLAINTEXT`, `SSL`, `SASL_SSL`. Must contain `maasProtocol` (CEL). MaaS connects with `addresses[maasProtocol]`; topic responses return the whole map. |
 | `spec.maasProtocol` | Yes | `PLAINTEXT` \| `SASL_PLAINTEXT` \| `SSL` \| `SASL_SSL`. `SSL` / `SASL_SSL` enable TLS. |
@@ -779,7 +786,8 @@ status:
 
 | Field | Required | Notes |
 | ------- | :--------: | ------- |
-| `metadata.name` | Yes | Same rules as Kafka. `DEFAULT_RABBIT_INSTANCE` matches this. |
+| `metadata.name` | Yes | Same rules as Kafka. |
+| `metadata.namespace` | Yes | The broker namespace. One claimed `RabbitInstance` per namespace. `DEFAULT_RABBIT_INSTANCE` matches this. |
 | `spec.operatorNamespace` | Yes | Same claim as Kafka. CEL immutable. |
 | `spec.apiUrl` | Yes | Rabbit management HTTP API, `http://` or `https://`. MaaS appends `/api` if missing. Unique. |
 | `spec.amqpUrl` | Yes | AMQP URL returned to applications, `amqp://` or `amqps://`. Unique. |
@@ -1032,6 +1040,7 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | `InstanceInUse` | False | False | Unregister 400, topics/vhosts still on the instance. Keep finalizer. |
 | `InvalidSpec` | False | True | Duplicate `keys[].name`, bad `maasProtocol`, Kafka address or Rabbit URL used by another id, etc. |
 | `DuplicateInstanceName` | False | True | Another CR owns that id. |
+| `DuplicateNamespace` | False | True | Another CR of this kind already owns this namespace. Message names that CR. |
 
 Finalizer `maas.netcracker.com/instance` after Register. `deletionTimestamp` set means Terminating. A Secret rotation
 or the refresh annotation does not bump `generation`.
@@ -1058,6 +1067,7 @@ stays status-only.
 | `HealthCheckFailed` | Warning | Register/Update health-check 400. |
 | `InstanceInUse` | Warning | Unregister 400; topics/vhosts still on the instance. Once until the reason changes. |
 | `DuplicateInstanceName` | Warning | Another CR owns that id. |
+| `DuplicateNamespace` | Warning | Another CR of this kind already owns this namespace. |
 
 ClusterRole (not the namespaced Secret Role) grants `events` `create` / `patch` so Events can land in the broker
 namespace. `kubectl describe kafkainstance … -n kafka-infra` shows them.
@@ -1088,8 +1098,10 @@ Add a **new operator layer** (not a new DB table):
   `SetDefault` is driven by `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` after Register/Update ([Default
   instance](#default-instance)).
 
-Optional DB columns on the instance row (`managed_by_operator`, `namespace`, `origin_cr`) are schema extras, not a
-second instance struct. Existing rows: `managed_by_operator = false`, `namespace` empty until a CR writes it.
+Optional DB columns on the instance row (`managed_by_operator`, `cr_namespace`, `cr_name`) are schema extras, not a
+second instance struct. `cr_namespace` is the owning CR `metadata.namespace`, `cr_name` its `metadata.name`; together
+they identify the CR. Existing rows: `managed_by_operator = false`, `cr_namespace` and `cr_name` empty until a CR writes
+them.
 
 ```mermaid
 flowchart LR
@@ -1250,27 +1262,36 @@ First insert into an empty DB still becomes default (`ForcedDefault` in
 [DAO](../maas/maas-service/service/instance/kafka_instances_dao.go)) when the install param for that kind is empty, or
 when the named CR is not registered yet. “First” is whichever Register commits.
 
-**Install params.** Optional. Value = instance CR `metadata.name`. Kafka and Rabbit are independent. On first MaaS
-install set each to the broker **namespace** (new instance: `metadata.name` equals `metadata.namespace` — [Name and
-id](#name-and-id-in-the-database)). If the names are not known yet, install MaaS without them and update the MaaS
-Application afterwards (Argo CD Sync).
+**Install params.** Optional. Value = broker **namespace**: the `metadata.namespace` of the claimed instance CR of that
+kind. Kafka and Rabbit are independent. The namespace is known before the CR registers, it always names a CR (never a
+REST-only row), and it is unique because a namespace holds at most one claimed CR of each kind ([Name and
+id](#name-and-id-in-the-database)). For a new instance it also equals the PG id. If the namespaces are not known yet,
+install MaaS without them and update the MaaS Application afterwards (Argo CD Sync).
+
+Not `metadata.name`: a CR name is unique only inside a namespace, and the operator watches the whole cluster. Two
+claimed CRs `platform-kafka` in `ns-a` and `ns-b` would both match, and each reconcile would move the default to its
+own row, so topics with no `instance` would land on different brokers.
 
 ProcessCR on a claimed instance CR (Watch, Argo CD Sync of MaaS after a param change, or 10m resync), Kafka and Rabbit
 separately:
 
 1. **Param empty** for this kind. No default in PG → this Register is `ForcedDefault`. Default already in PG → leave it.
    PATCH `status.isDefault` from PG. Do not steal on every reconcile.
-2. **Param set**, this CR `metadata.name` equals the param, row exists, not already default → `SetDefault` this id.
-   Already default → PATCH status only (do not `SetDefault` again on every Watch / 10m resync).
-3. **Param set**, this CR name does not match. No default in PG → `ForcedDefault` this instance (topics work until the
-   named CR appears). Default already in PG → leave it.
-4. **Param set**, named CR not in the cluster yet. MaaS stays Healthy. Do not fail Argo. Do not clear PG. When that CR
-   Registers (or on the next reconcile after a later MaaS Application Sync), rule 2 runs.
-5. **Names unknown at first MaaS install.** Omit the params. First Register is `ForcedDefault`. Later update the MaaS
-   Application with the names and Sync; the Deployment rolls, ProcessCR sees the new env, rule 2 `SetDefault`s the named
-   CR (may switch the ForcedDefault winner).
+2. **Param set**, this CR `metadata.namespace` equals the param, row exists, not already default → `SetDefault` this
+   id. Already default → PATCH status only (do not `SetDefault` again on every Watch / 10m resync).
+3. **Param set**, this CR namespace does not match. No default in PG → `ForcedDefault` this instance (topics work until
+   the named CR appears). Default already in PG → leave it.
+4. **Param set**, no claimed CR of that kind in the named namespace yet (none applied, not claimed by this MaaS, or
+   stalled). MaaS stays Healthy. Do not fail Argo. Do not clear PG. When that CR Registers (or on the next reconcile
+   after a later MaaS Application Sync), rule 2 runs.
+5. **Namespaces unknown at first MaaS install.** Omit the params. First Register is `ForcedDefault`. Later update the
+   MaaS Application with the namespaces and Sync; the Deployment rolls, ProcessCR sees the new env, rule 2 `SetDefault`s
+   the named CR (may switch the ForcedDefault winner).
 6. Clearing a param later does **not** unset the PG default. Do not send Update `default: false` on the current default
    (DAO 400).
+7. **Manager REST SetDefault.** While `OPERATOR_ENABLED` is true and the param for that kind is set, REST SetDefault
+   returns 409 naming the param: the operator would move the default back on the next reconcile. With the param empty,
+   REST SetDefault works, for CR-managed rows too.
 
 `status.isDefault` is observed PG state, not a request. PATCH it on the CRs this reconcile touches (and on the previous
 default after a switch).
@@ -1294,7 +1315,7 @@ flowchart TD
   param -->|empty| empty{"PG has a default?"}
   empty -->|no| force["ForcedDefault this instance"]
   empty -->|yes| keep["Leave PG default"]
-  param -->|set| match{"this CR metadata.name equals param?"}
+  param -->|set| match{"this CR metadata.namespace equals param?"}
   match -->|yes, row exists, not default| set["SetDefault this id"]
   match -->|yes, already default| patchOnly["PATCH status only"]
   match -->|no, no PG default| force
@@ -1309,8 +1330,8 @@ flowchart TD
 sequenceDiagram
   participant Argo
   participant Pod as maas-service
-  participant Named as KafkaInstance kafka-infra
-  participant Other as KafkaInstance other
+  participant Named as KafkaInstance in ns kafka-infra
+  participant Other as KafkaInstance in ns other
   participant DB as PostgreSQL
 
   Note over Argo,DB: 1 first install names known
@@ -1352,7 +1373,21 @@ Those need not match the existing PG `id`. Topics, vhosts, and designators FK th
 Always use both `metadata.name` and `metadata.namespace`. Do not treat “put the old REST id as the CR name” as the main
 path — people have several instances or do not know the previous id.
 
-**New instance.** PG `id` = CR `metadata.namespace`. One Kafka and one Rabbit per namespace. For a new broker, set
+**One broker per namespace.** A broker namespace holds one broker, so at most one claimed `KafkaInstance` and one
+claimed `RabbitInstance` per namespace. This holds for adopted legacy rows too: migrate two old instances through two
+namespaces, not one. Migration 31 adds a partial unique index on each table:
+
+```sql
+CREATE UNIQUE INDEX uq_kafka_instances_cr_namespace ON kafka_instances (cr_namespace) WHERE managed_by_operator;
+CREATE UNIQUE INDEX uq_rabbit_instances_cr_namespace ON rabbit_instances (cr_namespace) WHERE managed_by_operator;
+```
+
+REST rows and orphaned rows (`managed_by_operator` false) are outside the index. ProcessCR checks the rule before any
+write: another managed row of this kind with `cr_namespace` = this CR namespace and a different `cr_name` → `Ready=False`,
+`Stalled=True`, reason `DuplicateNamespace`, message names the owning CR. No Register or Update. The index catches a race
+past that check, mapped to the same reason. Delete the extra CR, or Orphan the owner first.
+
+**New instance.** PG `id` = CR `metadata.namespace`. For a new broker, set
 `metadata.name` equal to the namespace. Insert a new row (`managed_by_operator` true on that row). An old REST row with
 some other id is left alone — no adopt, no `managed_by_operator` switch on that old id.
 
@@ -1383,9 +1418,9 @@ row registered with the wrong one. Then restart; the migration runs again.
 Update that row (topics/vhosts keep the short id — do not rename). No name-as-old-id; no switch to a different id.
 
 **Migrate when the old id is not the namespace.** `metadata.name` = old REST id. `metadata.namespace` is stored on the
-row (new `namespace` column). First CR: Update, set `managed_by_operator` true, write that namespace. Second CR with the
-same name from another NS: if `managed_by_operator` and stored namespace ≠ this CR namespace → error. Do not allow
-changing an instance from another namespace.
+row (new `cr_namespace` column). First CR: Update, set `managed_by_operator` true, write that namespace. Second CR with
+the same name from another NS: if `managed_by_operator` and stored `cr_namespace` ≠ this CR namespace → error. Do not
+allow changing an instance from another namespace.
 
 ```mermaid
 flowchart TD
@@ -1393,8 +1428,8 @@ flowchart TD
   cr --> byNs{"GetById namespace"}
   byNs -->|hit| sameNs["Update / adopt that row. id stays"]
   byNs -->|miss| byName{"name != ns AND GetById name?"}
-  byName -->|hit, not managed_by_operator| migr["Adopt: set managed_by_operator, store CR namespace"]
-  byName -->|"hit, managed_by_operator, stored ns != this ns"| deny["Ready=False. Do not Update"]
+  byName -->|hit, not managed_by_operator| migr["Adopt: set managed_by_operator, store cr_namespace and cr_name"]
+  byName -->|"hit, managed_by_operator, stored cr_namespace != this ns"| deny["Ready=False. Do not Update"]
   byName -->|"hit, managed_by_operator, same ns"| upd["Update"]
   byName -->|miss| reg["Register id = namespace"]
   reg -->|Kafka addresses or Rabbit URL already used| uniq["unique error. forgot old id"]
@@ -1421,8 +1456,8 @@ database](#name-and-id-in-the-database). Register of an existing id is **400 uni
 
 **Migrate back to REST.** Two ways, never two writers on a live CR:
 
-- `deletionPolicy: Orphan`, then delete the CR. ProcessCR sets `managed_by_operator` false and clears `origin_cr` on
-  the row before removing the finalizer. The row stays; manager REST may Update/Unregister it again.
+- `deletionPolicy: Orphan`, then delete the CR. ProcessCR sets `managed_by_operator` false and clears `cr_namespace`
+  and `cr_name` on the row before removing the finalizer. The row stays; manager REST may Update/Unregister it again.
 - `OPERATOR_ENABLED=false`. The REST lock is enforced only while the operator is enabled, so REST works on every row.
   Rows keep `managed_by_operator` true; turning the operator back on locks them again.
 
@@ -1507,6 +1542,7 @@ must not Register/Update/Unregister.
 
 ##### Create vs update
 
+- Before any lookup: another CR of this kind owns this namespace → `DuplicateNamespace`, no write.
 - `existing = GetById` (which string is the id is open: [Name and id in the database](#name-and-id-in-the-database)).
 - **Register** only if `existing == nil`.
 - **Update** if a row hits and we own it, or `managed_by_operator` is false (adopt). Secret rotation and spec edits are
@@ -1564,7 +1600,7 @@ sequenceDiagram
     Pod->>CR: remove finalizer
     API->>API: finalizers empty delete from etcd
   else deletionPolicy Orphan
-    Pod->>Svc: set managed_by_operator false, clear origin_cr
+    Pod->>Svc: set managed_by_operator false, clear cr_namespace and cr_name
     Pod->>CR: remove finalizer leave MaaS row
     API->>API: finalizers empty delete from etcd
   else Unregister InUse

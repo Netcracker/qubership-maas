@@ -17,6 +17,7 @@ type RabbitInstance struct {
 	User     string `pg:",notnull" json:"user" example:"guest"`
 	Password string `gorm:"column:password_enc;serializer:aesb64" pg:"password_enc,notnull" json:"password" fmt:"obfuscate" example:"guest"`
 	Default  bool   `gorm:"column:is_default" pg:"is_default" json:"default" example:"true"`
+	InstanceOwnership
 }
 
 func (r RabbitInstance) Format(state fmt.State, verb rune) {

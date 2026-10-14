@@ -32,6 +32,17 @@ kubernetes:
   m2m:
     audience: maas
 
+# KafkaInstance / RabbitInstance operator; env OPERATOR_ENABLED
+operator:
+  enabled: false
+
+# Default instance broker namespace (CR metadata.namespace) per kind; env DEFAULT_KAFKA_INSTANCE / DEFAULT_RABBIT_INSTANCE
+default:
+  kafka:
+    instance: ""
+  rabbit:
+    instance: ""
+
 # DR mode defaults
 execution.mode: active
 

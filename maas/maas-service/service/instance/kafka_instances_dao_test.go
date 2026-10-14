@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/netcracker/qubership-maas/dao"
 	"github.com/netcracker/qubership-maas/model"
+	"github.com/netcracker/qubership-maas/msg"
 	"github.com/netcracker/qubership-maas/service/bg2/domain"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -197,5 +198,71 @@ func TestKafkaInstancesDaoImpl_InsertInstanceDesignatorKafka(t *testing.T) {
 
 		err = dao.InsertInstanceDesignatorKafka(ctx, &instanceDesignatorWithSelector)
 		assert.NoError(t, err)
+	})
+}
+
+func TestKafkaInstanceUpdateKeepsOwnership(t *testing.T) {
+	ctx := context.Background()
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		kafkaDao := NewKafkaInstancesDao(baseDao, domain.NewBGDomainDao(baseDao))
+
+		_, err := kafkaDao.InsertInstanceRegistration(ctx, &model.KafkaInstance{
+			Id:           "owned",
+			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka:9092"}},
+			MaasProtocol: "PLAINTEXT",
+		})
+		assert.NoError(t, err)
+
+		stored, err := kafkaDao.GetInstanceById(ctx, "owned")
+		assert.NoError(t, err)
+		assert.Equal(t, model.InstanceOwnership{}, stored.InstanceOwnership)
+
+		ownership := model.InstanceOwnership{ManagedByOperator: true, CRNamespace: "infra", CRName: "kafka-main"}
+		assert.NoError(t, setOwnership(ctx, baseDao, &model.KafkaInstance{}, "owned", ownership))
+
+		_, err = kafkaDao.UpdateInstanceRegistration(ctx, &model.KafkaInstance{
+			Id:           "owned",
+			Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {"kafka-new:9092"}},
+			MaasProtocol: "PLAINTEXT",
+			Default:      true,
+		})
+		assert.NoError(t, err)
+
+		stored, err = kafkaDao.GetInstanceById(ctx, "owned")
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"kafka-new:9092"}, stored.Addresses["PLAINTEXT"])
+		assert.Equal(t, ownership, stored.InstanceOwnership)
+	})
+}
+
+func TestKafkaInstanceAddressesUnique(t *testing.T) {
+	ctx := context.Background()
+	dao.WithSharedDao(t, func(baseDao *dao.BaseDaoImpl) {
+		kafkaDao := NewKafkaInstancesDao(baseDao, domain.NewBGDomainDao(baseDao))
+		instance := func(id, address string) *model.KafkaInstance {
+			return &model.KafkaInstance{
+				Id:           id,
+				Addresses:    map[model.KafkaProtocol][]string{"PLAINTEXT": {address}},
+				MaasProtocol: "PLAINTEXT",
+			}
+		}
+
+		_, err := kafkaDao.InsertInstanceRegistration(ctx, instance("first", "kafka-1:9092"))
+		assert.NoError(t, err)
+
+		_, err = kafkaDao.InsertInstanceRegistration(ctx, instance("second", "kafka-1:9092"))
+		assert.ErrorIs(t, err, msg.Conflict)
+		assert.ErrorContains(t, err, `addresses {"PLAINTEXT":["kafka-1:9092"]} are already used by another kafka instance registration`)
+
+		_, err = kafkaDao.InsertInstanceRegistration(ctx, instance("second", "kafka-2:9092"))
+		assert.NoError(t, err)
+
+		_, err = kafkaDao.UpdateInstanceRegistration(ctx, instance("second", "kafka-1:9092"))
+		assert.ErrorIs(t, err, msg.Conflict)
+		assert.ErrorContains(t, err, `addresses {"PLAINTEXT":["kafka-1:9092"]} are already used by another kafka instance registration`)
+
+		_, err = kafkaDao.InsertInstanceRegistration(ctx, instance("second", "kafka-3:9092"))
+		assert.ErrorIs(t, err, msg.Conflict)
+		assert.ErrorContains(t, err, "Instance with id=second already registered")
 	})
 }
