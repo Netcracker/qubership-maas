@@ -45,6 +45,10 @@ default false, so `main` stays releasable after every merge.
 - [x] 3.9 Migration 31: partial unique index on `cr_namespace` where `managed_by_operator` for Kafka and Rabbit (one
       claimed CR of each kind per broker namespace); unit test that a second managed row in one namespace fails and an
       unmanaged one does not
+- [x] 3.10 Topic responses add a `PLAINTEXT` alias of the `SASL_PLAINTEXT` servers when the client credential is
+      `plain` and there is no `PLAINTEXT` key (backward compatibility with client libraries; built on a copy, never
+      stored); document in `docs/rest_api.md` and `docs/operator_design.md`; unit tests for alias added, real
+      `PLAINTEXT` kept, other credential types, and instance map unchanged
 
 ## 4. Operator skeleton (watch and claim, no writes to MaaS)
 
@@ -52,9 +56,17 @@ default false, so `main` stays releasable after every merge.
 - [ ] 4.2 Go CR types for `KafkaInstance` / `RabbitInstance` (`api/v1` package), registered in a runtime scheme. The
       types are the source of the CRD schema: `+kubebuilder` markers carry descriptions, CEL rules, enums, short names,
       printer columns, selectable fields, the status subresource and the `helm.sh/resource-policy: keep` /
-      `argocd.argoproj.io/sync-options: Prune=false` annotations. One credential entry type for Kafka `admin` and
-      `client`; status as a shared `OperatorStatus` with `[]metav1.Condition`. The top-level description says new
-      instances get PG id = CR namespace, not the CR name
+      `argocd.argoproj.io/sync-options: Prune=false` annotations. One `KafkaCredential` struct for both `admin` and
+      `client` (single objects, not lists: `protocol`, `saslMechanism`, `clientCert`, `credentialsSecretRef`), no
+      `maasProtocol`, `caCertSecretRef {name, key}`; `CredentialsSecretRef {name, keys[]}` and `SecretKeyMapping
+      {key, name}` as in dbaas-operator, shared by Kafka and Rabbit; status as a shared
+      `OperatorStatus` with `[]metav1.Condition`. CEL from design.md: credential protocols are keys of `addresses`,
+      `saslMechanism` / `clientCert` / `credentialsSecretRef` per protocol, the needed fields mapped, unique mapping
+      names, admin and client both need a Secret or neither, and the
+      client library compatibility rules (no `saslMechanism` on `PLAINTEXT`; reject `SASL_PLAINTEXT` + `PLAIN` when
+      `addresses` has `PLAINTEXT`, `SASL_SSL` + `PLAIN` without `clientCert`, client TLS without `caCertSecretRef`),
+      each message naming the form that works. The top-level description says
+      new instances get PG id = CR namespace, not the CR name
 - [ ] 4.3 Generate the CRDs with `controller-gen` as dbaas-operator does: Makefile with a pinned
       `CONTROLLER_TOOLS_VERSION`; `make generate` (DeepCopy), `make manifests` (CRDs into `config/crd/bases`),
       `make sync-helm-crds` (each CRD wrapped in `{{- if not .Values.restrictedEnvironment }}` into
@@ -64,24 +76,26 @@ default false, so `main` stays releasable after every merge.
       Helm expressions. CI fails when `make sync-helm-crds` leaves a git diff. CI also renders the chart with
       `helm template` and installs the rendered CRDs into envtest, so the API server rejects bad metadata (for example
       a non-ASCII label key) before release
-- [ ] 4.4 `docs/operator_design.md`: drop the full CRD YAML, keep the sample CRs and field tables, link to the generated
-      templates
+- [ ] 4.4 `docs/operator_design.md`: link the `#### CRD` sections to the generated templates (the full CRD YAML is
+      already removed; sample CRs and field tables stay)
 - [ ] 4.5 Start the manager from `server.go` only when `OPERATOR_ENABLED`; Lease `maas-operator-leader` in
       `CLOUD_NAMESPACE`; only the leader watches; Fiber stays on all replicas; a manager failure does not stop HTTP
 - [ ] 4.6 Cluster watch of instance CRs; skip when `operatorNamespace` ≠ `CLOUD_NAMESPACE` (no PATCH); informer not
       filtered on `generation`, so the `maas.netcracker.com/refresh` annotation enqueues a reconcile
 - [ ] 4.7 Unit tests: claim skip, leader-only start, operator disabled starts nothing, env `OPERATOR_ENABLED` reaches
       `operator.enabled` (also turns the REST lock on); envtest applies the generated CRDs and checks valid and invalid
-      sample CRs (CEL rules, immutable `operatorNamespace`, Kafka credential keys)
+      sample CRs (CEL rules, immutable `operatorNamespace`, every Kafka credential rule and compatibility rejection)
 
 ## 5. Reconcile: register and update
 
 - [ ] 5.1 Get Secrets on every reconcile (no Secret Watch); `SecretError` for missing Secret, missing or empty key, or
       forbidden; message names Secret and key, never the value
-- [ ] 5.2 Spec: requirement for credential Secrets (value formats, any Secret type, Secret deleted after a good
-      register keeps the PG row); fix the stale Secret sample in `docs/operator_design.md`
-- [ ] 5.3 Mapper CR + Secrets → `model.KafkaInstance` / `RabbitInstance` (`Default: false`; Kafka admin/client roles,
-      `plain:` password prefix)
+- [ ] 5.2 Spec: requirement for credential Secrets (keys mapped by `credentialsSecretRef.keys`; value formats; any
+      Secret type; Secret deleted after a good register keeps the PG row)
+- [ ] 5.3 Mapper CR + Secrets → `model.KafkaInstance` / `RabbitInstance` (`Default: false`; `MaasProtocol` =
+      `admin.protocol`; auth type derived per the table in `docs/operator_design.md`; one-entry `admin` / `client`
+      lists, or nil when neither needs a Secret; `plain:` password prefix). Unit test: the topic response of a
+      CR-managed instance has the same shape as for a REST-registered one (client library compatibility)
 - [ ] 5.4 Name/id rules from design.md. First, if another managed row of this kind has `cr_namespace` = this CR
       namespace and a different `cr_name` → `DuplicateNamespace` naming that CR, no write. Then id = namespace; adopt
       by namespace or by old REST id; never rename an id;

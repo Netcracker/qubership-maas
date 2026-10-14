@@ -39,17 +39,45 @@ the 10m resync, any CR change, or the `maas.netcracker.com/refresh` annotation. 
 `resourceVersion`s from the last apply; a different revision means MaaS Update. The CR informer must not filter on
 `generation` only, because the annotation does not bump it.
 
-### Kafka credentials by role, validated in the CRD
+### Kafka credentials: one admin, one client, each tied to a listener
 
-`spec.credentials` mirrors REST `credentials`: `admin` (exactly one, MaaS only uses the first) and `client` (one or
-more, returned to applications). Optional as a whole, because REST allows a Kafka without auth. Each entry is
-`{type, secretRef: {name, keys}}`; `type` is in the spec, not in the Secret, so the CRD can check with CEL that the
-Secret keys match the auth type. Secrets hold raw passwords; the mapper adds the `plain:` prefix. Rejected: one
-`credentialsSecretRef` (no client credentials) and per-field Secret refs (verbose).
+`spec.credentials.admin` and `spec.credentials.client` are one object each, both required. A credential is
+`{protocol, saslMechanism, clientCert, credentialsSecretRef}`. `protocol` must be a key of `addresses`, so the
+credential names the listener it is for. `admin.protocol` replaces REST `maasProtocol`: MaaS connects to
+`addresses[admin.protocol]` with the admin credential. The MaaS auth type (`plain`, `SCRAM`, `sslCert`, `sslCert+plain`,
+`sslCert+SCRAM`) is derived from `protocol` + `saslMechanism` + `clientCert`, so a credential cannot contradict its
+listener. Secret references follow dbaas-operator `ExternalDatabase`: `credentialsSecretRef {name, keys[{key, name}]}`
+(`CredentialsSecretRef` / `SecretKeyMapping`), so existing Secrets work with any key names; CEL checks that the fields
+the credential needs are mapped. Rabbit uses the same type, `caCertSecretRef` is `{name, key}`. Secrets hold raw
+passwords; the mapper adds the `plain:` prefix.
 
-Schema checks that would otherwise only fail at Register: `addresses` must contain `maasProtocol`, address keys are
-the four Kafka protocols, Rabbit `apiUrl` is `http(s)://`, `amqpUrl` is `amqp(s)://`, Rabbit keys are exactly `user` and
-`password`.
+Backward compatibility with existing client libraries (Go and Java): topic responses keep their format (whole
+`addresses` map, client credential under its auth type, `caCert`); only the CR shape is new. The libraries accept a fixed
+set of address key and credential pairs. They read SASL PLAIN without TLS only as a `PLAINTEXT` key with a `plain`
+credential and have no `SASL_PLAINTEXT` + `plain` pair. The CR keeps protocols honest (`saslMechanism` is forbidden on
+`PLAINTEXT`), and MaaS bridges the gap in the topic response: when the client credential is `plain` on a
+`SASL_PLAINTEXT` listener and there is no `PLAINTEXT` key, the response also lists that listener under `PLAINTEXT`. The
+alias is built on a copy in `TopicRegistration.ToResponseDto`, never stored, and applies to REST rows too; no client
+library changes. CEL on `client` rejects what still cannot work: `SASL_PLAINTEXT` + `PLAIN` while `addresses` has a
+real `PLAINTEXT` key (no alias, and the libraries would send SASL to that listener), `SASL_SSL` + `PLAIN` without
+`clientCert` (no library reads it), and a client on `SSL` / `SASL_SSL` without `caCertSecretRef`. REST rows with SASL
+on a `PLAINTEXT` key keep working unchanged; a CR adopting one writes `SASL_PLAINTEXT`. `admin` is used only by
+MaaS (sarama), so it may use any pair. `admin` and `client` both need a Secret or both do not: the health check tries
+the client credential on `addresses[admin.protocol]`, so a client-only credential fails Register, and manager REST
+validation (which applies again after Orphan) accepts both roles or neither. Mixed setups would need the health check
+to use `client.protocol`; later.
+
+Applications still pick the listener by library priority, not by `client.protocol`; MaaS does not filter `addresses`
+per credential. Operators list only the listeners applications may use. Adopting a REST row with several client
+credentials keeps the one in the CR. Rejected: lists of credentials (several client entries existed only so libraries
+could pick); a free `type` per credential (could contradict the listener); fixed Secret key names (existing Secrets,
+for example from a Kafka operator, use other names; dbaas-operator maps keys too); `saslMechanism` on a `PLAINTEXT`
+key in the CR (a protocol that contradicts its listener, only to fit the libraries; the response alias does that);
+filtering
+`addresses` by `client.protocol` in topic responses (changes the response for CR-managed instances only).
+
+Schema checks that would otherwise only fail at Register: credential protocols are keys of `addresses`, address keys
+are the four Kafka protocols, the credential rules above, Rabbit `apiUrl` is `http(s)://`, `amqpUrl` is `amqp(s)://`.
 
 ### CRDs generated from Go types
 

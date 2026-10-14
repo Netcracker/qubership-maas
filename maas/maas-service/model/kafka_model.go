@@ -3,6 +3,8 @@ package model
 import (
 	"database/sql"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/lib/pq"
 	"github.com/netcracker/qubership-maas/utils"
@@ -299,7 +301,7 @@ func (topic *TopicRegistration) ToResponseDto() *TopicRegistrationRespDto {
 	}
 
 	result := TopicRegistrationRespDto{
-		Addresses:         topic.InstanceRef.Addresses,
+		Addresses:         responseAddresses(topic.InstanceRef),
 		Name:              topic.Topic,
 		Classifier:        *topic.Classifier, // FIXME select only one classifier from list
 		Namespace:         topic.Namespace,
@@ -322,6 +324,28 @@ func (topic *TopicRegistration) ToResponseDto() *TopicRegistrationRespDto {
 		result.Credentials = map[KafkaRole][]KafkaCredentials{Client: clientCredentials}
 	}
 	return &result
+}
+
+// responseAddresses returns the instance addresses for a topic response.
+//
+// Backward compatibility with maas-client libraries: they read SASL PLAIN without TLS only from a PLAINTEXT address
+// with a plain credential and have no SASL_PLAINTEXT + plain pair. So when the client credential is plain on a
+// SASL_PLAINTEXT listener, the response also lists that listener under PLAINTEXT. A real PLAINTEXT listener is never
+// overwritten. The instance map is shared, so the alias goes into a copy.
+func responseAddresses(instance *KafkaInstance) map[KafkaProtocol][]string {
+	servers, found := instance.Addresses[SaslPlaintext]
+	if !found {
+		return instance.Addresses
+	}
+	if _, taken := instance.Addresses[Plaintext]; taken {
+		return instance.Addresses
+	}
+	if !slices.ContainsFunc(instance.Credentials[Client], func(c KafkaCredentials) bool { return c.AuthType == PlainAuth }) {
+		return instance.Addresses
+	}
+	addresses := maps.Clone(instance.Addresses)
+	addresses[Plaintext] = servers
+	return addresses
 }
 
 type TopicSettings struct {

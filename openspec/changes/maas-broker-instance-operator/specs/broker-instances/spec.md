@@ -44,44 +44,93 @@ REST SHALL keep resolved credentials, not SecretRef or `operatorNamespace`.
 - THEN the mapped model `Default` field SHALL be false
 - AND default selection SHALL follow `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` after Register/Update
 
-### Requirement: Kafka credentials by role
+### Requirement: Kafka credentials
 
-`KafkaInstance` SHALL carry admin and client credentials like manager REST. `spec.credentials` is optional; when set,
-`admin` (exactly one entry) and `client` (one or more) SHALL both be present. Each entry SHALL name an auth `type` and a
-Secret whose keys map to Auth DTO fields. The CRD SHALL reject an entry missing the fields its `type` needs.
+`KafkaInstance` SHALL have one `credentials.admin` and one `credentials.client`. Each SHALL name its listener with
+`protocol` (a key of `addresses`) and set `saslMechanism`, `clientCert` and `credentialsSecretRef` as the protocol
+needs; the MaaS auth type SHALL be derived from them. `credentialsSecretRef` SHALL map Secret keys to `username`,
+`password`, `clientKey`, `clientCert` as dbaas-operator does. MaaS SHALL connect to `addresses[admin.protocol]`.
 
-#### Scenario: Admin and client credentials
+#### Scenario: Admin and client map to the existing model
 
-- GIVEN a claimed `KafkaInstance` with `credentials.admin` and two `credentials.client` entries
+- GIVEN a claimed `KafkaInstance` with admin `SASL_PLAINTEXT` + `SCRAM` and client `SASL_SSL` + `SCRAM`
 - WHEN ProcessCR maps it
-- THEN `Credentials["admin"]` SHALL hold the admin entry and `Credentials["client"]` both client entries, in order
+- THEN `MaasProtocol` SHALL be `SASL_PLAINTEXT`
+- AND `Credentials["admin"]` and `Credentials["client"]` SHALL each hold one `SCRAM` entry
 - AND passwords SHALL be sent as `plain:<value>` from the raw Secret value
-- AND topic responses SHALL return the client entries, as for REST-registered instances
 
 #### Scenario: Kafka without authentication
 
-- GIVEN a claimed `KafkaInstance` with no `spec.credentials`
+- GIVEN admin and client both with `protocol: PLAINTEXT` and no `saslMechanism`
 - WHEN ProcessCR maps it
 - THEN `Credentials` SHALL be empty and MaaS SHALL connect without authentication
 
-#### Scenario: Incomplete credentials
+#### Scenario: Credential that contradicts its listener
 
-- GIVEN a `KafkaInstance` with `credentials.admin` but no `credentials.client`, or a `SCRAM` entry without a
-  `password` key
-- WHEN it is applied
+- GIVEN a credential whose `protocol` is not a key of `addresses`, `saslMechanism` on `PLAINTEXT` / `SSL` or missing
+  on `SASL_*`, `clientCert` without TLS, `credentialsSecretRef` missing or without the needed fields, or only one of
+  admin and client needing a Secret
+- WHEN the CR is applied
 - THEN the API server SHALL reject it
+
+### Requirement: Client library compatibility
+
+Topic responses for CR-managed instances SHALL keep the format existing client libraries read: the whole `addresses`
+map, the client credential under its MaaS auth type, and `caCert`. The CRD SHALL reject a `client` credential no client
+library can use, with a message naming a form that works.
+
+#### Scenario: SASL PLAIN over TLS without a client certificate
+
+- GIVEN `client` with `protocol: SASL_SSL`, `saslMechanism: PLAIN` and `clientCert: false`
+- WHEN the CR is applied
+- THEN the API server SHALL reject it, naming `clientCert: true` or `saslMechanism: SCRAM`
+
+#### Scenario: TLS client without CA
+
+- GIVEN `client` with `protocol: SASL_SSL` and no `caCertSecretRef`
+- WHEN the CR is applied
+- THEN the API server SHALL reject it
+
+#### Scenario: Legacy SASL on a PLAINTEXT key
+
+- GIVEN a REST-registered instance with `addresses` with only `PLAINTEXT` and a `SCRAM` client credential
+- WHEN an application gets a topic
+- THEN the response SHALL hold `addresses.PLAINTEXT` and the `SCRAM` client credential, unchanged
+
+### Requirement: PLAINTEXT alias for SASL PLAIN
+
+For backward compatibility with client libraries that read SASL PLAIN without TLS only from a `PLAINTEXT` key, a topic
+response SHALL also list the `SASL_PLAINTEXT` servers under `PLAINTEXT` when the instance client credential is `plain`
+and `addresses` has no `PLAINTEXT` key. The alias SHALL NOT be stored and SHALL apply to REST-registered instances too.
+
+#### Scenario: SASL PLAIN without TLS
+
+- GIVEN `addresses` with only `SASL_PLAINTEXT` and `client` with `protocol: SASL_PLAINTEXT` and `saslMechanism: PLAIN`
+- WHEN an application gets a topic
+- THEN the response SHALL hold `SASL_PLAINTEXT` and `PLAINTEXT` with the same servers and a `plain` client credential
+- AND the stored instance `addresses` SHALL NOT change
+
+#### Scenario: Real PLAINTEXT listener
+
+- GIVEN `addresses` with `SASL_PLAINTEXT` and `PLAINTEXT` and `client` with `protocol: SASL_PLAINTEXT` and
+  `saslMechanism: PLAIN`
+- WHEN the CR is applied
+- THEN the API server SHALL reject it, naming `SCRAM` or dropping the `PLAINTEXT` listener
+- AND for such a REST-registered instance the topic response SHALL keep the real `PLAINTEXT` servers
 
 ### Requirement: Kafka addresses
 
-`spec.addresses` SHALL accept every protocol MaaS accepts (`PLAINTEXT`, `SASL_PLAINTEXT`, `SSL`, `SASL_SSL`) and SHALL
-contain an entry for `spec.maasProtocol`. MaaS connects with `addresses[maasProtocol]`; topic responses return the whole
-map.
+`spec.addresses` SHALL accept every protocol MaaS accepts (`PLAINTEXT`, `SASL_PLAINTEXT`, `SSL`, `SASL_SSL`); topic
+responses return the whole map. Applications pick the listener by client library priority; MaaS SHALL NOT filter
+`addresses` per credential.
 
-#### Scenario: Missing maasProtocol entry
+#### Scenario: Several listeners
 
-- GIVEN `maasProtocol: SASL_SSL` and `addresses` with only `SASL_PLAINTEXT`
-- WHEN the CR is applied
-- THEN the API server SHALL reject it
+- GIVEN `addresses` with `SASL_PLAINTEXT` and `SASL_SSL`, `caCertSecretRef`, and `client` with `protocol:
+  SASL_PLAINTEXT` and `saslMechanism: SCRAM`
+- WHEN an application gets a topic
+- THEN the response SHALL hold both listeners
+- AND the client library MAY pick `SASL_SSL`, because it has the higher priority and the `SCRAM` credential fits it
 
 ### Requirement: Status conditions
 

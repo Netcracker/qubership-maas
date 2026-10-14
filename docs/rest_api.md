@@ -1285,6 +1285,8 @@ This API allows to get or create Kafka topic.
     Please note, that overall topic name length (including namespace, tenantId and randomly generated part of the name) is limited to 249 symbols.
 
     See [Kafka Auth DTO](#kafka-auth-dto) description for more details on Kafka client credentials format.
+
+    Field `addresses` is the instance addresses map. For backward compatibility with maas-client libraries, which read SASL PLAIN without TLS only from a `PLAINTEXT` key, every topic response (this and the other topic endpoints) also lists the `SASL_PLAINTEXT` servers under `PLAINTEXT` when the instance client credential type is `plain` and the instance has no `PLAINTEXT` address. The stored instance is not changed. For example, instance addresses `{"SASL_PLAINTEXT": ["kafka:9092"]}` with a `plain` client credential are returned as `{"SASL_PLAINTEXT": ["kafka:9092"], "PLAINTEXT": ["kafka:9092"]}`.
 * **Error Response:**
 
     *Http code*: `500` in case of internal server errors; `400` in case of invalid request data
