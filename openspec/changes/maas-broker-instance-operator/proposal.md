@@ -1,7 +1,5 @@
 # Proposal: MaaS broker-instance operator
 
-Rename this folder to `cpcap-NNNN-broker-instance-operator` when a Jira id exists.
-
 ## Why
 
 Kafka and Rabbit instances are registered only through manager REST. GitOps cannot own broker connection config.
@@ -22,8 +20,9 @@ does not proxy broker traffic.
 
 - CRDs, Helm (`OPERATOR_ENABLED`, default-instance params, `K8S_EVENTS_ENABLED`, `restrictedEnvironment`), Lease,
   ProcessCR, Secrets read on every reconcile (no Secret Watch) plus refresh annotation, status (`Ready` + `Stalled`),
-  Kubernetes Events, `managed_by_operator` REST lock, `deletionPolicy` Unregister/Orphan, install order (MaaS first,
-  then instance CRs), downgrade without Unregister.
+  Kubernetes Events, `managed_by_operator` REST lock, `deletionPolicy` Unregister/Orphan (Orphan hands the row back to
+  REST), install order (MaaS first, then instance CRs), downgrade without Unregister.
+- Rabbit `api_url` / `amqp_url` uniqueness in PostgreSQL (like Kafka `addresses`), for REST and CRs alike.
 - Kubernetes 1.32+ (CEL + selectable fields).
 
 ## Non-goals
@@ -32,10 +31,7 @@ does not proxy broker traffic.
 - Watching only `CLOUD_NAMESPACE` (broker CRs live in `kafka-infra` / `rabbit-infra`).
 - A sibling operator Deployment or manager-REST hop from ProcessCR to another MaaS process.
 - `DefaultInstance` CR or `spec.default` on the instance CR.
-- `spec.takeOver` (v1 auto-adopts a matching REST row).
-- Blue/Green adopt of CRs onto a replacement operator.
-- Rabbit `apiUrl` / `amqpUrl` uniqueness (Kafka `addresses` uniqueness already exists).
-- core-operator `kind: MaaS` Topic/VHost CRs.
+- Topic / vhost declaration CRDs (separate change `maas-declaration-crds`).
 
 ## Approach
 
@@ -55,6 +51,8 @@ No ticket is wired yet. Delta scenarios already cover:
 | Success | Claimed CR Register/Update → `Ready=True` reason `InstanceRegistered`. |
 | Errors | `SecretError`, `HealthCheckFailed` (do not Unregister a previous good row), `InstanceInUse`, `InvalidSpec`, `DuplicateInstanceName`. |
 | Compatibility | Manager REST while operator off; existing PG rows unmanaged until a CR writes them; `OPERATOR_ENABLED=false` and old-chart downgrade do not Unregister. |
+| Uniqueness | A second Rabbit instance with an `apiUrl` or `amqpUrl` already used by another id is rejected (REST and CR). |
+| Migrate back | `Orphan` delete leaves the row with `managed_by_operator` false; manager REST can Update it again. |
 
 Copy these into Jira AC before archive.
 
