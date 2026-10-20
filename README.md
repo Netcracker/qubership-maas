@@ -14,21 +14,29 @@ MaaS stands for Messaging as a Service. It offers to create and manage entities 
 Entities can be added using declarative configuration or via direct REST API calls. Also MaaS intended to help support Blue/Green application deployments.
 
 # Architecture
-MaaS should be installed in cloud in its own namespace. MaaS requires PostgresSQL database to persist its data. After installation, operations team should register RabbitMQ and Kafka instances in MaaS either using REST API or ENV variables during installation. Application that planning to use MaaS is need to enable MaaS integration in CMDB for its namespace. Application microservices shouldn't interact with MaaS service directly, it must use maas-agent as security proxy and perform all request with M2M token. 
+MaaS should be installed in cloud in its own namespace. MaaS requires PostgresSQL database to persist its data. Kafka or Rabbit instance registration is optional for MaaS to start; when needed, pass install-time parameters `MAAS_KAFKA_INSTANCE_BODY` / `MAAS_RABBIT_INSTANCE_BODY` (envgen → ArgoCD) or use the manager REST API. `KafkaInstance` / `RabbitInstance` CRs are a future registration path.
+
+An application that plans to use MaaS must enable MaaS integration in CMDB for its namespace. Application microservices shouldn't interact with MaaS service directly: they must use **maas-agent** (Cloud-Core security proxy) with an M2M token. **core-operator** in the application namespace processes `apiVersion: core.netcracker.com/v1`, `kind: MaaS` CRs and talks to MaaS through maas-agent. Entities can also be declared in `deployment/maas-configuration.yaml`.
 
 MaaS service DOES NOT proxies or tunneling connections from microcervice to message brokers. Application microservices receives from MaaS only metainformation about vhost/topic with host address and credentials to target broker. Then miscroservice establish direct connection to message broker using provided parameters from MaaS.   
 
 # Security model
-There are two roles in MaaS: 
+There are three roles in MaaS:
 * `manager`
     * grants ability to create/delete user accounts in MaaS
     * register RabbitMQ and Kafka instances
 * `agent`
-    * role grants all API operations except listed above for `manager` role, like create/delete VHost objects in RabbitMQ, create/delete topics in Kafka, etc 
+    * role grants all API operations except listed above for `manager` role, like create/delete VHost objects in RabbitMQ, create/delete topics in Kafka, etc
+* `bgoperator`
+    * blue/green operator APIs. Not created as a bootstrap account.
 
-Deployer during MaaS installation creates one mandatory user account - `admin` that responsible for user management. Its account only has `manager` role. Its account intended for use only by operations team.
+Install creates two accounts from secret `maas-accounts`:
+* `MAAS_ACCOUNT_MANAGER_USERNAME` (default `manager`) with the `manager` role
+* `MAAS_DEPLOYER_CLIENT_USERNAME` (default `client`) with both `manager` and `agent` (used by groovy deployer to apply configuration)
 
-Also in typical MaaS installation we recommend creating account for deployer with both roles: `manager` and `agent` assigned to it. We need both because:
+There is no install `admin` user. Missing or empty account files in the secret are skipped; on every active-mode restart, existing accounts get their password reset from the secret.
+
+The deployer account needs both roles because:
 * `manager` role is needed to create dedicated user for maas-agent attached to specific namespace. Secondly deployer use this role to create RabbitMQ VHost as way to isolate entities between namespaces. 
 * `agent` role is needed to create low level entities in RabbitMQ and Kafka such as: exchanges, queue and topics. Its role will be used by deployer if you intend to use `declarative approach` to create your entities in deploy time via config files in `deployment/maas-configuration.yaml`.
 

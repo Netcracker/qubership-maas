@@ -25,47 +25,75 @@
 
 ## Why MaaS responds with Forbidden (403) error code with correct credentials
 
-Case 1: it is MaaS clean install or rolling update error - script failing
-doesn't fail whole job. Before 3.0.0 version any sh script in deployment
-(openshift) folder didn't have proper error handling behavior and in case of
-failing of sh script, e.g. creating account manager, whole Jenkins job
-wouldn't fail.
+Case 1: install or upgrade did not create (or later reset) the account
+the caller is using.
 
-So if you have some problems with accounts, database or secrets check if
-there is any error in Jenkins job. Sometimes container could have not been
-created inside pod and that leads to fail of scripts. In that case just run
-the job again.
+Current installs use Helm pre-install/pre-upgrade hook Jobs
+(`hook-delete-policy: before-hook-creation, hook-succeeded` — deleted on
+success, left around on failure):
+
+- `validation-hook-maas-service` — checks PostgreSQL only.
+- `maas-service-pre-hook` — creates the DB, credentials, and cipher-key
+  secrets (`maas-db-cipher-key-secret` is mounted at
+  `/var/run/secrets/maas/cipher`).
+
+Postdeploy then creates two accounts from secret `maas-accounts`
+(defaults `manager` with role `manager`, and `client` with roles
+`manager` + `agent`). There is no install `admin` user.
+
+Missing or empty account files are skipped silently (log:
+`File \`…\` is not exists, skip postdeploy action` or
+`has empty body, skip processing`) — the account is never created.
+On every active-mode restart, existing accounts get their password
+reset from the secret. After a secret change, old credentials 403 until
+callers use the new password.
+
+If the hook Jobs are still present, inspect their logs; do not rerun a
+Jenkins job or look in an `openshift/` folder.
 
 Case 2: inappropriate role usage. Different requests require creds with
-different roles (agent or manager), they are mentioned in
-[rest_api.md][docs-rest-api] file. See security model of MaaS for more info:
-[README.md#security-model][docs-security]
+different roles (`agent`, `manager`, or `bgoperator`), they are mentioned
+in [rest_api.md][docs-rest-api] file. See security model of MaaS for more
+info: [README.md#security-model][docs-security]
 
 ## Why Cloud-Core deployment fails with validation of MaaS
 
-Reason: Kafka or Rabbit instances are not registered.
+Cloud-Core `validation.sh` (`check_maas_aggregator`) calls
+`GET {MAAS_INTERNAL_ADDRESS}/health`.
 
-Due to the fact, that MaaS is usually installed by Cloud Ops and then used
-by different application teams, it could happen that MaaS was installed,
-but instances were not registered.
-
-There is a validation.sh script for Cloud Core, checking that at least one
-instance is registered either for Rabbit or Kafka. In that case, error in
-deployer will look like this:
+If `/health` is unreachable or any nested status is not `UP`, the Job
+**fails** (exit 122) with:
 
 ```text
-MAAS_ROUTE_HEALTH={"postgres":{"status":"UP"},"status":"UP"}
-There are no one registered broker!
+ERROR! CHECK FAILED!
+MAAS_ROUTE_HEALTH=<body or FAIL>
+There is wrong MAAS URL or MAAS is broken
 ```
+
+Instance registration is optional. Missing `kafka` / `rabbit` keys in an
+otherwise `UP` health JSON is a **warning**, not a failed Cloud-Core
+check:
+
+```text
+WARNING! MaaS contains no registered RabbitMQ/Kafka brokers yet. It may cause deployment failures for applications that uses declarative configurations for MaaS (maas-coonfiguration.yaml).
+MAAS_ROUTE_HEALTH={"postgres":{"status":"UP"},"status":"UP"}
+```
+
+Applications that declare topics/vhosts will fail later until at least
+one Kafka or Rabbit instance is registered.
 
 ### How to check instance is registered
 
-The easiest way is to send GET request to `/health` endpoint of MaaS.
-In case if only Kafka is registered the response should look like:
+The easiest way is to send GET request to `/health` endpoint of MaaS
+(port 8080). In case if only Kafka is registered the response should look
+like:
 
 ```json
 {"kafka":{"status":"UP"},"postgres":{"status":"UP"},"status":"UP"}
 ```
+
+Missing `kafka` / `rabbit` keys means no instance is registered;
+PostgreSQL can still be `UP`.
 
 Another way is to use REST api to get instances:
 
@@ -74,12 +102,19 @@ Another way is to use REST api to get instances:
 
 ### How to register instance
 
+Preferred: set envgen parameter `MAAS_KAFKA_INSTANCE_BODY` and/or
+`MAAS_RABBIT_INSTANCE_BODY` (optional `_2` variants) in the MaaS /
+Cloud-Core descriptor and let ArgoCD sync. Bodies are stored in secret
+`maas-instance-registrations`. If PostgreSQL already has a default
+instance, that default flag overrides the flag in the secret.
+
+REST register still works:
+
 - [Register Rabbit instance][docs-reg-rabbit]
 - [Register Kafka instance][docs-reg-kafka]
 
 Parameters of request depend on the broker configuration, see the
-description below, but in difficult cases it should be checked with Cloud
-Ops team.
+description below.
 
 ## Why Kafka instance could be unhealthy
 
@@ -203,17 +238,28 @@ You have 2 options:
    - for Rabbit namespace vhosts use
      [Rabbit vhost recovery (namespace level)](#rabbit-vhost-recovery-namespace-level).
 
-2. If these entities are no longer needed or were created by mistake:
-   - delete namespace declarations:
-     - Kafka (delete all topics in namespace):
-       [Delete Kafka topic][docs-del-kafka-topic]
-     - RabbitMQ (delete all vhosts in namespace):
-       [Delete virtual host][docs-del-vhost]
-   - then remove instance registration:
-     - Kafka:
-       [Remove Kafka instance registration][docs-rmk]
-     - RabbitMQ:
-       [Remove Rabbit instance registration][docs-rmr]
+2. If these entities are no longer needed or were created by mistake,
+   delete the **namespace** declarations and stop:
+   - Kafka (delete topics in that namespace):
+     [Delete Kafka topic][docs-del-kafka-topic]
+   - RabbitMQ (delete vhosts in that namespace):
+     [Delete virtual host][docs-del-vhost]
+
+   Never unregister a Kafka or Rabbit **instance** to clean one
+   namespace. Unregister is cluster-wide and breaks every namespace that
+   still uses that broker. Only remove instance registration when the
+   broker itself is being decommissioned and no remaining namespace uses
+   it:
+
+   - [Remove Kafka instance registration][docs-rmk]
+   - [Remove Rabbit instance registration][docs-rmr]
+
+To list lost Kafka topic names (Kafka only; there is no Rabbit
+equivalent):
+`GET /api/v2/kafka/discrepancy-report/{namespace}?status=absent`.
+See [Discrepancy Report][docs-discrepancy]. Counts are also on metric
+`maas_discrepancy_lost_entities` and the Grafana discrepancy dashboard
+in [monitoring_guide.md][docs-monitoring].
 
 [docs-rest-api]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md
 [docs-security]: https://github.com/Netcracker/qubership-maas/blob/main/README.md#security-model
@@ -231,3 +277,5 @@ You have 2 options:
 [docs-del-vhost]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md#delete-virtual-host
 [docs-rmk]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md#remove-kafka-instance-registration
 [docs-rmr]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md#remove-rabbit-instance-registration
+[docs-discrepancy]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md#discrepancy-report
+[docs-monitoring]: https://github.com/Netcracker/qubership-maas/blob/main/docs/monitoring_guide.md
