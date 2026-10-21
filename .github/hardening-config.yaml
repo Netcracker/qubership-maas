@@ -1,0 +1,6 @@
+# Kubescape hardening overrides for MaaS CI scans.
+# See https://github.com/Netcracker/qubership-workflow-hub/tree/main/actions/k8s-hardening-scan
+
+global_ignored_checks: []
+
+image_ignored_checks: {}
