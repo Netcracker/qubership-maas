@@ -2,6 +2,11 @@
 
 # Declaring Kafka topics and RabbitMQ VHosts using Custom Resource syntax
 
+Broker registration (`KafkaInstance` / `RabbitInstance` in `maas.netcracker.com/v1`) is a different CR family, processed
+by maas-service when `OPERATOR_ENABLED` is true. Install those CRDs from [`crds/`](../crds/) and see
+[broker instance CRs](broker_instance_crs.md). This page is only `kind: MaaS` topic and vhost declarations
+(core-operator).
+
 Create file with appropriate name and `.yaml` extensions in you helm charts folder. Contents of this file may contain one 
 or more topic or vhost declarations separated by triple dash `---` separator. 
 
