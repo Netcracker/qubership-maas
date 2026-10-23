@@ -15,7 +15,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/gofiber/fiber/v3 v3.5.0
-	github.com/gofiber/utils/v2 v2.6.1
+	github.com/gofiber/utils/v2 v2.6.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
@@ -157,7 +157,7 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.50.0 // indirect
