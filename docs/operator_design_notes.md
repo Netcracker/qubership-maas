@@ -326,7 +326,7 @@ NotFound → Skip. Finalizer only after Unregister 200/404. Extra 409s and retri
 MaaS allows one default Kafka and one default Rabbit per database. First insert into an empty DB becomes default even if
 ProcessCR sent `default: false` (`ForcedDefault`). That “first” is whichever Register commits first — not a chosen id.
 
-- Two replicas Register two new instance CRs at once: whichever insert lands first is default. Status `isDefault` on
+- Two replicas Register two new instance CRs at once: whichever insert lands first is default. The `Default` condition on
   both CRs can disagree until the next Get. Lease keeps one ProcessCR at a time.
 - Switching default is `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` on the MaaS Application, not `spec.default`
   on two instance CRs. Two pods both applying `SetDefault` still flap without a Lease; with a Lease it is one writer.
@@ -349,7 +349,7 @@ special-cases “already exists → Update.”
 **Case 4. Two CRs, same `metadata.name`, different namespaces**
 
 Both pods GetById, both see “name free,” both Register. One insert wins; the other hits PK. The losing CR may still show
-Ready if it then GETs the row and assumes it owns it. Adopt / `managed_by_operator` has the same check-then-write hole.
+Ready if it then GETs the row and assumes it owns it. Adopt / `cr_namespace` has the same check-then-write hole.
 
 ### Case 5. User is deleting (topics still there) while the other pod Updates
 

@@ -10,18 +10,20 @@ manage brokers; MaaS still needs a separate REST step to learn them.
 
 Add a Kubernetes operator **inside** `maas-service` that watches namespaced `KafkaInstance` and `RabbitInstance` CRs
 (`maas.netcracker.com/v1`) in any namespace, claims those whose `spec.operatorNamespace` equals this install's
-`CLOUD_NAMESPACE`, reads credentials from Secrets in the CR namespace, and Register/Update/Unregister's the existing
-PostgreSQL instance rows via `KafkaInstanceService` / `RabbitInstanceService`.
+`CLOUD_NAMESPACE`, reads credentials from Secrets in the CR namespace, and Register/Update's the existing PostgreSQL
+instance rows via `KafkaInstanceService` / `RabbitInstanceService`. Deleting a CR keeps the PG row and hands it back to
+manager REST.
 
 Instance CRs are desired connection config. PostgreSQL remains the runtime store used by topic/vhost APIs. MaaS still
 does not proxy broker traffic.
 
 ## In scope
 
-- CRDs, Helm (`OPERATOR_ENABLED`, default-instance params, `K8S_EVENTS_ENABLED`, `restrictedEnvironment`), Lease,
-  ProcessCR, Secrets read on every reconcile (no Secret Watch) plus refresh annotation, status (`Ready` + `Stalled`),
-  Kubernetes Events, `managed_by_operator` REST lock, `deletionPolicy` Unregister/Orphan (Orphan hands the row back to
-  REST), install order (MaaS first, then instance CRs), downgrade without Unregister.
+- CRDs generated into `crds/` and installed in platform zero wave (not in the MaaS chart), Helm (`OPERATOR_ENABLED`,
+  default-instance params, `K8S_EVENTS_ENABLED`, `restrictedEnvironment` skips ClusterRole only), Lease, ProcessCR,
+  Secrets read on every reconcile (no Secret Watch) plus refresh annotation, status (`Ready` + `Stalled`), Kubernetes
+  Events, REST lock while `cr_namespace` is set, CR delete always keeps the PG row and hands it back to REST, install order
+  (CRDs first, then MaaS, then instance CRs), downgrade without Unregister.
 - Rabbit `api_url` / `amqp_url` uniqueness in PostgreSQL (like Kafka `addresses`), for REST and CRs alike.
 - Kubernetes 1.32+ (CEL + selectable fields).
 
@@ -49,10 +51,10 @@ No ticket is wired yet. Delta scenarios already cover:
 | Area | Criterion |
 | ------ | ----------- |
 | Success | Claimed CR Register/Update → `Ready=True` reason `InstanceRegistered`. |
-| Errors | `SecretError`, `HealthCheckFailed` (do not Unregister a previous good row), `InstanceInUse`, `InvalidSpec`, `DuplicateInstanceName`. |
+| Errors | `SecretError`, `HealthCheckFailed` (do not Unregister a previous good row), `InvalidSpec`, `DuplicateInstanceName`, `DuplicateNamespace`. |
 | Compatibility | Manager REST while operator off; existing PG rows unmanaged until a CR writes them; `OPERATOR_ENABLED=false` and old-chart downgrade do not Unregister. |
-| Uniqueness | A second Rabbit instance with an `apiUrl` or `amqpUrl` already used by another id is rejected (REST and CR). |
-| Migrate back | `Orphan` delete leaves the row with `managed_by_operator` false; manager REST can Update it again. |
+| Uniqueness | A second Rabbit instance with an `apiURL` or `amqpURL` already used by another id is rejected (REST and CR). |
+| Migrate back | Deleting the CR clears `cr_namespace` and `cr_name`; manager REST can Update it again. |
 
 Copy these into Jira AC before archive.
 

@@ -1,9 +1,10 @@
 # MaaS broker-discovery operator
 
-Design proposal (not implemented yet). Do not confuse with `[custom_resources(CR).md](custom_resources(CR)`.md)
+Architecture (HLA) for the in-process instance operator. How to install CRDs and set chart values:
+[broker_instance_crs.md](broker_instance_crs.md). Do not confuse with [custom_resources(CR).md](custom_resources(CR).md)
 (`kind: MaaS` Topic/VHost declarations processed by core-operator).
 
-Background (Lease lock, alternatives): `[operator_design_notes.md](operator_design_notes.md)`.
+Background (Lease lock, alternatives): [operator_design_notes.md](operator_design_notes.md).
 
 ## Table of Contents
 
@@ -14,7 +15,7 @@ Background (Lease lock, alternatives): `[operator_design_notes.md](operator_desi
   - [Restricted environment](#restricted-environment)
   - [Reconcile](#reconcile)
 - [Prerequisites and Installation](#prerequisites-and-installation)
-  - [MaaS first, then instance CRs](#maas-first-then-instance-crs)
+  - [CRDs then MaaS, then instance CRs](#crds-then-maas-then-instance-crs)
   - [Instance CRs first (otherwise)](#instance-crs-first-otherwise)
 - [CRD sketch](#crd-sketch)
   - [KafkaInstance](#kafkainstance)
@@ -35,6 +36,7 @@ Background (Lease lock, alternatives): `[operator_design_notes.md](operator_desi
     - [Delete](#delete)
     - [Delete with existing topics or vhosts](#delete-with-existing-topics-or-vhosts)
   - [Multi-MaaS and ownership](#multi-maas-and-ownership)
+    - [CRDs in zero wave](#crds-in-zero-wave)
 - [Related notes](#related-notes)
 
 ## Overview
@@ -68,26 +70,26 @@ flowchart TD
   event --> load["Get CR from apiserver by Watch key namespace/name"]
   load -->|"NotFound"| skipNf["Skip"]
   load -->|"Get succeeded"| del{"Is it DELETE?\n(metadata.deletionTimestamp set)"}
-  del -->|"yes: kubectl delete, CR is Terminating"| policy{"Delete registration in db?\n(spec.deletionPolicy is Orphan or Unregister)"}
-  policy -->|"Orphan: drop CR, keep PG row"| rmFin["PATCH CR metadata: remove finalizer. Apiserver then drops the CR"]
-  policy -->|"Unregister: also delete PG row, MaaS 200"| unregDel["MaaS Unregister"]
-  unregDel --> rmFin
-  policy -->|"Unregister, MaaS 400 topics still on instance"| inUse["PATCH CR status Ready=False reason=InstanceInUse. Keep finalizer. RequeueAfter 30s"]
+  del -->|"yes: kubectl delete, CR is Terminating"| orphan["Keep PG row. Clear cr_namespace and cr_name"]
+  orphan --> rmFin["PATCH CR metadata: remove finalizer. Apiserver then drops the CR"]
   del -->|"no: live CR"| claim{"Does this MaaS install claim the CR?\n(we own spec.operatorNamespace)"}
   claim -->|"no"| stop["Stop. Do not PATCH status"]
   claim -->|"yes"| secrets["Read Secrets (every reconcile, no Secret Watch)"]
   secrets --> stale{"Spec, Secret resourceVersion, or refresh annotation changed,\nReady not True, or 10m resync?"}
   stale -->|no| skip["Skip apply. Keep status"]
   stale -->|yes| val["Validate spec. Map to KafkaInstance or RabbitInstance"]
-  val --> apply{"Do we store a row in DB for this CR?"}
-  apply -->|no row| reg["New instance: add new row to DB,\n set managed_by_operator true, set default true if no prev default"]
-  apply -->|"managed_by_operator true, origin_cr is this CR"| upd["MaaS Update. Same CR, not a new one"]
-  apply -->|"managed_by_operator false"| adopt["MaaS Update. Adopt: set managed_by_operator true and origin_cr"]
-  apply -->|"managed_by_operator true, origin_cr is another CR"| dup["PATCH status Ready=False reason=DuplicateInstanceName"]
+  val --> claimed{"A CR-managed row already has this namespace?"}
+  claimed -->|"yes, different CR name"| dupNs["PATCH status Ready=False reason=DuplicateNamespace"]
+  claimed -->|"yes, this CR"| upd["MaaS Update. Same CR, including URL change"]
+  claimed -->|no| apply{"URL / host set already in PG?"}
+  apply -->|no| reg["New instance: id = CR namespace, set cr_namespace"]
+  apply -->|"yes, cr_namespace empty or other"| urlNs{"host looks like service.namespace?"}
+  urlNs -->|"yes, URL namespace != CR namespace"| denyUrl["PATCH status Ready=False reason=InvalidSpec"]
+  urlNs -->|"URL namespace == CR, or external host"| adopt["Adopt: keep PG id, set cr_namespace"]
   reg --> fin["Ensure finalizer on CR metadata"]
   upd --> fin
   adopt --> fin
-  fin --> patch["PATCH CR status: phase, Ready, Stalled, lastRequestId, observedGeneration, isDefault, secretRevisions"]
+  fin --> patch["PATCH CR status: phase, Ready, Stalled, Default, lastRequestId, observedGeneration, secretRevisions"]
   classDef tip fill:#e8f4fc,stroke:#4a90c4,color:#1a1a1a
   class en tip
 ```
@@ -104,7 +106,7 @@ flowchart TD
   Secret `resourceVersion`s seen at the last apply, never secret bytes; a different revision means MaaS Update.
 - **Periodic resync every 10 minutes.** Each claimed instance CR is reconciled again (`MAAS_INSTANCE_RESYNC_INTERVAL`,
   default `10m`) even when spec and Secrets did not change. Re-reads Secrets (this is how rotated credentials arrive),
-  refreshes `status.isDefault` from PG (install default names), and retries InUse / SecretError. An unparsable or
+  refreshes the `Default` condition from PG (install default names), and retries SecretError. An unparsable or
   non-positive value is logged and the default applies. When ProcessCR runs and backoff: [Reconcile](#reconcile).
 - **Force a refresh** after rotating a Secret, instead of waiting for the resync: change the
   `maas.netcracker.com/refresh` annotation on the CR. It does not bump `generation`, so the CR informer must not filter
@@ -124,41 +126,45 @@ flowchart TD
   [Scaling](#scaling-if-it-is-a-single-service).
 - **Operator optional.** Helm `OPERATOR_ENABLED` enables or disables Watch + ProcessCR. See [Backward compatibility and
   downgrade](#backward-compatibility-and-downgrade).
-- **deletionPolicy.** `Unregister` (default): delete the CR and the PG row. `Orphan`: delete the CR, keep the row and
-  hand it back to manager REST (`managed_by_operator` false). Only read while Terminating. See [Delete](#delete).
+- **Delete keeps the PG row.** There is no `deletionPolicy`. `kubectl delete` on the CR always leaves the instance in
+  PostgreSQL and hands it back to manager REST (`cr_namespace` and `cr_name` cleared). See
+  [Delete](#delete).
 - **Finalizer.** `maas.netcracker.com/instance` after successful Register. Without it, `kubectl delete` drops the CR
-  immediately and can leave an orphan PG row. See [Delete](#delete).
-- **Create vs update.** Register vs Update from `GetById`, not from Watch ADDED vs MODIFIED. How name maps to PG `id`:
-  [Name and id in the database](#name-and-id-in-the-database).
-- **Status.** `Ready` + `Stalled` only. `phase` is for `kubectl`. Automate on conditions.
+  before ownership is cleared, and REST stays locked on that row. See [Delete](#delete).
+- **Create vs update.** Register vs Update from the unique URL / host set, not from Watch ADDED vs MODIFIED. How a CR
+  maps to a PG row: [Name and id in the database](#name-and-id-in-the-database).
+- **Status.** `Ready`, `Stalled`, and `Default`. `phase` is for `kubectl`. Automate on conditions.
 - **Events.** Optional Kubernetes Events on the instance CR (`K8S_EVENTS_ENABLED`). Same reasons as status. See
   [Kubernetes Events](#kubernetes-events).
 - **No SecretRef on the service model.** Mapper loads CR + Secrets into existing `model.KafkaInstance` /
   `RabbitInstance`. InstanceService and the manager REST body stay resolved credentials, not Secret names.
-- **managed_by_operator.** PG boolean. `true` after the operator Register/adopt. Existing REST rows stay `false` until a
-  CR writes that id. While the operator is enabled, manager REST may Update only while this is `false`; after `true`,
+- **cr_namespace.** PG text. Set after the operator Register/adopt. Existing REST rows stay empty until a
+  CR writes that id. While the operator is enabled, manager REST may Update only while this is empty; after it is set,
   REST of that id is rejected. See [CR vs REST](#cr-vs-rest).
-- **Default.** MaaS Application `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` (CR `metadata.name`, first
-  install = broker namespace). Empty: first Register is default. Named CR becomes default when it appears. See [Default
+- **One broker per namespace.** At most one claimed `KafkaInstance` and one claimed `RabbitInstance` per namespace. A
+  second CR of that kind in the namespace gets `DuplicateNamespace`. See [Name and id in the
+  database](#name-and-id-in-the-database).
+- **Default.** MaaS Application `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` (broker namespace: the CR
+  `metadata.namespace`). Empty: first Register is default. Named CR becomes default when it appears. See [Default
   instance](#default-instance).
 
 ### Backward compatibility and downgrade
 
 Manager REST stays. Instances can still be Register/Update/Unregister’d when the operator is off. Existing PG rows are
-unchanged until a CR adopts them (`managed_by_operator`).
+unchanged until a CR adopts them (`cr_namespace` set).
 
-`OPERATOR_ENABLED` turns Watch + ProcessCR on or off. Flipping it false must **not** Unregister instances. Only CR
-deletion with `deletionPolicy: Unregister` does that.
+`OPERATOR_ENABLED` turns Watch + ProcessCR on or off. Flipping it false must **not** Unregister instances. Deleting a
+CR also must **not** Unregister: the PG row stays.
 
 **Downgrade to a MaaS version without the operator.** Argo CD Sync of an older Application (no Watch, no ProcessCR, no
 instance CRDs in that chart).
 
 - PG instance rows stay. Topics/vhosts keep using them. Do not Unregister on rollback.
-- Manager REST is the only writer again. The old binary does not read `managed_by_operator`; the column (if the schema
-  stays) defaults `false` so the old process still starts. REST Update of those ids works (no lock in that binary).
-- Instance CRs are not reconciled. If the old chart does not ship those CRDs and Argo drops them, the CRs leave the API;
-  PG is unchanged. If the CRDs stay, the CRs sit unused. A CR with a finalizer cannot be deleted until the finalizer is
-  removed or the CRD is deleted.
+- Manager REST is the only writer again. The old binary does not read `cr_namespace`; the columns (if the schema
+  stays) default empty so the old process still starts. REST Update of those ids works (no lock in that binary).
+- Instance CRs are not reconciled. CRDs are installed in zero wave, not by the MaaS chart, so they stay unless the
+  zero-wave app drops them. If the CRDs stay, the CRs sit unused. A CR with a finalizer cannot be deleted until the
+  finalizer is removed or the CRD is deleted. The PG row stays either way.
 - `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` are ignored (not on the old chart). PG default flags stay.
 
 ### Secret access (namespaced)
@@ -203,15 +209,15 @@ subjects:
 Use when the MaaS Application cannot create cluster-scoped objects. Watch stays cluster-wide. This is **not** “watch
 only the MaaS namespace” (rejected — broker CRs live in `kafka-infra` / `rabbit-infra`).
 
-Default (`restrictedEnvironment: false`): the chart creates CRDs, `ClusterRole` / `ClusterRoleBinding` (instance CRs
+Default (`restrictedEnvironment: false`): the chart creates `ClusterRole` / `ClusterRoleBinding` (instance CRs
 cluster-wide: `get` / `list` / `watch`, `patch` for the finalizer, status PATCH; **no `secrets`**; `events` `create` /
 `patch` when `K8S_EVENTS_ENABLED`), plus namespaced `Role` / `RoleBinding` for `Lease` `maas-operator-leader` in
-`CLOUD_NAMESPACE`, bound to the existing `maas-service` ServiceAccount.
+`CLOUD_NAMESPACE`, bound to the existing `maas-service` ServiceAccount. CRDs are not in the chart: [CRDs in zero
+wave](#crds-in-zero-wave).
 
-`restrictedEnvironment: true`: the chart creates only the namespaced objects. Apply CRDs, `ClusterRole`, and
-`ClusterRoleBinding` out of band (cluster-admin) **before** the MaaS Application Syncs. Per-namespace Secret Roles stay
-as [Secret access](#secret-access-namespaced). Without the cluster objects, informers fail and instance kinds are
-unknown.
+`restrictedEnvironment: true`: the chart creates only the namespaced objects. Apply `ClusterRole` and
+`ClusterRoleBinding` out of band (cluster-admin) **before** the MaaS Application Syncs. CRDs still come from zero wave.
+Per-namespace Secret Roles stay as [Secret access](#secret-access-namespaced). Without the ClusterRole, informers fail.
 
 MaaS Application value:
 
@@ -231,9 +237,8 @@ and not a resync.
 | --------- | ----- |
 | CR create / spec edit / Terminating | Informer Watch `KafkaInstance` / `RabbitInstance` |
 | Refresh annotation | `maas.netcracker.com/refresh` changed (CR Watch). Forces apply now, e.g. after a Secret rotation. Does not bump `generation`. |
-| Periodic resync | `MAAS_INSTANCE_RESYNC_INTERVAL`, default `10m`. Re-read Secrets (picks up rotation), refresh `status.isDefault`, retry InUse / SecretError. |
+| Periodic resync | `MAAS_INSTANCE_RESYNC_INTERVAL`, default `10m`. Re-read Secrets (picks up rotation), refresh the `Default` condition, retry SecretError. |
 | Secret data change | **Not a trigger.** No Secret Watch. Seen on the next reconcile from a row above. |
-| `RequeueAfter 30s` | Unregister `InstanceInUse` (or still default). In-process timer, no apiserver PATCH. [Delete with existing topics](#delete-with-existing-topics-or-vhosts). |
 | Error return | Transient. Workqueue rate limiter (below). |
 
 **Backoff:**
@@ -241,8 +246,9 @@ and not a resync.
 1. **Error → exponential workqueue.** `SecretError`, `HealthCheckFailed`, apiserver/network. Base `1s`, doubles, cap
    `5m`, 10% jitter. Reset on success. `MAAS_RECONCILE_BACKOFF_BASE` / `MAAS_RECONCILE_BACKOFF_MAX` (defaults `1s` /
    `5m`).
-2. **`RequeueAfter`, no error → limiter skipped.** `InstanceInUse` 30s. Resync 10m. `Stalled=True` (`InvalidSpec`,
-   `DuplicateInstanceName`): `Result{}`, wait for the next CR change (spec or refresh annotation).
+2. **`RequeueAfter`, no error → limiter skipped.** Resync 10m. `Stalled=True` (`InvalidSpec`,
+   `DuplicateInstanceName`, `DuplicateNamespace`): `Result{}`, wait for the next CR change (spec or refresh
+   annotation).
 
 Health-check is sync Register/Update. No async poll (no 202 / trackingId).
 
@@ -267,30 +273,30 @@ OPERATOR_ENABLED: true
 DEFAULT_KAFKA_INSTANCE: <broker-namespace>    # optional
 DEFAULT_RABBIT_INSTANCE: <broker-namespace>   # optional
 K8S_EVENTS_ENABLED: true                     # false: no Events, omit events from ClusterRole
-restrictedEnvironment: false                 # true: chart skips CRDs and ClusterRole; apply them out of band
+restrictedEnvironment: false                 # true: chart skips ClusterRole; apply it out of band
 ```
 
-- `OPERATOR_ENABLED: true` — with the default `false` the chart does not start Watch + ProcessCR (no Lease). Manager
-  REST still runs.
-- `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` — optional. CR `metadata.name` to make the MaaS default for that
-  kind. On first install set each to the broker **namespace** (same string as the instance CR name). Empty: first
-  registered instance of that kind becomes default. Names unknown yet: omit, then update the MaaS Application and Sync.
-  See [Default instance](#default-instance).
+- `OPERATOR_ENABLED: true` — with the default `false` the chart does not start Watch + ProcessCR (no Lease) and
+  renders no ClusterRole. Manager REST still runs. CRDs are not in this chart: [CRDs in zero wave](#crds-in-zero-wave).
+- `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` — optional. Broker **namespace** of the instance CR to make the
+  MaaS default for that kind (the CR `metadata.namespace`, not its name). Empty or a DNS-1123 label. Empty: first
+  registered instance of that kind becomes default. Namespaces unknown yet: omit, then update the MaaS Application and
+  Sync. See [Default instance](#default-instance).
 - `K8S_EVENTS_ENABLED: true` — [Kubernetes Events](#kubernetes-events). Default on. `false` is a no-op recorder and
   drops `events` from the ClusterRole.
-- `restrictedEnvironment: true` — [Restricted environment](#restricted-environment). Cluster-admin applies CRDs +
-  ClusterRole first.
+- `restrictedEnvironment: true` — [Restricted environment](#restricted-environment). Cluster-admin applies ClusterRole
+  first. CRDs still come from zero wave.
 
-Install **MaaS first**, then Kafka/Rabbit instance CRs. Brokers may already be running; MaaS does not proxy traffic. Who
-becomes the PG default is [Default instance](#default-instance).
+Install **CRDs in zero wave, then MaaS, then Kafka/Rabbit instance CRs**. Brokers may already be running; MaaS does not
+proxy traffic. Who becomes the PG default is [Default instance](#default-instance).
 
 How **Kubernetes** and **Argo CD** treat the two install orders. Argo **Sync** is apply to the API. **Health** is
 separate: `Ready=False` is Degraded; no status yet is Progressing. A wave that waits for Healthy blocks.
 
-### MaaS first, then instance CRs
+### CRDs then MaaS, then instance CRs
 
-MaaS chart installs CRDs and `maas-service`. Leader Watches an empty list. A later wave / other Application applies
-`KafkaInstance` / `RabbitInstance`.
+Zero wave installs CRDs from [`crds/`](../crds/). The MaaS chart then deploys `maas-service`. Leader Watches an empty
+list. A later wave / other Application applies `KafkaInstance` / `RabbitInstance`.
 
 Kubernetes: kinds exist, apply succeeds, ProcessCR runs on each create. Argo: MaaS Application Healthy (Deployment).
 Instance Application Sync green, Health Progressing until ProcessCR PATCHes `Ready`, then Healthy. Topic APIs have no
@@ -301,7 +307,7 @@ sequenceDiagram
   participant Argo
   participant API as kube_apiserver
   participant Pod as maas-service
-  Argo->>API: apply MaaS CRDs
+  Argo->>API: zero wave apply CRDs from crds/
   Argo->>Pod: deploy maas-service
   Pod->>API: leader Watch empty
   Note over Argo: later wave or other app
@@ -316,8 +322,8 @@ sequenceDiagram
 **Bad order.** Kafka/Rabbit (or the instance Application) can already be deployed, then the CR still fails. Brokers do
 not need MaaS to run; the GitOps app for the CR does.
 
-**No MaaS, no CRDs.** Apiserver rejects the kind. Argo Sync of the instance Application **fails** after the broker
-install is already green.
+**No CRDs (zero wave skipped).** Apiserver rejects the kind. Argo Sync of the instance Application **fails** after the
+broker install is already green.
 
 **CRDs exist, operator not watching yet.** Apply writes CRs to etcd. Sync is green. Health stays Progressing, then can
 go **Degraded** when ProcessCR later fails (`HealthCheckFailed`, `SecretError`). The instance is already out; the CR is
@@ -350,10 +356,16 @@ immutable `spec.operatorNamespace == CLOUD_NAMESPACE`. Credentials live in Secre
 instance CR (no `secretRef.namespace` in v1). CRD extras: category `maas`, short names, printer columns,
 `selectableFields` on `spec.operatorNamespace` (K8s 1.32+), CEL `self == oldSelf` on identity fields.
 
+Field names follow the Kubernetes API conventions, not the REST JSON: acronyms keep one case (`apiURL`, `amqpURL`),
+observed state is a condition (`Default`). `status.lastRequestId` keeps its existing spelling (exception).
+The CR has one Kafka `address`; protocol and SASL mechanism live on that address, not on the credentials.
+
 | Kind | Short name | `kubectl get` columns |
 | ------ | ------------ | ------------------------ |
 | `KafkaInstance` | `mkafi` | `PHASE`, `READY`, `DEFAULT`, `AGE` |
 | `RabbitInstance` | `mrabi` | `PHASE`, `READY`, `DEFAULT`, `AGE` |
+
+`DEFAULT` is `.status.conditions[?(@.type=='Default')].status`.
 
 ### KafkaInstance
 
@@ -366,8 +378,8 @@ spec/status are documentation, not YAML schema.
 apiVersion: maas.netcracker.com/v1
 kind: KafkaInstance
 metadata:
-  name: platform-kafka
-  namespace: kafka-infra
+  name: kafka-infra                    # Kubernetes object name (examples use the namespace; ProcessCR does not)
+  namespace: kafka-infra               # broker NS, or a dedicated NS for an external broker
   uid: 7f3c9a10-4b2e-4d11-9c0a-0b1a2c3d4e5f
   resourceVersion: "184400"
   generation: 3
@@ -375,29 +387,26 @@ metadata:
     - maas.netcracker.com/instance
 spec:
   operatorNamespace: maas-core         # required. Claim: must equal this operator CLOUD_NAMESPACE. CEL immutable (self == oldSelf). RFC-1123
-  addresses:
-    SASL_PLAINTEXT: ["kafka.kafka-infra:9092"]
-  maasProtocol: SASL_PLAINTEXT         # PLAINTEXT | SASL_PLAINTEXT | SSL | SASL_SSL. Protocol MaaS uses to talk to the broker
-  caCertSecretRef:
-    name: kafka-ca
-    key: ca.crt
-  credentialsSecretRef:
-    name: kafka-admin
-    keys:
-      - key: type
-        name: type
-      - key: username
-        name: username
-      - key: password
-        name: password
-  deletionPolicy: Unregister           # Unregister (default): delete CR and PG row. Orphan: delete CR, keep PG row. Only read while Terminating
+  address:                             # one listener. Admin and client both use it. Mapper writes a one-key PG addresses map
+    protocol: SASL_SSL                 # PLAINTEXT | SASL_PLAINTEXT | SSL | SASL_SSL. Replaces REST maasProtocol
+    saslMechanism: SCRAM               # PLAIN | SCRAM. Required for SASL_*, forbidden for PLAINTEXT / SSL
+    bootstrapServers: ["kafka.kafka-infra:9093"]
+    caCertSecretRef:                   # required for SSL / SASL_SSL. Secret.data key is always ca.crt
+      name: kafka-ca
+  credentials:                         # required. admin and client are both required
+    admin:                             # one object. MaaS connects and manages topics with it
+      credentialsSecretRef:            # Secret in this namespace. Keys are fixed: username, password
+        name: kafka-admin
+    client:                            # one object. Returned to applications with topic responses
+      credentialsSecretRef:
+        name: kafka-client
 status:
   phase: BackingOff                    # kubectl column only. Processing | Succeeded | BackingOff | InvalidConfiguration. Automate on conditions, not phase
-  isDefault: false                     # observed PG default. Not a request
   lastRequestId: "req-3f8c"            # ProcessCR generates X-Request-Id and PATCHes it (no HTTP header)
   secretRevisions:                     # Secret resourceVersions. Never secret bytes
     kafka-ca: "184291"
     kafka-admin: "184310"
+    kafka-client: "184312"
   conditions:                          # Ready + Stalled. list-type=map keyed by type
     - type: Ready                      # True = this generation applied successfully and instance is usable (or Terminating cleanup done)
       status: "False"
@@ -411,6 +420,12 @@ status:
       message: "kafka health-check failed: dial tcp kafka.kafka-infra:9092: i/o timeout"
       lastTransitionTime: "2026-08-27T13:40:02Z"
       observedGeneration: 3
+    - type: Default                    # observed PG default. Not a request. See Status
+      status: "False"
+      reason: NotDefault
+      message: "MaaS default Kafka instance is kafka-main"
+      lastTransitionTime: "2026-08-27T13:30:00Z"
+      observedGeneration: 3
   observedGeneration: 3                # stamped on success or Stalled=True. Left behind on transient (BackingOff)
 ```
 
@@ -418,167 +433,240 @@ status:
 
 | Field | Required | Notes |
 | ------- | :--------: | ------- |
-| `metadata.name` | Yes | DNS-1123. First install: equal to `metadata.namespace`. `DEFAULT_KAFKA_INSTANCE` matches this. Maps to PG `id`: [Name and id](#name-and-id-in-the-database). |
+| `metadata.name` | Yes | DNS-1123 Kubernetes object name. Not the PG `id` and not the old REST id. Examples use the namespace. |
+| `metadata.namespace` | Yes | Broker NS, or a dedicated NS for an external broker. One claimed `KafkaInstance` per namespace. `DEFAULT_KAFKA_INSTANCE` matches this. New rows: PG `id` = this namespace. [Name and id](#name-and-id-in-the-database). |
 | `spec.operatorNamespace` | Yes | Claim (`CLOUD_NAMESPACE`). CEL immutable. Skip, no PATCH, if it does not match. |
-| `spec.addresses` | Yes | One protocol key, matching `maasProtocol`. |
-| `spec.maasProtocol` | Yes | `PLAINTEXT` \| `SASL_PLAINTEXT` \| `SSL` \| `SASL_SSL`. |
-| `spec.caCertSecretRef` | No | `{name, key}` same NS. Omit if no CA. |
-| `spec.credentialsSecretRef` | Yes | `{name, keys[{key, name}]}` same NS. `key` = `Secret.data`; `name` = Kafka Auth DTO field. |
-| `spec.deletionPolicy` | No | `Unregister` (default) or `Orphan`. Read only while Terminating. |
+| `spec.address` | Yes | One listener `{protocol, saslMechanism, bootstrapServers, caCertSecretRef}`. Admin and client share it. Mapper writes a one-key MaaS `addresses` map; REST-registered rows keep whatever map they already have. |
+| `spec.address.protocol` | Yes | `PLAINTEXT` \| `SASL_PLAINTEXT` \| `SSL` \| `SASL_SSL`. MaaS connects here (`MaasProtocol`). `SSL` / `SASL_SSL` enable TLS. |
+| `spec.address.saslMechanism` | For `SASL_*` | `PLAIN` \| `SCRAM` (SCRAM-SHA-512). Required for `SASL_PLAINTEXT` / `SASL_SSL`, forbidden for `PLAINTEXT` / `SSL` (CEL). |
+| `spec.address.bootstrapServers` | Yes | Host:port list. |
+| `spec.address.caCertSecretRef` | For TLS | `{name}` same NS. Secret.data key is always `ca.crt`. Required when `protocol` is `SSL` / `SASL_SSL` (CEL). |
+| `spec.credentials.admin` | Yes | One credential. MaaS connects to `address` with it. |
+| `spec.credentials.client` | Yes | One credential, returned to applications. Only combinations the client libraries support (CEL): see [Client library compatibility](#client-library-compatibility). |
+| credential `clientCert` | No | `true`: mTLS. Only with `SSL` / `SASL_SSL` (CEL). Default `false`. |
+| credential `credentialsSecretRef` | When there is something to read | `{name}` same NS. Required when `saslMechanism` is set or `clientCert` is true, forbidden otherwise (CEL). Secret.data keys are fixed: `username` + `password` when SASL; also `clientKey` + `clientCert` when `clientCert` is true. |
+
+The MaaS auth `type` is derived, not written:
+
+| `address.protocol` | `saslMechanism` | `clientCert` | MaaS auth type |
+| ------- | ------- | ------- | ------- |
+| `PLAINTEXT` | — | — | no credential |
+| `SASL_PLAINTEXT` | `PLAIN` / `SCRAM` | — | `plain` / `SCRAM` |
+| `SSL` | — | `false` / `true` | no credential / `sslCert` |
+| `SASL_SSL` | `PLAIN` | `false` / `true` | `plain` / `sslCert+plain` |
+| `SASL_SSL` | `SCRAM` | `false` / `true` | `SCRAM` / `sslCert+SCRAM` |
+
+MaaS connects with sarama, which handles every row, so `admin` takes any of them.
+
+#### Client library compatibility
+
+A CR goes through three steps: the operator writes the same instance row manager REST creates (`addresses` as a one-key
+map, `maasProtocol`, `caCert`, `credentials` with `admin` and `client`); MaaS connects to Kafka with the `admin`
+credential (topic create, update, delete, health check) on that same listener; an application asks MaaS for a topic
+and its client library builds the connection from the response. Only the client credential goes into topic responses,
+never the admin one. Admin and client share `spec.address`, so the health check uses the same listener as applications.
+
+Topic responses keep the format existing client libraries read. The Go (`qubership-core-lib-go-maas-client`) and Java
+(`maas-client`) libraries use only these fields:
+
+```json
+{
+  "addresses": {
+    "SASL_SSL": ["kafka.kafka-infra:9093"]
+  },
+  "caCert": "MIIDPjCCAiYC...",
+  "credential": {
+    "client": [
+      {"type": "SCRAM", "username": "app-client", "password": "plain:secret"}
+    ]
+  }
+}
+```
+
+The address key decides TLS, the credential `type` decides the SASL mechanism and the client certificate, and
+`password` must have the `plain:` prefix. The libraries try these address key and credential pairs from the highest
+priority down and take the first one the response has:
+
+| Priority | Address key | Credential type | Needs |
+| ------- | ------- | ------- | ------- |
+| 30 | `SASL_SSL` | `sslCert+SCRAM`, `sslCert+plain`, `SCRAM` | `caCert` |
+| 20 | `SSL` | none or `sslCert` | `caCert` |
+| 15 | `PLAINTEXT` | `SCRAM` | |
+| 10 | `SASL_PLAINTEXT` | `SCRAM` | |
+| 0 | `PLAINTEXT` | none or `plain` | |
+
+The libraries have no `SASL_PLAINTEXT` + `plain` pair, so old clients cannot connect to SASL PLAIN without TLS until
+they are updated. Topic responses are built from the stored `addresses` map and client credential: a CR writes a
+one-key map; a REST-registered row keeps whatever map it already has.
+
+**Client libraries.** Existing client libraries are compatible: a CR-managed response is the same shape they already
+read. They should still be adapted to the new Kafka credential design: choose the TLS setting and SASL mechanism from
+the listener protocol and the credential (as `address.protocol`, `saslMechanism` and `clientCert` describe it in the
+CR), not from a fixed list of address key and credential type pairs. Until then, CEL still rejects row 6. Row 2
+(`SASL_PLAINTEXT` + `PLAIN`) is allowed on the CR so a later library fix can use it.
+
+How each `client` credential reaches the libraries. `admin` may use any row:
+
+| # | `address.protocol` | `saslMechanism` | `clientCert` | `caCertSecretRef` | Secret keys | `type` in response | Old library connects with | Old libraries OK |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `PLAINTEXT` | — | — | — | — | no credential | no auth, no TLS | yes |
+| 2 | `SASL_PLAINTEXT` | `PLAIN` | — | — | username, password | `plain` | nothing fits | CR allowed; old libraries cannot connect until updated |
+| 3 | `SASL_PLAINTEXT` | `SCRAM` | — | — | username, password | `SCRAM` | SCRAM, no TLS | yes |
+| 4 | `SSL` | — | `false` | required | — | no credential | TLS | yes |
+| 5 | `SSL` | — | `true` | required | clientKey, clientCert | `sslCert` | TLS + client cert | yes |
+| 6 | `SASL_SSL` | `PLAIN` | `false` | required | username, password | `plain` | nothing fits | **no, CEL rejects** |
+| 7 | `SASL_SSL` | `PLAIN` | `true` | required | all four | `sslCert+plain` | TLS + cert + PLAIN | yes |
+| 8 | `SASL_SSL` | `SCRAM` | `false` | required | username, password | `SCRAM` | TLS + SCRAM | yes |
+| 9 | `SASL_SSL` | `SCRAM` | `true` | required | all four | `sslCert+SCRAM` | TLS + cert + SCRAM | yes |
+
+CEL on `client` rejects what no library can use, and names a form that works, except row 2 which is left open:
+
+- `SASL_SSL` + `PLAIN` without `clientCert` (row 6): add `clientCert` (row 7) or use `SCRAM` (row 8).
+- `SSL` / `SASL_SSL` without `caCertSecretRef`.
+- `SASL_PLAINTEXT` + `PLAIN` (row 2) is accepted; old libraries still cannot connect until they are updated.
+
+CR examples for each row. Only the fields that differ are shown; every CR also has `operatorNamespace` and `admin`.
+Secret data keys are fixed by contract (`username`, `password`, `clientKey`, `clientCert`, CA `ca.crt`).
+
+1. No auth, no TLS:
+
+   ```yaml
+   address:
+     protocol: PLAINTEXT
+     bootstrapServers: ["kafka:9092"]
+   credentials:
+     client: {}
+   ```
+
+2. SASL PLAIN, no TLS (CR allowed; old libraries cannot connect until updated):
+
+   ```yaml
+   address:
+     protocol: SASL_PLAINTEXT
+     saslMechanism: PLAIN
+     bootstrapServers: ["kafka:9092"]
+   credentials:
+     client:
+       credentialsSecretRef: {name: kafka-client}
+   ```
+
+3. SCRAM, no TLS:
+
+   ```yaml
+   address:
+     protocol: SASL_PLAINTEXT
+     saslMechanism: SCRAM
+     bootstrapServers: ["kafka:9092"]
+   credentials:
+     client:
+       credentialsSecretRef: {name: kafka-client}
+   ```
+
+4. TLS only:
+
+   ```yaml
+   address:
+     protocol: SSL
+     bootstrapServers: ["kafka:9093"]
+     caCertSecretRef: {name: kafka-ca}
+   credentials:
+     client: {}
+   ```
+
+5. TLS with a client certificate:
+
+   ```yaml
+   address:
+     protocol: SSL
+     bootstrapServers: ["kafka:9093"]
+     caCertSecretRef: {name: kafka-ca}
+   credentials:
+     client:
+       clientCert: true
+       credentialsSecretRef: {name: kafka-client-tls}
+   ```
+
+6. TLS + SASL PLAIN without a client certificate (rejected):
+
+   ```yaml
+   address:
+     protocol: SASL_SSL
+     saslMechanism: PLAIN        # rejected: use clientCert: true (row 7) or SCRAM (row 8)
+     bootstrapServers: ["kafka:9093"]
+     caCertSecretRef: {name: kafka-ca}
+   credentials:
+     client:
+       credentialsSecretRef: {name: kafka-client}
+   ```
+
+7. TLS + client certificate + SASL PLAIN:
+
+   ```yaml
+   address:
+     protocol: SASL_SSL
+     saslMechanism: PLAIN
+     bootstrapServers: ["kafka:9093"]
+     caCertSecretRef: {name: kafka-ca}
+   credentials:
+     client:
+       clientCert: true
+       credentialsSecretRef: {name: kafka-client}
+   ```
+
+8. TLS + SCRAM:
+
+   ```yaml
+   address:
+     protocol: SASL_SSL
+     saslMechanism: SCRAM
+     bootstrapServers: ["kafka:9093"]
+     caCertSecretRef: {name: kafka-ca}
+   credentials:
+     client:
+       credentialsSecretRef: {name: kafka-client}
+   ```
+
+   Topic response:
+
+   ```json
+   "addresses": {"SASL_SSL": ["kafka:9093"]},
+   "caCert": "MIIDPjCCAiYC...",
+   "credential": {"client": [{"type": "SCRAM", "username": "app", "password": "plain:secret"}]}
+   ```
+
+9. TLS + client certificate + SCRAM:
+
+   ```yaml
+   address:
+     protocol: SASL_SSL
+     saslMechanism: SCRAM
+     bootstrapServers: ["kafka:9093"]
+     caCertSecretRef: {name: kafka-ca}
+   credentials:
+     client:
+       clientCert: true
+       credentialsSecretRef: {name: kafka-client}
+   ```
+
+A CR-managed topic response holds that one listener. Applications pick by the priority above. REST-registered rows may
+still store several listeners; the CR cannot.
+
+**Legacy form.** REST-registered rows may have SASL on a `PLAINTEXT` key (`PLAINTEXT` + `plain` or `SCRAM`). They keep
+working as before; their topic responses do not change until a CR adopts them. A CR has no such form (`saslMechanism`
+is forbidden on `PLAINTEXT`). A row with `PLAINTEXT` + `SCRAM` is adopted as `SASL_PLAINTEXT` + `SCRAM` (row 3). A row
+with `PLAINTEXT` + `plain` is adopted as `SASL_PLAINTEXT` + `PLAIN` (row 2); old libraries cannot connect until they
+are updated.
+
+**Adopt.** Adopting a REST row writes the CR's one listener and one client credential into PG (the stored map becomes
+one key). Choose the pair the libraries pick today (the highest-priority match above). If that pair has no CR form
+(row 6), do not create a CR for it; keep managing it through the manager REST API.
 
 Status: [Status](#status).
 
 #### CRD
 
-```yaml
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: kafkainstances.maas.netcracker.com
-spec:
-  group: maas.netcracker.com
-  names:
-    categories: [maas]
-    kind: KafkaInstance
-    listKind: KafkaInstanceList
-    plural: kafkainstances
-    shortNames: [mkafi]
-    singular: kafkainstance
-  scope: Namespaced
-  versions:
-    - name: v1
-      served: true
-      storage: true
-      additionalPrinterColumns:
-        - jsonPath: .status.phase
-          name: Phase
-          type: string
-        - jsonPath: .status.conditions[?(@.type=='Ready')].status
-          name: Ready
-          type: string
-        - jsonPath: .status.isDefault
-          name: Default
-          type: boolean
-        - jsonPath: .metadata.creationTimestamp
-          name: Age
-          type: date
-      selectableFields:
-        - jsonPath: .spec.operatorNamespace
-      subresources:
-        status: {}
-      schema:
-        openAPIV3Schema:
-          type: object
-          required: [spec]
-          properties:
-            spec:
-              type: object
-              required: [operatorNamespace, addresses, maasProtocol, credentialsSecretRef]
-              properties:
-                operatorNamespace:
-                  type: string
-                  description: MaaS install that claims this CR. Must equal the operator CLOUD_NAMESPACE. Immutable.
-                  minLength: 1
-                  maxLength: 63
-                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-                  x-kubernetes-validations:
-                    - rule: self == oldSelf
-                      message: spec.operatorNamespace is immutable after creation
-                addresses:
-                  type: object
-                  description: Broker addresses keyed by protocol. One key, matching maasProtocol.
-                  additionalProperties:
-                    type: array
-                    items:
-                      type: string
-                      minLength: 1
-                  minProperties: 1
-                maasProtocol:
-                  type: string
-                  description: Protocol MaaS uses to talk to this Kafka.
-                  enum: [PLAINTEXT, SASL_PLAINTEXT, SSL, SASL_SSL]
-                caCertSecretRef:
-                  type: object
-                  description: CA certificate Secret in the same namespace as this CR. Omit if no CA.
-                  required: [name, key]
-                  properties:
-                    name:
-                      type: string
-                      minLength: 1
-                    key:
-                      type: string
-                      minLength: 1
-                credentialsSecretRef:
-                  type: object
-                  description: Credentials Secret in the same namespace. keys map Secret.data to Kafka Auth DTO fields.
-                  required: [name, keys]
-                  properties:
-                    name:
-                      type: string
-                      minLength: 1
-                    keys:
-                      type: array
-                      minItems: 1
-                      items:
-                        type: object
-                        required: [key, name]
-                        properties:
-                          key:
-                            type: string
-                            minLength: 1
-                            description: Key in Secret.data
-                          name:
-                            type: string
-                            minLength: 1
-                            description: Field name in the Kafka Auth DTO (type, username, password, clientKey, clientCert)
-                deletionPolicy:
-                  type: string
-                  description: On CR delete. Unregister drops the PG row; Orphan keeps it and hands it back to manager REST. Only read while Terminating.
-                  enum: [Unregister, Orphan]
-                  default: Unregister
-            status:
-              type: object
-              properties:
-                phase:
-                  type: string
-                  description: kubectl summary. Automate on conditions, not phase.
-                isDefault:
-                  type: boolean
-                  description: Observed PG default flag.
-                lastRequestId:
-                  type: string
-                secretRevisions:
-                  type: object
-                  additionalProperties:
-                    type: string
-                observedGeneration:
-                  type: integer
-                  format: int64
-                conditions:
-                  type: array
-                  x-kubernetes-list-type: map
-                  x-kubernetes-list-map-keys: [type]
-                  items:
-                    type: object
-                    required: [lastTransitionTime, message, reason, status, type]
-                    properties:
-                      type:
-                        type: string
-                      status:
-                        type: string
-                        enum: ["True", "False", "Unknown"]
-                      reason:
-                        type: string
-                        minLength: 1
-                      message:
-                        type: string
-                      lastTransitionTime:
-                        type: string
-                        format: date-time
-                      observedGeneration:
-                        type: integer
-                        format: int64
-```
+Generated from the Go CR types with `controller-gen` into [`crds/`](../crds/) (tasks 4.2 and 4.3); not copied here.
+Zero wave installs those files before MaaS. The MaaS chart does not ship CRDs.
 
 ### RabbitInstance
 
@@ -588,8 +676,8 @@ spec:
 apiVersion: maas.netcracker.com/v1
 kind: RabbitInstance
 metadata:
-  name: platform-rabbit
-  namespace: rabbit-infra
+  name: rabbit-infra                   # Kubernetes object name (examples use the namespace; ProcessCR does not)
+  namespace: rabbit-infra              # broker NS, or a dedicated NS for an external broker
   uid: 1a2b3c4d-5e6f-7081-92a3-b4c5d6e7f809
   resourceVersion: "22010"
   generation: 1
@@ -597,19 +685,12 @@ metadata:
     - maas.netcracker.com/instance
 spec:
   operatorNamespace: maas-core         # required, immutable, same claim as Kafka
-  apiUrl: http://rabbit.rabbit-infra:15672/api   # Rabbit management API
-  amqpUrl: amqp://rabbit.rabbit-infra:5672       # AMQP
-  credentialsSecretRef:
+  apiURL: http://rabbit.rabbit-infra:15672/api   # Rabbit management API
+  amqpURL: amqp://rabbit.rabbit-infra:5672       # AMQP
+  credentialsSecretRef:                # Secret in this namespace. Keys are fixed: username, password
     name: rabbit-admin
-    keys:
-      - key: user
-        name: user
-      - key: password
-        name: password
-  deletionPolicy: Unregister
 status:
   phase: Succeeded
-  isDefault: false
   lastRequestId: "req-22010"
   secretRevisions:
     rabbit-admin: "22001"
@@ -617,11 +698,19 @@ status:
     - type: Ready
       status: "True"
       reason: InstanceRegistered
+      message: "rabbit instance rabbit-infra registered"
       lastTransitionTime: "2026-08-27T13:41:02Z"
       observedGeneration: 1
     - type: Stalled
       status: "False"
       reason: Succeeded
+      message: "applied"
+      lastTransitionTime: "2026-08-27T13:41:02Z"
+      observedGeneration: 1
+    - type: Default
+      status: "True"
+      reason: Configured
+      message: "namespace matches maas default property"
       lastTransitionTime: "2026-08-27T13:41:02Z"
       observedGeneration: 1
   observedGeneration: 1
@@ -631,147 +720,24 @@ status:
 
 | Field | Required | Notes |
 | ------- | :--------: | ------- |
-| `metadata.name` | Yes | Same rules as Kafka. `DEFAULT_RABBIT_INSTANCE` matches this. |
+| `metadata.name` | Yes | Same as Kafka: Kubernetes object name only. |
+| `metadata.namespace` | Yes | Broker NS, or a dedicated NS for an external broker. One claimed `RabbitInstance` per namespace. `DEFAULT_RABBIT_INSTANCE` matches this. |
 | `spec.operatorNamespace` | Yes | Same claim as Kafka. CEL immutable. |
-| `spec.apiUrl` | Yes | Rabbit management HTTP API. |
-| `spec.amqpUrl` | Yes | AMQP. |
-| `spec.credentialsSecretRef` | Yes | `{name, keys[{key, name}]}` same NS. DTO fields: `user`, `password`. |
-| `spec.deletionPolicy` | No | `Unregister` (default) or `Orphan`. |
+| `spec.apiURL` | Yes | Rabbit management HTTP API, `http://` or `https://`. MaaS appends `/api` if missing. Unique. |
+| `spec.amqpURL` | Yes | AMQP URL returned to applications, `amqp://` or `amqps://`. Unique. |
+| `spec.credentialsSecretRef` | Yes | `{name}` same NS. Secret.data keys are fixed: `username`, `password`. Mapper copies `username` into the REST `User` field. |
 
 Status: [Status](#status).
 
 #### CRD
 
-```yaml
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: rabbitinstances.maas.netcracker.com
-spec:
-  group: maas.netcracker.com
-  names:
-    categories: [maas]
-    kind: RabbitInstance
-    listKind: RabbitInstanceList
-    plural: rabbitinstances
-    shortNames: [mrabi]
-    singular: rabbitinstance
-  scope: Namespaced
-  versions:
-    - name: v1
-      served: true
-      storage: true
-      additionalPrinterColumns:
-        - jsonPath: .status.phase
-          name: Phase
-          type: string
-        - jsonPath: .status.conditions[?(@.type=='Ready')].status
-          name: Ready
-          type: string
-        - jsonPath: .status.isDefault
-          name: Default
-          type: boolean
-        - jsonPath: .metadata.creationTimestamp
-          name: Age
-          type: date
-      selectableFields:
-        - jsonPath: .spec.operatorNamespace
-      subresources:
-        status: {}
-      schema:
-        openAPIV3Schema:
-          type: object
-          required: [spec]
-          properties:
-            spec:
-              type: object
-              required: [operatorNamespace, apiUrl, amqpUrl, credentialsSecretRef]
-              properties:
-                operatorNamespace:
-                  type: string
-                  description: MaaS install that claims this CR. Must equal the operator CLOUD_NAMESPACE. Immutable.
-                  minLength: 1
-                  maxLength: 63
-                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-                  x-kubernetes-validations:
-                    - rule: self == oldSelf
-                      message: spec.operatorNamespace is immutable after creation
-                apiUrl:
-                  type: string
-                  minLength: 1
-                  description: Rabbit management HTTP API URL
-                amqpUrl:
-                  type: string
-                  minLength: 1
-                  description: AMQP URL
-                credentialsSecretRef:
-                  type: object
-                  required: [name, keys]
-                  properties:
-                    name:
-                      type: string
-                      minLength: 1
-                    keys:
-                      type: array
-                      minItems: 1
-                      items:
-                        type: object
-                        required: [key, name]
-                        properties:
-                          key:
-                            type: string
-                            minLength: 1
-                          name:
-                            type: string
-                            minLength: 1
-                            description: Field name in the Rabbit payload (user, password)
-                deletionPolicy:
-                  type: string
-                  enum: [Unregister, Orphan]
-                  default: Unregister
-            status:
-              type: object
-              properties:
-                phase:
-                  type: string
-                isDefault:
-                  type: boolean
-                lastRequestId:
-                  type: string
-                secretRevisions:
-                  type: object
-                  additionalProperties:
-                    type: string
-                observedGeneration:
-                  type: integer
-                  format: int64
-                conditions:
-                  type: array
-                  x-kubernetes-list-type: map
-                  x-kubernetes-list-map-keys: [type]
-                  items:
-                    type: object
-                    required: [lastTransitionTime, message, reason, status, type]
-                    properties:
-                      type:
-                        type: string
-                      status:
-                        type: string
-                        enum: ["True", "False", "Unknown"]
-                      reason:
-                        type: string
-                        minLength: 1
-                      message:
-                        type: string
-                      lastTransitionTime:
-                        type: string
-                        format: date-time
-                      observedGeneration:
-                        type: integer
-                        format: int64
-```
+Generated from the Go CR types with `controller-gen` into [`crds/`](../crds/) (tasks 4.2 and 4.3); not copied here.
+Zero wave installs those files before MaaS. The MaaS chart does not ship CRDs.
 
 ### Secrets
+
+Secrets referenced by the CR examples above. They hold only values. Secret.data keys are fixed by contract; the CR
+names the Secret, not the keys. The Kafka protocol and mechanism are on `spec.address`. Passwords are stored raw.
 
 ```yaml
 apiVersion: v1
@@ -792,15 +758,19 @@ metadata:
   name: kafka-admin
   namespace: kafka-infra
 type: Opaque
-stringData:
-  type: plain                     # plain | sslCert | SCRAM | sslCert+plain | sslCert+SCRAM
+stringData:                       # credentials.admin (SASL_SSL, SCRAM)
   username: admin
   password: "..."
-  # clientKey / clientCert when type is sslCert or sslCert+plain / sslCert+SCRAM:
-  # clientKey: |
-  #   -----BEGIN PRIVATE KEY-----
-  # clientCert: |
-  #   -----BEGIN CERTIFICATE-----
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-client
+  namespace: kafka-infra
+type: Opaque
+stringData:                       # credentials.client. With clientCert: also clientKey and clientCert
+  username: app-client
+  password: "..."
 ---
 apiVersion: v1
 kind: Secret
@@ -809,7 +779,7 @@ metadata:
   namespace: rabbit-infra
 type: Opaque
 stringData:
-  user: guest
+  username: guest
   password: "..."
 ```
 
@@ -820,10 +790,9 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | Field | Notes |
 | ------- | ------- |
 | `status.phase` | `Processing` \| `Succeeded` \| `BackingOff` \| `InvalidConfiguration`. kubectl only. |
-| `status.conditions` | `Ready` + `Stalled` only. |
+| `status.conditions` | `Ready`, `Stalled`, `Default` (`metav1.Condition`, list-type map keyed by `type`). |
 | `status.lastRequestId` | ProcessCR `X-Request-Id` (no HTTP header). |
 | `status.observedGeneration` | Stamped on success or `Stalled=True`. Left behind on transient. |
-| `status.isDefault` | Observed PG default. [Default instance](#default-instance). |
 | `status.secretRevisions` | Secret `resourceVersion`s seen at the last apply. Compared on each reconcile to detect rotation. Never secret bytes. |
 
 | Ready / Stalled | Meaning |
@@ -835,12 +804,22 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | Reason | Ready | Stalled | Meaning |
 | -------- | ------- | --------- | --------- |
 | `InstanceRegistered` | True | False | Register/Update succeeded. |
-| `ForcedDefault` | True | False | First row became PG default. Informational. |
 | `SecretError` | False | False | Secret missing, key missing/empty, or forbidden. |
 | `HealthCheckFailed` | False | False | Register/Update health-check 400. Do not Unregister a previous good row. |
-| `InstanceInUse` | False | False | Unregister 400, topics/vhosts still on the instance. Keep finalizer. |
-| `InvalidSpec` | False | True | Duplicate `keys[].name`, bad `maasProtocol`, Kafka address or Rabbit URL used by another id, etc. |
+| `InvalidSpec` | False | True | Kafka address or Rabbit URL used by another id, or a spec the CRD let through but MaaS rejects. |
 | `DuplicateInstanceName` | False | True | Another CR owns that id. |
+| `DuplicateNamespace` | False | True | Another CR of this kind already owns this namespace. Message names that CR. |
+
+`Default` is observed PG state, separate from `Ready`: an instance can be ready and not default, or default while its
+last update failed. ProcessCR sets it after Register/Update and on resync ([Default instance](#default-instance)):
+
+| `Default` | Reason | Meaning |
+| --------- | -------- | --------- |
+| True | `Configured` | PG default, and the CR namespace matches the MaaS default property. |
+| True | `ForcedDefault` | PG default, not named by the param: first instance of its kind, or set earlier (REST SetDefault, an old param). |
+| False | `NotDefault` | Another instance is the PG default. Message names it. |
+
+No `Default` condition before the first successful Register (no PG row yet).
 
 Finalizer `maas.netcracker.com/instance` after Register. `deletionTimestamp` set means Terminating. A Secret rotation
 or the refresh annotation does not bump `generation`.
@@ -855,18 +834,18 @@ namespace** (`kafka-infra` / `rabbit-infra`), not in `CLOUD_NAMESPACE`. Same `re
 `K8S_EVENTS_ENABLED` (default `true`). `false`: recorder is a no-op; chart omits `events` `create` / `patch` from the
 ClusterRole (and from the out-of-band ClusterRole when `restrictedEnvironment: true`).
 
-**Emit** when ProcessCR first writes that reason (or the reason changes). **Do not emit** on skip-apply, skip-claim, 10m
-resync that stays `Ready=True`, or a retry that already has the same reason (`InstanceInUse` every 30s). `ForcedDefault`
-stays status-only.
+**Emit** when ProcessCR first writes that reason (or the reason changes). **Do not emit** on skip-apply, skip-claim, or
+10m resync that stays `Ready=True`. The `Default` condition (`Configured`, `ForcedDefault`, `NotDefault`) stays
+status-only.
 
 | Reason | Type | When |
 | -------- | ------ | ------ |
 | `InstanceRegistered` | Normal | Register/Update succeeded. |
-| `InvalidSpec` | Warning | Duplicate `keys[].name`, bad `maasProtocol`, etc. |
+| `InvalidSpec` | Warning | Kafka address or Rabbit URL used by another id, etc. |
 | `SecretError` | Warning | Secret missing, key missing/empty, or forbidden. |
 | `HealthCheckFailed` | Warning | Register/Update health-check 400. |
-| `InstanceInUse` | Warning | Unregister 400; topics/vhosts still on the instance. Once until the reason changes. |
 | `DuplicateInstanceName` | Warning | Another CR owns that id. |
+| `DuplicateNamespace` | Warning | Another CR of this kind already owns this namespace. |
 
 ClusterRole (not the namespaced Secret Role) grants `events` `create` / `patch` so Events can land in the broker
 namespace. `kubectl describe kafkainstance … -n kafka-infra` shows them.
@@ -883,18 +862,26 @@ change the public manager API and persist names instead of secrets.
 
 Add a **new operator layer** (not a new DB table):
 
-- CR Go types (`KafkaInstance` / `RabbitInstance`, `SecretKeyMapping`, `SecretKeyRef`) live in the operator package.
-  They are the apiserver schema. Kind names match the service models (`model.KafkaInstance` / `model.RabbitInstance`);
-  the packages differ so the types do not collide.
-- Mapper: load CR + Secrets → fill existing `model.KafkaInstance` / `RabbitInstance` (`Id` mapping open — [Name and
-  id](#name-and-id-in-the-database), `Addresses`, `Default: false`, `MaasProtocol`, `CACert`, `Credentials` / `ApiUrl`,
-  `AmqpUrl`, `User`, `Password`). Instance mapper never sets `Default: true`.
+- CR Go types (`KafkaInstance` / `RabbitInstance`, `KafkaAddress`, `KafkaCredential`, `SecretNameRef`) live in the
+  operator package. They are the apiserver schema. Kind names match the service models (`model.KafkaInstance` /
+  `model.RabbitInstance`); the packages differ so the types do not collide.
+- Mapper: load CR + Secrets → fill existing `model.KafkaInstance` / `RabbitInstance` (`Id` from [Name and
+  id](#name-and-id-in-the-database), `Addresses` (one-key map from `spec.address`), `Default: false`, `MaasProtocol`,
+  `CACert`, `Credentials` / `ApiUrl`, `AmqpUrl`, `User`, `Password`). Instance mapper never sets `Default: true`.
+- Kafka: `MaasProtocol` = `address.protocol`. `Credentials["admin"]` and `Credentials["client"]` are lists with the one
+  entry each, its auth type derived from `address.protocol` + `saslMechanism` + `clientCert` ([Resource
+  Fields](#resource-fields)). Neither needs a Secret (for example `PLAINTEXT` and `SSL` without `clientCert`) →
+  `Credentials` nil. MaaS accepts both roles or neither, so CEL requires `admin` and `client` to both need a Secret or
+  both not. Secret.data keys are fixed (`username`, `password`, `clientKey`, `clientCert`, CA `ca.crt`). Secrets hold
+  the raw password; the mapper sends `plain:<password>`, the only password format MaaS accepts. Rabbit Secret
+  `username` is copied into the REST `User` field.
 - Apply still calls `KafkaInstanceService` / `RabbitInstanceService` with that model. No SecretRef in the service.
   `SetDefault` is driven by `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` after Register/Update ([Default
   instance](#default-instance)).
 
-Optional DB columns on the instance row (`managed_by_operator`, `namespace`, `origin_cr`) are schema extras, not a
-second instance struct. Existing rows: `managed_by_operator = false`, `namespace` empty until a CR writes it.
+Optional DB columns on the instance row (`cr_namespace`, `cr_name`) are schema extras, not a second instance
+struct. `cr_namespace` is the owning CR namespace. Existing rows:
+`cr_namespace` empty until a CR writes them. `cr_name` is not used for matching.
 
 ```mermaid
 flowchart LR
@@ -1055,29 +1042,36 @@ First insert into an empty DB still becomes default (`ForcedDefault` in
 [DAO](../maas/maas-service/service/instance/kafka_instances_dao.go)) when the install param for that kind is empty, or
 when the named CR is not registered yet. “First” is whichever Register commits.
 
-**Install params.** Optional. Value = instance CR `metadata.name`. Kafka and Rabbit are independent. On first MaaS
-install set each to the broker **namespace** (new instance: `metadata.name` equals `metadata.namespace` — [Name and
-id](#name-and-id-in-the-database)). If the names are not known yet, install MaaS without them and update the MaaS
-Application afterwards (Argo CD Sync).
+**Install params.** Optional. Value = broker **namespace**: the `metadata.namespace` of the claimed instance CR of that
+kind. Kafka and Rabbit are independent. The namespace is known before the CR registers, it always names a CR (never a
+REST-only row), and it is unique because a namespace holds at most one claimed CR of each kind ([Name and
+id](#name-and-id-in-the-database)). For a new instance it also equals the PG id. If the namespaces are not known yet,
+install MaaS without them and update the MaaS Application afterwards (Argo CD Sync).
+
+The param is the CR namespace (`name` equals that namespace). Matching on a free-form CR name is not used.
 
 ProcessCR on a claimed instance CR (Watch, Argo CD Sync of MaaS after a param change, or 10m resync), Kafka and Rabbit
 separately:
 
 1. **Param empty** for this kind. No default in PG → this Register is `ForcedDefault`. Default already in PG → leave it.
-   PATCH `status.isDefault` from PG. Do not steal on every reconcile.
-2. **Param set**, this CR `metadata.name` equals the param, row exists, not already default → `SetDefault` this id.
-   Already default → PATCH status only (do not `SetDefault` again on every Watch / 10m resync).
-3. **Param set**, this CR name does not match. No default in PG → `ForcedDefault` this instance (topics work until the
-   named CR appears). Default already in PG → leave it.
-4. **Param set**, named CR not in the cluster yet. MaaS stays Healthy. Do not fail Argo. Do not clear PG. When that CR
-   Registers (or on the next reconcile after a later MaaS Application Sync), rule 2 runs.
-5. **Names unknown at first MaaS install.** Omit the params. First Register is `ForcedDefault`. Later update the MaaS
-   Application with the names and Sync; the Deployment rolls, ProcessCR sees the new env, rule 2 `SetDefault`s the named
-   CR (may switch the ForcedDefault winner).
+   PATCH the `Default` condition from PG. Do not steal on every reconcile.
+2. **Param set**, this CR `metadata.namespace` equals the param, row exists, not already default → `SetDefault` this
+   id. Already default → PATCH status only (do not `SetDefault` again on every Watch / 10m resync).
+3. **Param set**, this CR namespace does not match. No default in PG → `ForcedDefault` this instance (topics work until
+   the named CR appears). Default already in PG → leave it.
+4. **Param set**, no claimed CR of that kind in the named namespace yet (none applied, not claimed by this MaaS, or
+   stalled). MaaS stays Healthy. Do not fail Argo. Do not clear PG. When that CR Registers (or on the next reconcile
+   after a later MaaS Application Sync), rule 2 runs.
+5. **Namespaces unknown at first MaaS install.** Omit the params. First Register is `ForcedDefault`. Later update the
+   MaaS Application with the namespaces and Sync; the Deployment rolls, ProcessCR sees the new env, rule 2 `SetDefault`s
+   the named CR (may switch the ForcedDefault winner).
 6. Clearing a param later does **not** unset the PG default. Do not send Update `default: false` on the current default
    (DAO 400).
+7. **Manager REST SetDefault.** While `OPERATOR_ENABLED` is true and the param for that kind is set, REST SetDefault
+   returns 409 naming the param: the operator would move the default back on the next reconcile. With the param empty,
+   REST SetDefault works, for CR-managed rows too.
 
-`status.isDefault` is observed PG state, not a request. PATCH it on the CRs this reconcile touches (and on the previous
+The `Default` condition is observed PG state, not a request. PATCH it on the CRs this reconcile touches (and on the previous
 default after a switch).
 
 Manager REST steal is unchanged. This naming rule is operator-only.
@@ -1099,12 +1093,12 @@ flowchart TD
   param -->|empty| empty{"PG has a default?"}
   empty -->|no| force["ForcedDefault this instance"]
   empty -->|yes| keep["Leave PG default"]
-  param -->|set| match{"this CR metadata.name equals param?"}
+  param -->|set| match{"this CR metadata.namespace equals param?"}
   match -->|yes, row exists, not default| set["SetDefault this id"]
   match -->|yes, already default| patchOnly["PATCH status only"]
   match -->|no, no PG default| force
   match -->|no, PG has default| keep
-  set --> patch["PATCH status.isDefault"]
+  set --> patch["PATCH Default condition"]
   force --> patch
   keep --> patch
   patchOnly --> patch
@@ -1114,8 +1108,8 @@ flowchart TD
 sequenceDiagram
   participant Argo
   participant Pod as maas-service
-  participant Named as KafkaInstance kafka-infra
-  participant Other as KafkaInstance other
+  participant Named as KafkaInstance in ns kafka-infra
+  participant Other as KafkaInstance in ns other
   participant DB as PostgreSQL
 
   Note over Argo,DB: 1 first install names known
@@ -1149,25 +1143,74 @@ sequenceDiagram
 
 ### Name and id in the database
 
-REST instance `id` is a free-form string (Helm name, UUID, …). The CR has `metadata.name` and `metadata.namespace`.
-Those need not match the existing PG `id`. Topics, vhosts, and designators FK that id — it cannot be renamed. Two CRs
-(or a CR and a REST row) can collide on name, namespace, Kafka `addresses` (jsonb unique), or Rabbit `api_url` /
-`amqp_url` (each unique). A CR in another namespace must not rewrite an instance already bound to one NS.
+`metadata.namespace` is the CR identity (new PG `id`, `cr_namespace`, `DEFAULT_*_INSTANCE`). `metadata.name` is only the
+Kubernetes object name; generated examples set it equal to the namespace. The CR lives in the broker namespace, or in a
+dedicated namespace for an external broker — not in the MaaS namespace as the way to name the broker. The old REST `id`
+is never put on the CR (GitOps does not know it). Topics, vhosts, and instance designators FK the PG `id`; ProcessCR
+never renames it.
 
-Always use both `metadata.name` and `metadata.namespace`. Do not treat “put the old REST id as the CR name” as the main
-path — people have several instances or do not know the previous id.
+The join to a PG row is the **unique URL / host set**, not `GetById(name)` or `GetById(namespace)`.
 
-**New instance.** PG `id` = CR `metadata.namespace`. One Kafka and one Rabbit per namespace. For a new broker, set
-`metadata.name` equal to the namespace. Insert a new row (`managed_by_operator` true on that row). An old REST row with
-some other id is left alone — no adopt, no `managed_by_operator` switch on that old id.
+- Kafka: hosts from `spec.address.bootstrapServers`, treated as a **set** (strip port, sort, ignore order). In-cluster
+  form is `service.namespace` (or `service.namespace.svc.cluster.local`); the namespace is part of the URL.
+- Rabbit: AMQP host from `spec.amqpURL` (same `service.namespace` assumption). `apiURL` stays unique as today.
 
-If the CR is new (no row for that namespace) but Kafka `addresses` or Rabbit `apiUrl` / `amqpUrl` already belong to
-another id → unique error (`23505`). Status `Ready=False`, `Stalled=True`, reason `InvalidSpec`, message names the URL.
-They forgot the old id and must use the migrate path below.
+**One broker per namespace.** At most one claimed `KafkaInstance` and one claimed `RabbitInstance` per namespace.
+External brokers each get their own dedicated namespace so that rule still holds. Migration 31: partial unique index
+`(cr_namespace) WHERE cr_namespace <> ''`. Owner matching uses `cr_namespace` only (`cr_name` is not a lookup key).
+`DEFAULT_*_INSTANCE` is that namespace.
+
+`MAAS_KAFKA_INSTANCE_BODY` / `MAAS_RABBIT_INSTANCE_BODY` stay as the legacy install path: they Register PG rows (`id` +
+URLs) before any CR. They are not a namespace allowlist. Adopt still uses the URL set those bodies stored.
+
+#### Register vs adopt
+
+Ownership (`cr_namespace`) is checked **before** the URL / host set. Empty `cr_namespace` (unmanaged REST / body row)
+does **not** match; fall through to the URL check. A CR that already owns the namespace Updates its row even when the
+spec URLs changed (recovery, new listener). Join-by-URL is only for first bind (Register / adopt).
+
+```text
+A row already has cr_namespace == this CR namespace
+  → cr_name is this CR
+        → UPDATE that row (keep id), even if the URL / host set changed
+  → cr_name is another CR
+        → DuplicateNamespace, no write
+
+Else URL set not in PG
+  → INSERT  id = CR namespace, cr_namespace = CR namespace
+
+Else URL set already in PG
+  → host looks like k8s (namespace in URL) AND that namespace != CR namespace
+        → reject (Ready=False, Stalled=True, InvalidSpec)
+  → else  (URL namespace == CR namespace, or host is not k8s / external)
+        → ADOPT: keep PG id, set cr_namespace = CR namespace
+```
+
+Treat a host as k8s when the namespace is unambiguous: exactly two labels (`kafka.kafka-infra`) or `*.svc` /
+`*.svc.cluster.local`. Otherwise external (IP, `broker.example.com`): skip the URL-namespace check and adopt.
+
+```mermaid
+flowchart TD
+  cr["CR in namespace N"]
+  cr --> own{"row with cr_namespace = N?"}
+  own -->|"yes, other CR name"| dup["DuplicateNamespace"]
+  own -->|"yes, this CR"| upd["UPDATE keep id, including URL change"]
+  own -->|no| url{"URL / host set already in PG?"}
+  url -->|no| ins["INSERT id = CR namespace"]
+  url -->|yes| k8s{"host looks like service.namespace?"}
+  k8s -->|"yes, URL ns != CR ns"| deny["InvalidSpec. Do not write"]
+  k8s -->|"URL ns == CR ns, or external"| adopt["ADOPT keep id, set cr_namespace"]
+```
+
+Copy-paste of an in-cluster CR into another namespace is rejected (URL names `kafka-infra`, CR is `team-foo`). External
+hosts have no namespace in the URL, so a second dedicated namespace with the same URL can adopt; tighten later if
+needed.
+
+Instance designators keep storing the **PG `id`**. After adopt that is still the old REST / body id, not the CR
+namespace. New rows use the CR namespace as `id`, so new designators use that.
 
 **Rabbit URL uniqueness.** A DB migration adds a unique index on `rabbit_instances.api_url` and one on
-`rabbit_instances.amqp_url`, matching the Kafka `addresses` constraint. It applies to manager REST and CRs alike: a
-second Register or Update with a URL already used by another id fails. URLs are compared as stored strings.
+`rabbit_instances.amqp_url`, matching the Kafka `addresses` constraint. It applies to manager REST and to CRs alike.
 
 **Existing duplicates fail the upgrade.** Before creating the indexes, the migration looks for rows that already share
 `api_url` or `amqp_url`. If it finds any, it creates nothing, and `maas-service` exits at startup with one error that
@@ -1184,61 +1227,37 @@ The new pods do not become ready, so a rolling update keeps the previous version
 broker: move the other id's vhosts and instance designators to it and Unregister the empty id, or correct the URL of a
 row registered with the wrong one. Then restart; the migration runs again.
 
-**Migrate when the old id already equals the namespace.** CR in ns `X`, REST row `id = X`. `GetById(namespace)` hits.
-Update that row (topics/vhosts keep the short id — do not rename). No name-as-old-id; no switch to a different id.
-
-**Migrate when the old id is not the namespace.** `metadata.name` = old REST id. `metadata.namespace` is stored on the
-row (new `namespace` column). First CR: Update, set `managed_by_operator` true, write that namespace. Second CR with the
-same name from another NS: if `managed_by_operator` and stored namespace ≠ this CR namespace → error. Do not allow
-changing an instance from another namespace.
-
-```mermaid
-flowchart TD
-  cr["CR metadata.name + metadata.namespace"]
-  cr --> byNs{"GetById namespace"}
-  byNs -->|hit| sameNs["Update / adopt that row. id stays"]
-  byNs -->|miss| byName{"name != ns AND GetById name?"}
-  byName -->|hit, not managed_by_operator| migr["Adopt: set managed_by_operator, store CR namespace"]
-  byName -->|"hit, managed_by_operator, stored ns != this ns"| deny["Ready=False. Do not Update"]
-  byName -->|"hit, managed_by_operator, same ns"| upd["Update"]
-  byName -->|miss| reg["Register id = namespace"]
-  reg -->|Kafka addresses or Rabbit URL already used| uniq["unique error. forgot old id"]
-```
-
-Do not rename an existing PG `id`. Topics, vhosts, and designators FK that id.
-
 ---
 
 ### CR vs REST
 
-Manager REST already inserts rows into PostgreSQL. How the CR finds that row is open: [Name and id in the
-database](#name-and-id-in-the-database). Register of an existing id is **400 unique**, not merge. The first matching CR
-**Updates** the row (adopt): copy spec+Secrets, set `managed_by_operator = true`. Topics/vhosts stay. Applying the CR
-**is** the migrate.
+Manager REST already inserts rows into PostgreSQL. The CR finds that row by URL / host set: [Name and id in the
+database](#name-and-id-in-the-database). The first matching CR **Updates** the row (adopt): copy spec+Secrets, set
+`cr_namespace`. Topics/vhosts stay. Applying the CR **is** the migrate.
 
-**One owner.** `managed_by_operator` (existing rows `false`):
+**One owner.** `cr_namespace` (existing rows empty):
 
-- `false` — REST row, never written by a CR. Manager REST may still Update that id.
-- `true` — a CR already Register’d or adopted it. REST Update/Unregister of that id is **rejected**. Later CR reconciles
+- empty — REST row, never written by a CR. Manager REST may still Update that id.
+- set — a CR already Register’d or adopted it. REST Update/Unregister of that id is **rejected**. Later CR reconciles
   are normal Updates.
-- Two CRs for one name: second `DuplicateInstanceName`. Default switch is [Default instance](#default-instance), not a
-  flag on those CRs.
+- Two CRs whose URL set names another namespace: `InvalidSpec`. Default switch is [Default
+  instance](#default-instance), not a flag on those CRs.
 
 **Migrate back to REST.** Two ways, never two writers on a live CR:
 
-- `deletionPolicy: Orphan`, then delete the CR. ProcessCR sets `managed_by_operator` false and clears `origin_cr` on
-  the row before removing the finalizer. The row stays; manager REST may Update/Unregister it again.
+- Delete the CR. ProcessCR clears `cr_namespace` and `cr_name` on the row before
+  removing the finalizer. The row stays; manager REST may Update/Unregister it again.
 - `OPERATOR_ENABLED=false`. The REST lock is enforced only while the operator is enabled, so REST works on every row.
-  Rows keep `managed_by_operator` true; turning the operator back on locks them again.
+  Rows keep `cr_namespace` set; turning the operator back on locks them again.
 
 ```mermaid
 sequenceDiagram
   participant CR as KafkaInstance
   participant REST as Manager REST
   participant DB as PostgreSQL
-  Note over DB: row platform-kafka from REST managed_by_operator false
+  Note over DB: REST row unmanaged, later adopted by URL set
   REST->>DB: Update allowed
-  CR->>DB: Update adopt set managed_by_operator true
+  CR->>DB: Update adopt set cr_namespace
   REST->>DB: Update rejected
   CR->>DB: later Updates allowed
 ```
@@ -1248,13 +1267,13 @@ sequenceDiagram
 ### CR lifecycle (watcher, create vs update vs delete, delete with existing topics or vhosts)
 
 Kubernetes Watch is level-triggered: every event is “reconcile this key”, not a typed create/update. **ProcessCR must
-choose Register vs Update** by reading MaaS state (`GetById`), not by ADDED vs MODIFIED.
+choose Register vs Update** by the unique URL / host set, not by ADDED vs MODIFIED.
 
 #### Watcher, create vs update vs delete
 
 The picture below is **four different times**, not one call that Registers then Updates twice.
 
-##### Four times: Register, Secret Update, spec Update, Unregister
+##### Four times: Register, Secret Update, spec Update, Delete
 
 ```mermaid
 sequenceDiagram
@@ -1275,7 +1294,7 @@ sequenceDiagram
   API->>Pod: enqueue
   Pod->>CR: Get CR
   Pod->>Sec: Get SecretRefs
-  Pod->>Svc: GetById miss
+  Pod->>Svc: URL set miss
   Pod->>Svc: Register
   Svc->>DB: insert
   Pod->>CR: add finalizer
@@ -1286,14 +1305,14 @@ sequenceDiagram
   Note over Pod: next 10m resync or refresh annotation enqueues the CR
   Pod->>CR: Get CR
   Pod->>Sec: Get SecretRefs, resourceVersion differs from status.secretRevisions
-  Pod->>Svc: GetById hit
+  Pod->>Svc: URL set hit, cr_namespace matches
   Pod->>Svc: Update
   Svc->>DB: save
 
   Note over Pod,DB: time 3 spec change same row
   CR->>API: spec change
   API->>Pod: enqueue
-  Pod->>Svc: GetById hit
+  Pod->>Svc: URL set hit, cr_namespace matches
   Pod->>Svc: Update
   Svc->>DB: save
 
@@ -1301,10 +1320,10 @@ sequenceDiagram
   CR->>API: kubectl delete
   API->>CR: deletionTimestamp object stays because finalizer
   API->>Pod: enqueue
-  Pod->>Svc: Unregister
-  Svc->>DB: delete row
+  Pod->>Svc: clear cr_namespace and cr_name
+  Svc->>DB: keep row
   Pod->>CR: remove finalizer
-  Note over API: object gone
+  Note over API: object gone, PG row stays
 ```
 
 Watcher init happens once per leader (`OnStartedLeading`). Followers do not Watch. DR standby may hold the Lease but
@@ -1312,11 +1331,13 @@ must not Register/Update/Unregister.
 
 ##### Create vs update
 
-- `existing = GetById` (which string is the id is open: [Name and id in the database](#name-and-id-in-the-database)).
-- **Register** only if `existing == nil`.
-- **Update** if a row hits and we own it, or `managed_by_operator` is false (adopt). Secret rotation and spec edits are
-  both Update — the row is already there. Register again would be 400 unique.
-- If a row hits and another CR owns it: `DuplicateInstanceName`.
+- A row already has this `cr_namespace` and a **different** CR name → `DuplicateNamespace`, no write.
+- A row already has this `cr_namespace` and **this** CR name → **Update** that id (URL change, Secret rotation, spec
+  edits). Do not join by URL first.
+- Else find the row by URL / host set ([Name and id](#name-and-id-in-the-database)).
+- **Register** only if no row has that URL set (`id` = CR namespace).
+- **Adopt** if a row hits, `cr_namespace` is empty or other, and the URL namespace matches (or the host is external).
+- **Reject** (`InvalidSpec`) if a row hits and the in-cluster URL namespace is not this CR.
 
 **Finalizer is set while the CR is live; it only *acts* on delete.**
 
@@ -1329,28 +1350,31 @@ We add it **after a successful Register** (not in the delete handler):
 - If we added it only when `deletionTimestamp` is set, current apiservers **reject adding** a finalizer during deletion.
   The CR would vanish and the MaaS row could stay.
 - After Register we must survive crash/restart: the CR still exists, the finalizer is already there, delete will wait
-  for Unregister.
+  for ownership to be cleared.
 
-On delete: see `deletionTimestamp` → Unregister (or Orphan) → **remove** the finalizer. That is the only moment the
-finalizer “does work”. `PATCH status Registered` is a separate write to `status.conditions`; it is not the finalizer.
+On delete: see `deletionTimestamp` → clear `cr_namespace` / `cr_name` → **remove** the
+finalizer. That is the only moment the finalizer “does work”. `PATCH status Registered` is a separate write to
+`status.conditions`; it is not the finalizer.
 
 #### Delete
 
+There is no `deletionPolicy`. Deleting the CR always keeps the PG row and hands it back to manager REST.
+
 ##### How delete works (and why deletionTimestamp exists)
 
-Yes: user asks Kubernetes to delete the CR → apiserver does **not** drop the object if a finalizer is set → it only
-writes `metadata.deletionTimestamp` → we Unregister → we remove the finalizer → apiserver then deletes the CR from etcd.
+User asks Kubernetes to delete the CR → apiserver does **not** drop the object if a finalizer is set → it only writes
+`metadata.deletionTimestamp` → we clear operator ownership on the PG row → we remove the finalizer → apiserver then
+deletes the CR from etcd. Topics and vhosts keep using the instance.
 
 `deletionTimestamp` is **the delete request**, recorded on the object that is still there. We need it because, with a
-finalizer, `Get` still succeeds. Spec, name, Secrets refs are unchanged. Without that timestamp, ProcessCR cannot tell
-“user wants this gone” from “normal Update”. It would keep Register/Update forever and never Unregister.
+finalizer, `Get` still succeeds. Without that timestamp, ProcessCR cannot tell “user wants this gone” from “normal
+Update”.
 
 Without a finalizer there is no timestamp: `kubectl delete` removes the object immediately, next reconcile is
-`NotFound`, we Unregister by name. Then the CR is already gone **before** Unregister finishes (InUse 400, crash, slow
-health-check) — orphan MaaS row. The finalizer keeps the CR in `Terminating` until Unregister (or Orphan) succeeds.
-`deletionTimestamp` is how that waiting object is marked “delete in progress”.
+`NotFound`, and the row keeps `cr_namespace` set, so REST stays locked. The finalizer keeps the CR in
+`Terminating` until ownership is cleared.
 
-##### kubectl delete: Unregister, Orphan, or InUse
+##### kubectl delete
 
 ```mermaid
 sequenceDiagram
@@ -1364,103 +1388,18 @@ sequenceDiagram
   Note over CR: Terminating finalizer still set
   API->>Pod: enqueue
   Pod->>CR: Get deletionTimestamp set
-  alt deletionPolicy Unregister OK
-    Pod->>Svc: Unregister
-    Pod->>CR: remove finalizer
-    API->>API: finalizers empty delete from etcd
-  else deletionPolicy Orphan
-    Pod->>Svc: set managed_by_operator false, clear origin_cr
-    Pod->>CR: remove finalizer leave MaaS row
-    API->>API: finalizers empty delete from etcd
-  else Unregister InUse
-    Pod->>CR: status InstanceInUse keep finalizer
-    Pod->>Pod: RequeueAfter 30s
-    Note over CR: stays Terminating
-  end
+  Pod->>Svc: clear cr_namespace and cr_name
+  Pod->>CR: remove finalizer leave MaaS row
+  API->>API: finalizers empty delete from etcd
 ```
 
-**Keep the instance (do not Unregister).** Kubernetes will not cancel `kubectl delete`. You cannot clear
-`deletionTimestamp`. The CR is going away. To keep the **MaaS row**:
-
-- Before delete: set `spec.deletionPolicy: Orphan`, then `kubectl delete`. ProcessCR removes the finalizer without
-  Unregister and hands the row back to manager REST (`managed_by_operator` false). CR gone, instance stays.
-- Already Terminating: PATCH `spec.deletionPolicy: Orphan` (spec is still writable). Next reconcile skips Unregister,
-  hands the row back to REST, removes the finalizer. CR gone, instance stays. There is no “undelete CR.”
+There is no “undelete CR.” The MaaS row stays; manager REST may Update or Unregister it again.
 
 #### Delete with existing topics or vhosts
 
-Unregister does **not** talk to Kafka.
-`[RemoveInstanceRegistration](../maas/maas-service/service/instance/kafka_instances_dao.go)` deletes the PostgreSQL row;
-if topics (or Rabbit vhosts) still reference that instance, the FK fails → 400. Same for “cannot delete default while
-another instance exists.”
-
-**Where InstanceInUse is set.** It is **not** `spec.instanceInUse` and **not** a new MaaS/PostgreSQL column. It is the
-Kubernetes `status.conditions[].reason` string on the existing `Ready` condition:
-
-```yaml
-status:
-  conditions:
-    - type: Ready
-      status: "False"
-      reason: InstanceInUse
-      message: "unable to delete non empty kafka instance platform-kafka"
-```
-
-ProcessCR writes that when Unregister returns 400 (FK: topics/vhosts still reference the instance). The 400 is MaaS; the
-operator copies it onto CR status so `kubectl get` shows why Terminating is stuck. Do not PATCH status on every retry if
-the reason is already `InstanceInUse` (that Watch event would hot-loop).
-
-The CR is `Terminating` for as long as that 400 lasts. It is not deleted from etcd. It will not finish by itself just
-because time passed.
-
-**What retriggers Unregister.** Not a CR spec change, not “topics deleted” Watch (we do not watch topics), not a loop
-inside KafkaInstanceService.
-
-`RequeueAfter` is **not** a field on the CR. It is a field on `controller-runtime`’s `ctrl.Result`, returned from
-`Reconcile`. That is the Kubernetes operator library (`sigs.k8s.io/controller-runtime`), which wraps client-go’s
-workqueue. We do **not** add a queue table in PostgreSQL, a Fiber endpoint, or `spec.requeueAfter`.
-
-```go
-func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-    // ProcessCR: Unregister returned 400 InstanceInUse
-    return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-}
-```
-
-How the library processes it (we do not write this loop):
-
-1. The manager runs workers that pop a key (`namespace/name`) from an in-memory queue and call our `Reconcile`.
-2. If we return `Result{}` and `err == nil`, the key is done until the next CR Watch event (spec or refresh
-   annotation) or resync.
-3. If we return `Result{RequeueAfter: 30s}`, the library calls `queue.AddAfter(req, 30s)` — a timer in that process.
-   After 30s the same key is pushed back. No apiserver PATCH.
-4. If we return a non-nil `error`, the library rate-limits and retries ([Reconcile](#reconcile) backoff). Prefer
-   `RequeueAfter` for expected InUse, not an error.
-
-ProcessCR returns that result. After 30s the **same key** is reconciled again: Get CR (still Terminating) → Unregister
-again. The apiserver does not send a new delete. Users do not PATCH the CR.
-
-When the last topic/vhost is gone, that **timer** Unregister succeeds → remove finalizer → CR deleted. No second
-`kubectl delete`. Until then, yes, we periodically call MaaS Unregister (PostgreSQL FK check).
-
-Same `RequeueAfter` if Unregister fails because the instance is still default and others remain.
-
-##### InUse: RequeueAfter until topics or vhosts are gone
-
-```mermaid
-sequenceDiagram
-  participant Q as workqueue
-  participant Pod as ProcessCR
-  participant Svc as InstanceService
-  participant CR as KafkaInstance
-  Pod->>Svc: Unregister
-  Svc-->>Pod: 400 FK topics remain
-  Pod->>CR: PATCH status reason InstanceInUse once
-  Pod->>Q: RequeueAfter 30s
-  Note over Q: no CR Watch
-  Q->>Pod: same key after 30s
-  Pod->>Svc: Unregister again
-```
+CR delete does **not** Unregister, so topics and vhosts are not a blocker. Manager REST Unregister still deletes the
+PostgreSQL row and still returns 400 if topics or vhosts reference that instance (the same FK as today). That 400 is a
+REST error, not a CR status reason.
 
 ---
 
@@ -1478,8 +1417,8 @@ alternatives](operator_design_notes.md#multi-maas-alternatives).
 
 ```mermaid
 flowchart LR
-  crA[CR platform-kafka operatorNamespace=maas-core]
-  crB[CR tenant-kafka operatorNamespace=maas-tenant]
+  crA[CR kafka-infra/kafka-infra operatorNamespace=maas-core]
+  crB[CR tenant-kafka/tenant-kafka operatorNamespace=maas-tenant]
   maasCore[maas-core]
   maasTenant[maas-tenant]
   crA -->|claims| maasCore
@@ -1487,6 +1426,15 @@ flowchart LR
   crA -.->|ignore no status write| maasTenant
   crB -.->|ignore no status write| maasCore
 ```
+
+#### CRDs in zero wave
+
+CRDs are cluster-scoped and are **not** in the MaaS chart. `controller-gen` writes them to [`crds/`](../crds/) (raw
+YAML, no Helm). Platform zero wave installs that folder **before** MaaS, so kinds exist when `maas-service` starts.
+Several MaaS installs in one cluster share those CRDs; they do not fight over Helm ownership.
+
+`restrictedEnvironment` still skips the chart ClusterRole. Apply ClusterRole out of band for a second operator-enabled
+MaaS if needed.
 
 DR standby does not reconcile. Replica HA for **one** MaaS is the Lease ([Scaling](#scaling-if-it-is-a-single-service)),
 not `operatorNamespace`. Composite / tenant app namespaces are unrelated: the operator still sees those CRs (cluster
