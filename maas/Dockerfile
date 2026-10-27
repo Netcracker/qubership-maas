@@ -1,4 +1,4 @@
-FROM golang:1.27.1@sha256:8b6d507b46291cf17022e79e4edcc7fefb0ee1cd66ad40088a55e429552d6f05 AS build
+FROM golang:1.27.3@sha256:8aa2821993207ae840ce09e4223217efcd14e01f71525db734faf4232bd59999 AS build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN go build -o maas-service .
 RUN chmod 555 maas-service && \
     chmod 444 application.yaml docs/swagger.json docs/swagger.yaml
 
-FROM ghcr.io/netcracker/qubership-core-base:alpine-2.5.8@sha256:0c2c9e4b49e73efffb30edf8d3de8b3eb43194a6c4f688da08ec3236b570b486 AS run
+FROM ghcr.io/netcracker/qubership-core-base:alpine-2.5.9@sha256:ab860790e4ecce56f8df673495cd5745ce587fffa7d7eb210d6d098563ccb26d AS run
 
 COPY --chown=10001:0 --from=build app/maas-service /app/maas
 COPY --chown=10001:0 --from=build app/application.yaml /app/

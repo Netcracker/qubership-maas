@@ -2,20 +2,23 @@
 
 # Declaring Kafka topics and RabbitMQ VHosts using Custom Resource syntax
 
-Broker registration (`KafkaInstance` / `RabbitInstance` in `maas.netcracker.com/v1`) is a different CR family, processed
-by maas-service when `OPERATOR_ENABLED` is true. Install those CRDs from [`crds/`](../crds/) and see
+Broker registration (`KafkaInstance` / `RabbitInstance` in `maas.netcracker.com/v1`) is a different CR family,
+processed by maas-service when `OPERATOR_ENABLED` is true. Install those CRDs from [`crds/`](../crds/) and see
 [broker instance CRs](broker_instance_crs.md). This page is only `kind: MaaS` topic and vhost declarations
 (core-operator).
 
-Create file with appropriate name and `.yaml` extensions in you helm charts folder. Contents of this file may contain one 
-or more topic or vhost declarations separated by triple dash `---` separator. 
+Create file with appropriate name and `.yaml` extensions in you helm charts folder. Contents of this file may contain
+one
+or more topic or vhost declarations separated by triple dash `---` separator.
 
-After deploying those CRs on cloud you can watch its processing status by monitoring kubernetes events on your namespace.
+After deploying those CRs on cloud you can watch its processing status by monitoring kubernetes events on your
+namespace.
 Processing details also will be published in CR itself in `status` section.
 
 Example CRs for all available entities is represented below:
 
 ## Kafka Topic
+
 ```yaml
 apiVersion: core.netcracker.com/v1
 kind: MaaS
@@ -47,7 +50,9 @@ spec:
   classifier:
     name: my_orders
 ```
+
 ## Kafka Tenant Topic
+
 ```yaml
 apiVersion: core.netcracker.com/v1
 kind: MaaS
@@ -72,6 +77,7 @@ spec:
 ```
 
 ## Kafka Lazy Topic
+
 ```yaml
 apiVersion: core.netcracker.com/v1
 kind: MaaS
@@ -95,6 +101,7 @@ spec:
 ```
 
 ## Kafka Topic Template
+
 ```yaml
 apiVersion: core.netcracker.com/v1
 kind: MaaS
@@ -117,10 +124,11 @@ spec:
 
 ## RabbitMQ VHost
 
-In `entities` section you can put 3 types of entities: exchanges, queues, bindings. Parameters that you set there are defined by RabbitMq itself - MaaS just send them as is. The mandatory parameter for queue and exchange is "name". For binding - source and destination.
-`deletions` section allows declarative deletion. It is applied before other sections. 
+In `entities` section you can put 3 types of entities: exchanges, queues, bindings. Parameters that you set there are
+defined by RabbitMq itself - MaaS just send them as is. The mandatory parameter for queue and exchange is "name". For
+binding - source and destination.
+`deletions` section allows declarative deletion. It is applied before other sections.
 `policies` section allows creation of policies of RabbitMQ.
-
 
 ```yaml
 apiVersion: core.netcracker.com/v1
@@ -191,13 +199,16 @@ spec:
 
 # Declarative configuration to CR migration
 
-MaaS now supports configuring Kafka/RabbitMQ entities via CRs. This guide describes how to migrate `maas-configuration.yaml` config to
+MaaS now supports configuring Kafka/RabbitMQ entities via CRs. This guide describes how to migrate
+`maas-configuration.yaml` config to
 new CRs.
 
 ## Migration Template
 
-All MaaS supported `maas-configuration.yaml` entities had a common declaration structure and new CRs have such commonality.
+All MaaS supported `maas-configuration.yaml` entities had a common declaration structure and new CRs have such
+commonality.
 All CRs structure consists of:
+
 ```yaml
 apiVersion: core.netcracker.com/v1
 kind: MaaS
@@ -216,15 +227,18 @@ spec:
   <the-rest-of-declaration>
   ...
 ```
+
 Diagram below describes properties migrations between declarations:
 ![declarative-to-cr.png](img%2Fdeclarative-to-cr.png)
 
-**Note:** It is also possible to override _topic/vhost_ name from `metadata.name` if it contains prohibited characters by
+**Note:** It is also possible to override _topic/vhost_ name from `metadata.name` if it contains prohibited characters
+by
 putting wanted _topic/vhost_ name to `spec.classifier.name` property.
 
 ## Kafka
 
 Perform these steps to convert declarative entity to CR:
+
 * use template declared above for CRs skeleton as starting point
 * copy `spec.classifier.name` to `metadata.name`
 * copy `spec.classifier.namespace` to `metadata.namespace`
@@ -235,6 +249,7 @@ Perform these steps to convert declarative entity to CR:
 * replace substitution(namespace, name, topicId) editing from `{{` `}}` to `%` in value of `spec.topicNameTemplate`
 
 Conversion example from:
+
 ```yaml
 apiVersion: nc.maas.kafka/v1
 kind: topic
@@ -250,6 +265,7 @@ spec:
 ```
 
 become to:
+
 ```yaml
 apiVersion: core.netcracker.com/v1
 kind: MaaS
