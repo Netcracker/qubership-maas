@@ -1,0 +1,2 @@
+# Stale Go build badge href in README (workflow was renamed to maas---build-on-push.yaml).
+https://github.com/Netcracker/qubership-maas/actions/workflows/go-build.yml
