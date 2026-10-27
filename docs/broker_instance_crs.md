@@ -1,8 +1,9 @@
 # KafkaInstance and RabbitInstance CRs
 
-Register Kafka and RabbitMQ brokers with MaaS using `KafkaInstance` and `RabbitInstance` (`maas.netcracker.com/v1`).
-maas-service reconciles them in-process (Watch + ProcessCR). This is separate from [custom_resources(CR).md](custom_resources(CR).md)
-(`kind: MaaS` topic and vhost declarations processed by core-operator).
+Register Kafka and RabbitMQ brokers with MaaS using `KafkaInstance` and `RabbitInstance`
+(`maas.netcracker.com/v1`). maas-service reconciles them in-process (Watch + ProcessCR). This is separate from
+[custom_resources(CR).md](custom_resources(CR).md) (`kind: MaaS` topic and vhost declarations processed by
+core-operator).
 
 Architecture and reconcile behavior: [operator_design.md](operator_design.md).
 
@@ -10,7 +11,8 @@ Architecture and reconcile behavior: [operator_design.md](operator_design.md).
 
 - Kubernetes **1.32+** (CEL on CRDs, selectable fields on `spec.operatorNamespace`).
 - Install CRDs from `crds/` in the platform **zero wave** before the MaaS Application Syncs.
-- Per broker namespace: Role + RoleBinding so the MaaS ServiceAccount can `get`/`list`/`watch` Secrets referenced by the CR.
+- Per broker namespace: Role + RoleBinding so the MaaS ServiceAccount can `get`/`list`/`watch` Secrets referenced by
+  the CR.
 
 ## Install order
 
@@ -24,11 +26,11 @@ Brokers may already be running. MaaS does not proxy traffic; it stores connectio
 
 | Value | Default | Purpose |
 | --- | --- | --- |
-| `OPERATOR_ENABLED` | `false` | Start Watch + ProcessCR (Lease `maas-operator-leader` in `CLOUD_NAMESPACE`). Chart renders operator ClusterRole only when `true` (unless restricted). |
-| `DEFAULT_KAFKA_INSTANCE` | `""` | Broker **namespace** (`metadata.namespace`) of the `KafkaInstance` CR that becomes the default Kafka instance. Empty: first Register of that kind is default. |
+| `OPERATOR_ENABLED` | `false` | Start Watch + ProcessCR (Lease in `CLOUD_NAMESPACE`). ClusterRole when `true` (unless restricted). |
+| `DEFAULT_KAFKA_INSTANCE` | `""` | Broker namespace of the default `KafkaInstance` CR. Empty: first Register is default. |
 | `DEFAULT_RABBIT_INSTANCE` | `""` | Same for `RabbitInstance`. |
-| `K8S_EVENTS_ENABLED` | `true` | Emit Kubernetes Events on instance CRs. `false` disables the recorder and omits `events` rules from the ClusterRole. |
-| `restrictedEnvironment` | `false` | Skip `ClusterRole` / `ClusterRoleBinding` in the chart; cluster-admin applies them out of band. Watch stays cluster-wide. CRDs still come from `crds/`. |
+| `K8S_EVENTS_ENABLED` | `true` | Kubernetes Events on instance CRs. `false` omits `events` from ClusterRole. |
+| `restrictedEnvironment` | `false` | Skip in-chart ClusterRole; apply out of band. CRDs still from `crds/`. |
 
 Example (enable operator and name a default broker namespace):
 
@@ -40,11 +42,13 @@ K8S_EVENTS_ENABLED: true
 restrictedEnvironment: false
 ```
 
-With `OPERATOR_ENABLED: false`, manager REST still works; instance CRs are not reconciled and the chart does not render operator ClusterRole.
+With `OPERATOR_ENABLED: false`, manager REST still works; instance CRs are not reconciled and the chart does not
+render operator ClusterRole.
 
 ## Sample CRs
 
-Minimal shapes; field tables and CEL rules are in [operator_design.md](operator_design.md#crd-sketch) and in the generated CRD YAML under `crds/`.
+Minimal shapes; field tables and CEL rules are in [operator_design.md](operator_design.md#crd-sketch) and in the
+generated CRD YAML under `crds/`.
 
 ```yaml
 apiVersion: maas.netcracker.com/v1
@@ -86,5 +90,8 @@ spec:
 
 ## Status and troubleshooting
 
-- Use `kubectl get kafkainstances` / `kubectl get rabbitinstances` (`mkafi` / `mrabi` short names). Columns include `READY`, `DEFAULT`, and `PHASE`.
-- While the operator is enabled, manager REST cannot Update or Unregister a row managed by a CR (`409`); change the CR or delete it to hand the instance back to REST. See [rest_api.md](rest_api.md) and [troubleshooting.md](troubleshooting.md).
+- Use `kubectl get kafkainstances` / `kubectl get rabbitinstances` (`mkafi` / `mrabi`). Columns include `READY`,
+  `DEFAULT`, and `PHASE`.
+- While the operator is enabled, manager REST cannot Update or Unregister a CR-managed row (`409`); change the CR or
+  delete it to hand the instance back to REST. See [rest_api.md](rest_api.md) and
+  [troubleshooting.md](troubleshooting.md).

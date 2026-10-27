@@ -51,8 +51,9 @@ Secret.data keys are fixed by contract: Kafka SASL `username`/`password`, mTLS a
 mapper adds the `plain:` prefix. `caCertSecretRef` is required for `SSL` / `SASL_SSL`.
 
 CEL on `client` rejects `SASL_SSL` + `PLAIN` without `clientCert`, and TLS without `caCertSecretRef`.
-`SASL_PLAINTEXT` + `PLAIN` is allowed so a later library fix can use it. REST rows with SASL on a `PLAINTEXT` key keep working unchanged until a CR adopts
-them. A CR adopts `PLAINTEXT` + `SCRAM` as `SASL_PLAINTEXT` + `SCRAM` and `PLAINTEXT` + `plain` as `SASL_PLAINTEXT` + `PLAIN`. Libraries
+`SASL_PLAINTEXT` + `PLAIN` is allowed so a later library fix can use it. REST rows with SASL on a `PLAINTEXT` key
+keep working unchanged until a CR adopts them. A CR adopts `PLAINTEXT` + `SCRAM` as `SASL_PLAINTEXT` + `SCRAM` and
+`PLAINTEXT` + `plain` as `SASL_PLAINTEXT` + `PLAIN`. Libraries
 stay compatible with topic-response shape, but should be adapted to the new credential design (TLS and SASL from
 protocol + mechanism + `clientCert`). `admin` is used only by MaaS (sarama), so it may use any pair. `admin` and
 `client` both need a Secret or both do not. Because they share `spec.address`, the health check uses the same listener
@@ -129,7 +130,8 @@ cluster-wide. This is not “watch only the MaaS namespace”.
 ### v1 name ↔ PG id (from HLA)
 
 `metadata.namespace` is the CR identity (new PG `id`, `cr_namespace`, default param). `metadata.name` is only the
-Kubernetes object name; examples generate it equal to the namespace. Do not rename an existing PG `id` (topics/vhosts/designators FK it).
+Kubernetes object name; examples generate it equal to the namespace. Do not rename an existing PG `id` (topics/vhosts
+and designators FK it).
 The CR never carries the old REST id. Join is the unique URL / host set (Kafka bootstrap hosts as a set; Rabbit AMQP
 host). In-cluster hosts are `service.namespace`; that namespace is part of the URL. External hosts skip the
 URL-namespace check.
