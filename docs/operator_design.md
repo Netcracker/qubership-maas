@@ -295,7 +295,7 @@ separate: `Ready=False` is Degraded; no status yet is Progressing. A wave that w
 
 ### CRDs then MaaS, then instance CRs
 
-Zero wave installs CRDs from [`crds/`](../crds/). The MaaS chart then deploys `maas-service`. Leader Watches an empty
+Zero wave installs CRDs from `crds/`. The MaaS chart then deploys `maas-service`. Leader Watches an empty
 list. A later wave / other Application applies `KafkaInstance` / `RabbitInstance`.
 
 Kubernetes: kinds exist, apply succeeds, ProcessCR runs on each create. Argo: MaaS Application Healthy (Deployment).
@@ -665,7 +665,7 @@ Status: [Status](#status).
 
 #### CRD
 
-Generated from the Go CR types with `controller-gen` into [`crds/`](../crds/) (tasks 4.2 and 4.3); not copied here.
+Generated from the Go CR types with `controller-gen` into `crds/` (tasks 4.2 and 4.3); not copied here.
 Zero wave installs those files before MaaS. The MaaS chart does not ship CRDs.
 
 ### RabbitInstance
@@ -731,7 +731,7 @@ Status: [Status](#status).
 
 #### CRD
 
-Generated from the Go CR types with `controller-gen` into [`crds/`](../crds/) (tasks 4.2 and 4.3); not copied here.
+Generated from the Go CR types with `controller-gen` into `crds/` (tasks 4.2 and 4.3); not copied here.
 Zero wave installs those files before MaaS. The MaaS chart does not ship CRDs.
 
 ### Secrets
@@ -1429,7 +1429,7 @@ flowchart LR
 
 #### CRDs in zero wave
 
-CRDs are cluster-scoped and are **not** in the MaaS chart. `controller-gen` writes them to [`crds/`](../crds/) (raw
+CRDs are cluster-scoped and are **not** in the MaaS chart. `controller-gen` writes them to `crds/` (raw
 YAML, no Helm). Platform zero wave installs that folder **before** MaaS, so kinds exist when `maas-service` starts.
 Several MaaS installs in one cluster share those CRDs; they do not fight over Helm ownership.
 

@@ -9,12 +9,12 @@ Architecture and reconcile behavior: [operator_design.md](operator_design.md).
 ## Prerequisites
 
 - Kubernetes **1.32+** (CEL on CRDs, selectable fields on `spec.operatorNamespace`).
-- Install CRDs from [`crds/`](../crds/) in the platform **zero wave** before the MaaS Application Syncs.
+- Install CRDs from `crds/` in the platform **zero wave** before the MaaS Application Syncs.
 - Per broker namespace: Role + RoleBinding so the MaaS ServiceAccount can `get`/`list`/`watch` Secrets referenced by the CR.
 
 ## Install order
 
-1. Zero wave: apply CRDs from [`crds/`](../crds/).
+1. Zero wave: apply CRDs from `crds/`.
 2. MaaS Application: Sync `maas-service` with operator values (below).
 3. Broker namespace Application: apply `KafkaInstance` / `RabbitInstance` (and Secrets).
 
@@ -44,7 +44,7 @@ With `OPERATOR_ENABLED: false`, manager REST still works; instance CRs are not r
 
 ## Sample CRs
 
-Minimal shapes; field tables and CEL rules are in [operator_design.md](operator_design.md#crd-sketch) and in the generated CRD YAML under [`crds/`](../crds/).
+Minimal shapes; field tables and CEL rules are in [operator_design.md](operator_design.md#crd-sketch) and in the generated CRD YAML under `crds/`.
 
 ```yaml
 apiVersion: maas.netcracker.com/v1
