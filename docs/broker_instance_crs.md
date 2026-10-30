@@ -91,7 +91,8 @@ spec:
 ## Status and troubleshooting
 
 - Use `kubectl get kafkainstances` / `kubectl get rabbitinstances` (`mkafi` / `mrabi`). Columns include `READY`,
-  `DEFAULT`, and `PHASE`.
-- While the operator is enabled, manager REST cannot Update or Unregister a CR-managed row (`409`); change the CR or
-  delete it to hand the instance back to REST. See [rest_api.md](rest_api.md) and
+  `DEFAULT`, `ALIAS`, and `PHASE`. `ALIAS` is `status.alias`, the PostgreSQL instance id.
+- While the operator is enabled, manager REST cannot Update or Unregister a row whose `cr_namespace` is set (`409`).
+  Change the CR, or delete it. Delete does not remove the PostgreSQL registration: ProcessCR clears `cr_namespace` and
+  `cr_name`, then REST can change that id again. See [rest_api.md](rest_api.md) and
   [troubleshooting.md](troubleshooting.md).

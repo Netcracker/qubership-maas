@@ -83,9 +83,8 @@ flowchart TD
   claimed -->|"yes, this CR"| upd["MaaS Update. Same CR, including URL change"]
   claimed -->|no| apply{"URL / host set already in PG?"}
   apply -->|no| reg["New instance: id = CR namespace, set cr_namespace"]
-  apply -->|"yes, cr_namespace empty or other"| urlNs{"host looks like service.namespace?"}
-  urlNs -->|"yes, URL namespace != CR namespace"| denyUrl["PATCH status Ready=False reason=InvalidSpec"]
-  urlNs -->|"URL namespace == CR, or external host"| adopt["Adopt: keep PG id, set cr_namespace"]
+  apply -->|"yes, cr_namespace already set"| denyUrl["PATCH status Ready=False reason=InvalidSpec"]
+  apply -->|"yes, cr_namespace empty"| adopt["Adopt: keep PG id, set cr_namespace"]
   reg --> fin["Ensure finalizer on CR metadata"]
   upd --> fin
   adopt --> fin
@@ -362,10 +361,10 @@ The CR has one Kafka `address`; protocol and SASL mechanism live on that address
 
 | Kind | Short name | `kubectl get` columns |
 | ------ | ------------ | ------------------------ |
-| `KafkaInstance` | `mkafi` | `PHASE`, `READY`, `DEFAULT`, `AGE` |
-| `RabbitInstance` | `mrabi` | `PHASE`, `READY`, `DEFAULT`, `AGE` |
+| `KafkaInstance` | `mkafi` | `PHASE`, `READY`, `DEFAULT`, `ALIAS`, `AGE` |
+| `RabbitInstance` | `mrabi` | `PHASE`, `READY`, `DEFAULT`, `ALIAS`, `AGE` |
 
-`DEFAULT` is `.status.conditions[?(@.type=='Default')].status`.
+`DEFAULT` is `.status.conditions[?(@.type=='Default')].reason`. `ALIAS` is `.status.alias` (the PostgreSQL instance id).
 
 ### KafkaInstance
 
@@ -402,6 +401,7 @@ spec:
         name: kafka-client
 status:
   phase: BackingOff                    # kubectl column only. Processing | Succeeded | BackingOff | InvalidConfiguration. Automate on conditions, not phase
+  alias: kafka-infra                   # PostgreSQL instance id. Equals namespace after a new Register; kept REST id after adopt
   lastRequestId: "req-3f8c"            # ProcessCR generates X-Request-Id and PATCHes it (no HTTP header)
   secretRevisions:                     # Secret resourceVersions. Never secret bytes
     kafka-ca: "184291"
@@ -691,6 +691,7 @@ spec:
     name: rabbit-admin
 status:
   phase: Succeeded
+  alias: rabbit-infra                  # PostgreSQL instance id. Equals namespace after a new Register; kept REST id after adopt
   lastRequestId: "req-22010"
   secretRevisions:
     rabbit-admin: "22001"
@@ -791,6 +792,7 @@ Shared by `KafkaInstance` and `RabbitInstance`. ProcessCR PATCHes it. Do not put
 | ------- | ------- |
 | `status.phase` | `Processing` \| `Succeeded` \| `BackingOff` \| `InvalidConfiguration`. kubectl only. |
 | `status.conditions` | `Ready`, `Stalled`, `Default` (`metav1.Condition`, list-type map keyed by `type`). |
+| `status.alias` | PostgreSQL instance id used by designators, topic/vhost `instanceId`, and manager REST. Set once a row is bound. After a new Register it equals the CR namespace. After adopt it is the kept REST id. Empty until the first successful bind. Not on spec. |
 | `status.lastRequestId` | ProcessCR `X-Request-Id` (no HTTP header). |
 | `status.observedGeneration` | Stamped on success or `Stalled=True`. Left behind on transient. |
 | `status.secretRevisions` | Secret `resourceVersion`s seen at the last apply. Compared on each reconcile to detect rotation. Never secret bytes. |
@@ -1071,8 +1073,9 @@ separately:
    returns 409 naming the param: the operator would move the default back on the next reconcile. With the param empty,
    REST SetDefault works, for CR-managed rows too.
 
-The `Default` condition is observed PG state, not a request. PATCH it on the CRs this reconcile touches (and on the previous
-default after a switch).
+The `Default` condition is observed PG state, not a request. PATCH it on the CR this reconcile touches. After a
+`SetDefault` switch, the previous default CR keeps its old `Default` condition until that CR is reconciled again (10m
+resync, spec/Secret change, or refresh annotation). PostgreSQL still has a single default.
 
 Manager REST steal is unchanged. This naming rule is operator-only.
 
@@ -1145,15 +1148,15 @@ sequenceDiagram
 
 `metadata.namespace` is the CR identity (new PG `id`, `cr_namespace`, `DEFAULT_*_INSTANCE`). `metadata.name` is only the
 Kubernetes object name; generated examples set it equal to the namespace. The CR lives in the broker namespace, or in a
-dedicated namespace for an external broker — not in the MaaS namespace as the way to name the broker. The old REST `id`
-is never put on the CR (GitOps does not know it). Topics, vhosts, and instance designators FK the PG `id`; ProcessCR
-never renames it.
+dedicated namespace for an external broker — not in the MaaS namespace as the way to name the broker. ProcessCR writes
+the bound PostgreSQL `id` to `status.alias` (equals the namespace after a new Register; the kept REST id after adopt).
+Topics, vhosts, and instance designators FK that id; copy `status.alias` into designator `instance` / topic
+`instanceId`. ProcessCR never renames an existing id.
 
 The join to a PG row is the **unique URL / host set**, not `GetById(name)` or `GetById(namespace)`.
 
-- Kafka: hosts from `spec.address.bootstrapServers`, treated as a **set** (strip port, sort, ignore order). In-cluster
-  form is `service.namespace` (or `service.namespace.svc.cluster.local`); the namespace is part of the URL.
-- Rabbit: AMQP host from `spec.amqpURL` (same `service.namespace` assumption). `apiURL` stays unique as today.
+- Kafka: hosts from `spec.address.bootstrapServers`, treated as a **set** (strip port, sort, ignore order).
+- Rabbit: AMQP host from `spec.amqpURL`. `apiURL` stays unique as today.
 
 **One broker per namespace.** At most one claimed `KafkaInstance` and one claimed `RabbitInstance` per namespace.
 External brokers each get their own dedicated namespace so that rule still holds. Migration 31: partial unique index
@@ -1180,14 +1183,14 @@ Else URL set not in PG
   → INSERT  id = CR namespace, cr_namespace = CR namespace
 
 Else URL set already in PG
-  → host looks like k8s (namespace in URL) AND that namespace != CR namespace
+  → cr_namespace already set
         → reject (Ready=False, Stalled=True, InvalidSpec)
-  → else  (URL namespace == CR namespace, or host is not k8s / external)
+  → cr_namespace empty
         → ADOPT: keep PG id, set cr_namespace = CR namespace
 ```
 
-Treat a host as k8s when the namespace is unambiguous: exactly two labels (`kafka.kafka-infra`) or `*.svc` /
-`*.svc.cluster.local`. Otherwise external (IP, `broker.example.com`): skip the URL-namespace check and adopt.
+ProcessCR does not compare a host DNS label to the CR namespace. An unmanaged row with `kafka.kafka-infra:9093` can be
+adopted from `team-foo`. A row already claimed by another CR still rejects (`InvalidSpec`).
 
 ```mermaid
 flowchart TD
@@ -1197,17 +1200,13 @@ flowchart TD
   own -->|"yes, this CR"| upd["UPDATE keep id, including URL change"]
   own -->|no| url{"URL / host set already in PG?"}
   url -->|no| ins["INSERT id = CR namespace"]
-  url -->|yes| k8s{"host looks like service.namespace?"}
-  k8s -->|"yes, URL ns != CR ns"| deny["InvalidSpec. Do not write"]
-  k8s -->|"URL ns == CR ns, or external"| adopt["ADOPT keep id, set cr_namespace"]
+  url -->|"yes, already CR-owned"| deny["InvalidSpec. Do not write"]
+  url -->|"yes, unmanaged"| adopt["ADOPT keep id, set cr_namespace"]
 ```
 
-Copy-paste of an in-cluster CR into another namespace is rejected (URL names `kafka-infra`, CR is `team-foo`). External
-hosts have no namespace in the URL, so a second dedicated namespace with the same URL can adopt; tighten later if
-needed.
-
 Instance designators keep storing the **PG `id`**. After adopt that is still the old REST / body id, not the CR
-namespace. New rows use the CR namespace as `id`, so new designators use that.
+namespace. New rows use the CR namespace as `id`. Read the value from `status.alias` rather than guessing from
+`metadata.namespace`.
 
 **Rabbit URL uniqueness.** A DB migration adds a unique index on `rabbit_instances.api_url` and one on
 `rabbit_instances.amqp_url`, matching the Kafka `addresses` constraint. It applies to manager REST and to CRs alike.
@@ -1336,8 +1335,8 @@ must not Register/Update/Unregister.
   edits). Do not join by URL first.
 - Else find the row by URL / host set ([Name and id](#name-and-id-in-the-database)).
 - **Register** only if no row has that URL set (`id` = CR namespace).
-- **Adopt** if a row hits, `cr_namespace` is empty or other, and the URL namespace matches (or the host is external).
-- **Reject** (`InvalidSpec`) if a row hits and the in-cluster URL namespace is not this CR.
+- **Adopt** if a row hits and `cr_namespace` is empty (any host, including in-cluster DNS of another namespace).
+- **Reject** (`InvalidSpec`) if a row hits and another CR already owns it.
 
 **Finalizer is set while the CR is live; it only *acts* on delete.**
 
@@ -1358,7 +1357,8 @@ finalizer. That is the only moment the finalizer “does work”. `PATCH status 
 
 #### Delete
 
-There is no `deletionPolicy`. Deleting the CR always keeps the PG row and hands it back to manager REST.
+There is no `deletionPolicy` and no `managed_by_operator`. Deleting the CR always keeps the PG row. ProcessCR clears
+`cr_namespace` and `cr_name`, which is what unlocks manager REST for that id.
 
 ##### How delete works (and why deletionTimestamp exists)
 

@@ -161,6 +161,31 @@ Status SHALL expose the conditions `Ready`, `Stalled` and `Default` as `metav1.C
 - WHEN ProcessCR PATCHes status
 - THEN status SHALL have no `Default` condition
 
+### Requirement: Status alias is the PostgreSQL instance id
+
+Status SHALL expose `alias` as the bound PostgreSQL instance id used by instance designators, topic/vhost `instanceId`,
+and manager REST. ProcessCR SHALL set it once a row is bound, including when the id equals the CR namespace. It SHALL
+NOT be on spec.
+
+#### Scenario: New Register alias equals namespace
+
+- GIVEN no PG row whose URL / host set equals the CR
+- WHEN ProcessCR Registers with `id` equal to `metadata.namespace`
+- THEN status SHALL have `alias` equal to that namespace
+
+#### Scenario: Adopt keeps the REST id as alias
+
+- GIVEN an unmanaged PG row whose id is `customer-external-kafka` and whose URL / host set equals the CR
+- WHEN ProcessCR adopts that row
+- THEN status SHALL have `alias` equal to `customer-external-kafka`
+- AND `alias` SHALL NOT equal the CR namespace unless that was already the PG id
+
+#### Scenario: First bind failed has no alias
+
+- GIVEN a CR whose first Register failed
+- WHEN ProcessCR PATCHes status
+- THEN status SHALL have no `alias`
+
 ### Requirement: CR delete keeps the PostgreSQL row
 
 While Terminating, ProcessCR SHALL keep the PG row, clear `cr_namespace` and
@@ -302,11 +327,8 @@ DNS-1123 label). There SHALL be no `spec.default` and no `DefaultInstance` CR.
 ### Requirement: Name and id
 
 ProcessCR SHALL use `metadata.namespace` as the CR identity (`cr_namespace`, and PG `id` for a new row).
-`metadata.name` is the Kubernetes object name only; ProcessCR SHALL NOT use it as a join key or PG id.
-ProcessCR SHALL NOT rename an existing PG `id`. ProcessCR SHALL find
-a PG row by equal Kafka host set or Rabbit AMQP URL, not by `GetById` of the CR name. Kafka bootstrap hosts SHALL be
-compared as a set (port stripped, order ignored). An in-cluster host SHALL be `service.namespace` or
-`service.namespace.svc.cluster.local`. Empty `cr_namespace` SHALL NOT count as a match.
+`metadata.name` is the Kubernetes object name only. ProcessCR SHALL NOT use it as a join key or PG id, and SHALL NOT
+rename an existing PG `id`.
 
 #### Scenario: New URL
 
@@ -314,6 +336,7 @@ compared as a set (port stripped, order ignored). An in-cluster host SHALL be `s
 - WHEN ProcessCR applies
 - THEN it SHALL Register with PG `id` equal to `metadata.namespace`
 - AND `cr_namespace` SHALL be that namespace
+- AND `status.alias` SHALL equal that namespace
 
 #### Scenario: Same owner updates
 
@@ -337,14 +360,20 @@ compared as a set (port stripped, order ignored). An in-cluster host SHALL be `s
 - WHEN ProcessCR applies
 - THEN it SHALL Update that row and set `cr_namespace` to `kafka-infra`
 - AND it SHALL NOT rename the id
+- AND `status.alias` SHALL equal that kept id
 
-#### Scenario: Reject copy-paste into another namespace
+### Requirement: Join by URL
 
-- GIVEN a PG row with bootstrap host `kafka.kafka-infra:9093`
+ProcessCR SHALL find a PG row by equal Kafka host set or Rabbit AMQP URL, not by `GetById` of the CR name.
+Kafka bootstrap hosts SHALL be compared as a set (port stripped, order ignored). Empty `cr_namespace` SHALL NOT count
+as a match. ProcessCR SHALL NOT compare a host DNS label to the CR namespace.
+
+#### Scenario: Adopt unmanaged in-cluster URL from another namespace
+
+- GIVEN an unmanaged PG row with bootstrap host `kafka.kafka-infra:9093`
 - AND a claimed CR in namespace `team-foo` with the same host set
 - WHEN ProcessCR applies
-- THEN status SHALL be `Ready=False` `Stalled=True` reason `InvalidSpec`
-- AND ProcessCR SHALL NOT Update
+- THEN it SHALL adopt that row (keep id, set `cr_namespace` to `team-foo`)
 
 #### Scenario: Adopt external URL without a namespace in the host
 

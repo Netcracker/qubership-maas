@@ -90,16 +90,17 @@ default false, so `main` stays releasable after every merge.
       has the same shape as for a REST-registered one (client library compatibility)
 - [ ] 5.4 Name/id rules from design.md. Identity is `metadata.namespace` (`cr_namespace`, new PG id); do not use
       `metadata.name` as a join key. Claimed-namespace first: row with this `cr_namespace` and this CR name → Update
-      (including URL change). Other CR name in that namespace → `DuplicateNamespace`. Else find the row by Kafka host set
-      or Rabbit AMQP URL (set compare, ignore order). No row → Register `id` = namespace. Else if the host is k8s
-      `service.namespace` and that namespace ≠ CR
-      namespace → `InvalidSpec`, no write. Else adopt: keep id, set `cr_namespace` (and `cr_name`). Never
-      rename an id. Empty `cr_namespace` is not a match.
+      (including URL change). Other CR name in that namespace → `DuplicateNamespace`. Else find the row by Kafka host
+      set
+      or Rabbit AMQP URL (set compare, ignore order). No row → Register `id` = namespace. Else if that row is already
+      CR-owned → `InvalidSpec`. Else adopt: keep id, set `cr_namespace` (and `cr_name`). Do not compare host DNS to the
+      CR namespace. Never rename an id. Empty `cr_namespace` is not a match.
 - [ ] 5.5 Register or Update through InstanceService chosen by URL / host set; `HealthCheckFailed` keeps a previous
       good row;
       unique violation → `InvalidSpec`, except the `cr_namespace` index (a race past the 5.4 check) →
       `DuplicateNamespace`. The DAOs return duplicate id / Rabbit URL / Kafka addresses as `msg.Conflict`
-      (REST 409), the only `msg.Conflict` from InstanceService, so ProcessCR can map it to `InvalidSpec`; keep it distinct
+      (REST 409), the only `msg.Conflict` from InstanceService, so ProcessCR can map it to `InvalidSpec`; keep it
+      distinct
       from `HealthCheckFailed` if InstanceService adds other conflicts. Recheck the accepted REST lock race in design.md
       Risks once the operator write path exists
 - [ ] 5.6 Update when `resourceVersion` differs from `status.secretRevisions`; skip apply when `Ready` and spec, Secrets
@@ -108,6 +109,9 @@ default false, so `main` stays releasable after every merge.
 - [ ] 5.8 Backoff (error 1s→5m with jitter) and 10m resync
 - [ ] 5.9 Unit tests: SecretError, HealthCheckFailed, DuplicateInstanceName, DuplicateNamespace, InvalidSpec, adopt,
       rotation, skip apply, same-owner URL change
+- [ ] 5.10 `status.alias` is the bound PostgreSQL instance id (designators, topic/vhost `instanceId`, manager REST);
+      printer column `ALIAS`; empty until first bind; docs and unit tests for Register, adopt, skip-apply, first
+      SecretError
 
 ## 6. Delete, defaults, and events
 

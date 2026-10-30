@@ -288,7 +288,9 @@ version keeps working with the same database. To fix it:
    virtual hosts still use the instance: first move them to the kept instance
    by setting its id as `instanceId` (or in the instance designator) in the
    application MaaS configuration and redeploying the application, see the first
-   method of [Instance update][docs-instance-update].
+   method of [Instance update][docs-instance-update]. For a CR-managed instance
+   that id is `status.alias` on the `KafkaInstance` / `RabbitInstance`, not the
+   CR namespace (they differ after adopt).
 4. Upgrade `maas-service` again.
 
 [docs-rest-api]: https://github.com/Netcracker/qubership-maas/blob/main/docs/rest_api.md

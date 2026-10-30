@@ -106,7 +106,8 @@ managed row is involved (blocks the only default switch when the param is empty)
 ### Optional operator and safe downgrade
 
 `OPERATOR_ENABLED` default false. Flipping it false, or Syncing a chart without the operator, must not Unregister. CR
-delete also must not Unregister: the PG row stays. Old binary ignores `cr_namespace` / `cr_name` (columns default empty).
+delete also must not Unregister: the PG row stays. Old binary ignores `cr_namespace` / `cr_name` (columns default
+empty).
 
 ### CR delete always keeps the PG row
 
@@ -132,9 +133,9 @@ cluster-wide. This is not “watch only the MaaS namespace”.
 `metadata.namespace` is the CR identity (new PG `id`, `cr_namespace`, default param). `metadata.name` is only the
 Kubernetes object name; examples generate it equal to the namespace. Do not rename an existing PG `id` (topics/vhosts
 and designators FK it).
-The CR never carries the old REST id. Join is the unique URL / host set (Kafka bootstrap hosts as a set; Rabbit AMQP
-host). In-cluster hosts are `service.namespace`; that namespace is part of the URL. External hosts skip the
-URL-namespace check.
+ProcessCR writes that id to `status.alias` (namespace after a new Register; kept REST id after adopt). Join is the
+unique URL / host set (Kafka bootstrap hosts as a set; Rabbit AMQP host). ProcessCR does not compare a host DNS label
+to the CR namespace.
 
 - One broker (or dedicated external) namespace holds one broker: at most one claimed `KafkaInstance` and one claimed
   `RabbitInstance` per namespace. Partial unique index `(cr_namespace) WHERE cr_namespace <> ''`. Owner matching uses
@@ -143,9 +144,9 @@ URL-namespace check.
   even if the URL / host set changed.
 - A row already has `cr_namespace` equal to this CR namespace and a different `cr_name` → `DuplicateNamespace`.
 - Else URL set not in PG → INSERT `id` = CR namespace, set `cr_namespace`.
-- Else URL set in PG and `cr_namespace` empty or other: if the host looks like k8s and URL namespace ≠ CR namespace →
-  `InvalidSpec`; else ADOPT (keep id, set `cr_namespace`). Empty `cr_namespace` does not
-  match. Join-by-URL is only this first bind, not later edits of a row we already own.
+- Else URL set in PG and `cr_namespace` empty → ADOPT (keep id, set `cr_namespace`). Else URL set in PG and
+  `cr_namespace` already set → `InvalidSpec`. Empty `cr_namespace` does not match as owner. Join-by-URL is only this
+  first bind, not later edits of a row we already own.
 - `MAAS_*_INSTANCE_BODY` still Registers legacy rows; it is not a namespace allowlist.
 - Rejected: old REST id as `metadata.name`; `GetById(name)` adopt; DNS as PG id.
 

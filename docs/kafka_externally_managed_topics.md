@@ -76,6 +76,9 @@ spec:
     instance: external-kafka
 ```
 
+`defaultInstance` and `instance` are PostgreSQL instance ids. If the broker is a `KafkaInstance` CR, use that CR's
+`status.alias` (see [instance designators](instance_designators.md)).
+
 and specify it as CMDB property `MAAS_CONFIG` on namespace level. It will be something like:
 
 ```text

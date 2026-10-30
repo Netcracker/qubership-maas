@@ -167,13 +167,13 @@ This API allows to update connection properties for RabbitMQ instance in Maas.
     }
     ```
 
-    *Http code*: `409` - the instance is managed by a `RabbitInstance` CR and `OPERATOR_ENABLED` is `true`. Change
-    the CR instead, or delete the CR to hand the instance back to this API
+    *Http code*: `409` - `cr_namespace` is set and `OPERATOR_ENABLED` is `true`. Change the `RabbitInstance` CR, or
+    delete the CR. Delete keeps the PostgreSQL row and clears `cr_namespace`
     *Response body:*
 
     ```json
     {
-      "error": "rabbit instance `rabbit-main' is managed by the MaaS operator through CR `rabbit-main' in namespace `infra'. Change the CR instead, or delete the CR to hand the instance back to the manager REST API"
+      "error": "rabbit instance `rabbit-main' has cr_namespace `infra' (CR `rabbit-main'). Change the CR, or delete the CR to clear cr_namespace. The registration stays"
     }
     ```
 
@@ -267,13 +267,13 @@ This API allows to remove RabbitMQ instance registration from Maas.
 * **Success Response:**
     `200` - Rabbit instance was removed successfully.
 * **Error Response:**
-    *Http code*: `409` - the instance is managed by a `RabbitInstance` CR and `OPERATOR_ENABLED` is `true`. Delete
-    the CR instead
+    *Http code*: `409` - `cr_namespace` is set and `OPERATOR_ENABLED` is `true`. Delete the `RabbitInstance` CR first.
+    That keeps this registration and clears `cr_namespace`
     *Response body:*
 
     ```json
     {
-      "error": "rabbit instance `rabbit-main' is managed by the MaaS operator through CR `rabbit-main' in namespace `infra'. Change the CR instead, or delete the CR to hand the instance back to the manager REST API"
+      "error": "rabbit instance `rabbit-main' has cr_namespace `infra' (CR `rabbit-main'). Delete the CR to clear cr_namespace. The registration stays"
     }
     ```
 
@@ -1188,13 +1188,13 @@ This API allows to update connection properties for Kafka instance in Maas.
     }
     ```
 
-    *Http code*: `409` - the instance is managed by a `KafkaInstance` CR and `OPERATOR_ENABLED` is `true`. Change
-    the CR instead, or delete the CR to hand the instance back to this API
+    *Http code*: `409` - `cr_namespace` is set and `OPERATOR_ENABLED` is `true`. Change the `KafkaInstance` CR, or
+    delete the CR. Delete keeps the PostgreSQL row and clears `cr_namespace`
     *Response body:*
 
     ```json
     {
-      "error": "kafka instance `kafka-main' is managed by the MaaS operator through CR `kafka-main' in namespace `infra'. Change the CR instead, or delete the CR to hand the instance back to the manager REST API"
+      "error": "kafka instance `kafka-main' has cr_namespace `infra' (CR `kafka-main'). Change the CR, or delete the CR to clear cr_namespace. The registration stays"
     }
     ```
 
@@ -1338,13 +1338,13 @@ This API allows remove Kafka instance from Maas.
     }
     ```
 
-    *Http code*: `409` - the instance is managed by a `KafkaInstance` CR and `OPERATOR_ENABLED` is `true`. Delete
-    the CR instead
+    *Http code*: `409` - `cr_namespace` is set and `OPERATOR_ENABLED` is `true`. Delete the `KafkaInstance` CR first.
+    That keeps this registration and clears `cr_namespace`
     *Response body:*
 
     ```json
     {
-      "error": "kafka instance `kafka-main' is managed by the MaaS operator through CR `kafka-main' in namespace `infra'. Change the CR instead, or delete the CR to hand the instance back to the manager REST API"
+      "error": "kafka instance `kafka-main' has cr_namespace `infra' (CR `kafka-main'). Delete the CR to clear cr_namespace. The registration stays"
     }
     ```
 
@@ -3881,6 +3881,8 @@ Note, that same API exists for RabbitMQ, but URI should be `{maas_host}/api/v2/r
 ### Get kafka instance designators
 
 Get kafka instance designator. You can have only one instance designator of broker per namespace.
+`instance` / `defaultInstance` values are PostgreSQL instance ids. For a `KafkaInstance` CR, use `status.alias`
+(see [instance designators](instance_designators.md)).
 
 * **URI:**  `{maas_host}/api/v2/kafka/instance-designator`
 * **Method:** `GET`
