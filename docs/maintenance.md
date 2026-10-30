@@ -56,6 +56,9 @@ You have 2 options how to move existing topics/vhosts to another instance:
    config. Or if you have instance designator and instance is resolved by it and it differs from existing instance id
    in topic/vhost, then topic/vhost will be moved to new instance broker. Note, that you CANNOT use both designators and
    instance id in request.
+   For a broker registered by a `KafkaInstance` / `RabbitInstance` CR, the id to put in `instanceId` or the designator
+   `instance` field is `status.alias` on that CR (the PostgreSQL id). Do not use `metadata.namespace` unless it equals
+   `status.alias`.
    If you're using default RabbitMQ/Kafka instance (not putting any instance in request and have no match in instance
    designator), then instance of vhost/topic WILL NOT be changed if default has changed for MaaS.
 
