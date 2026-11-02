@@ -4,7 +4,6 @@ set -x
 
 apk upgrade --no-cache
 apk add --update --upgrade --no-cache \
-  libxml2 \
   "postgresql18>=18.5-r0" \
   "python3>=3.14.7-r0" \
   curl bash
@@ -19,7 +18,7 @@ chmod +x /bootstrap.sh
 chmod -R +x /scripts
 
 GSDK=https://dl.k8s.io/release
-curl -L "${GSDK}"/v1.36.6/bin/linux/amd64/kubectl  -o /bin/kubectl
+curl -L "${GSDK}"/v1.37.2/bin/linux/amd64/kubectl  -o /bin/kubectl
 chmod +x /bin/kubectl*
 
 exit 0
