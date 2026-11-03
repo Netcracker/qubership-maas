@@ -12,10 +12,10 @@ require (
 	github.com/go-pg/migrations/v8 v8.1.0
 	github.com/go-pg/pg/v10 v10.15.1
 	github.com/go-playground/universal-translator v0.18.2
-	github.com/go-playground/validator/v10 v10.30.5
+	github.com/go-playground/validator/v10 v10.30.6
 	github.com/go-resty/resty/v2 v2.17.2
 	github.com/gofiber/fiber/v3 v3.6.1
-	github.com/gofiber/utils/v2 v2.6.3
+	github.com/gofiber/utils/v2 v2.6.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
@@ -68,7 +68,7 @@ require (
 	github.com/failsafe-go/failsafe-go v0.9.8 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.16 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -83,7 +83,7 @@ require (
 	github.com/go-openapi/swag/typeutils v0.27.3 // indirect
 	github.com/go-openapi/swag/yamlutils v0.27.3 // indirect
 	github.com/go-pg/zerochecker v0.2.0 // indirect
-	github.com/go-playground/locales v0.14.1 // indirect
+	github.com/go-playground/locales v0.14.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/gofiber/schema v1.8.8 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
