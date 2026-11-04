@@ -1,0 +1,15 @@
+{
+  "components": [
+    {
+      "name": "qubership-maas",
+      "file": "maas/Dockerfile",
+      "context": "./maas"
+    },
+    {
+      "name": "qubership-maas-validation-image",
+      "file": "validation-image/Dockerfile",
+      "context": "./validation-image"
+    }
+  ],
+  "platforms": "linux/amd64,linux/arm64"
+}

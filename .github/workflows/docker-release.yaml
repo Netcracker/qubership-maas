@@ -48,24 +48,11 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: netcracker/qubership-workflow-hub/.github/workflows/docker-publish.yml@e6afd0a6bcc4f24d73e3e4d5fb9a31ada009e3f1 # v2.8.2
+    uses: netcracker/qubership-core-infra/.github/workflows/docker-build.yaml@ed95ad948025728db1e613a3e1a4e6a11186f541 # v2.6.2
     with:
-      ref: v${{ inputs.version }}
+      ref: refs/tags/v${{ inputs.version }}
       dry-run: ${{ github.event.inputs.dry-run == 'true' }}
-      component: |
-        [
-          {
-            "name": "qubership-maas",
-            "file": "./maas/Dockerfile",
-            "context": "./maas"
-          },
-          {
-            "name": "qubership-maas-validation-image",
-            "file": "./validation-image/Dockerfile",
-            "context": "./validation-image"
-          }
-        ]
-      platforms: linux/amd64,linux/arm64
+      config-filename: "maas---docker-release-config.json"
 
   cleanup-on-fail:
     needs: docker-build-publish
@@ -84,10 +71,7 @@ jobs:
 
   github-release:
     needs: docker-build-publish
-    if: ${{ github.event.inputs.dry-run == 'false' }}
-    permissions:
-      contents: write
-    uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@e6afd0a6bcc4f24d73e3e4d5fb9a31ada009e3f1 # v2.8.2
-    with:
-      version: ${{ github.event.inputs.version }}
-      publish: false
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "GitHub release step disabled; images are published by docker-build-publish"
