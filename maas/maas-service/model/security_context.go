@@ -32,6 +32,13 @@ func (sc *SecurityContext) UserHasAccessToNamespace(namespace string) bool {
 	return sc.account.HasAccessToNamespace(namespace)
 }
 
+func (sc *SecurityContext) GetAccount() *Account {
+	if sc == nil {
+		return nil
+	}
+	return sc.account
+}
+
 func (sc *SecurityContext) IsCompositeIsolationDisabled() bool {
 	return sc != nil && sc.compositeIsolationDisabled
 }
