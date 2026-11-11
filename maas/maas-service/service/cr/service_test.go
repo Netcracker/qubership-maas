@@ -11,6 +11,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
+	mock_domain "github.com/netcracker/qubership-maas/service/bg2/domain/mock"
 	"github.com/netcracker/qubership-maas/service/configurator_service"
 	mockconfiguratorservice "github.com/netcracker/qubership-maas/service/configurator_service/mock"
 	"github.com/netcracker/qubership-maas/service/kafka"
@@ -31,7 +33,7 @@ func TestCustomResourceProcessorService_Create_Topic(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	gomock.InOrder(
 		configuratorService.EXPECT().ApplyKafkaConfiguration(gomock.Any(), &model.TopicRegistrationConfigReqDto{
@@ -81,7 +83,7 @@ func TestCustomResourceProcessorService_Create_Topic_Unknown_Fields(t *testing.T
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	_, err := resourceProcessorService.Apply(ctx, &CustomResourceRequest{
 		ApiVersion: configurator_service.CoreNcV1ApiVersion,
@@ -114,7 +116,7 @@ func TestCustomResourceProcessorService_Create_Topic_With_Template(t *testing.T)
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 	customResourceRequestTopic := CustomResourceRequest{
 		ApiVersion: configurator_service.CoreNcV1ApiVersion,
 		Kind:       "MaaS",
@@ -225,7 +227,7 @@ func TestCustomResourceProcessorService_Create_Topic_Multiple_Requests(t *testin
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 	customResourceRequestTopic := CustomResourceRequest{
 		ApiVersion: configurator_service.CoreNcV1ApiVersion,
 		Kind:       "MaaS",
@@ -306,7 +308,7 @@ func TestCustomResourceProcessorService_Create_LazyTopic(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	gomock.InOrder(
 		configuratorService.EXPECT().ApplyKafkaLazyTopic(gomock.Any(), &model.TopicRegistrationConfigReqDto{
@@ -356,7 +358,7 @@ func TestCustomResourceProcessorService_Create_TenantTopic(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	gomock.InOrder(
 		configuratorService.EXPECT().ApplyKafkaTenantTopic(gomock.Any(), &model.TopicRegistrationConfigReqDto{
@@ -407,7 +409,7 @@ func TestCustomResourceProcessorService_CleanupNamespace(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	waitListDao.EXPECT().DeleteByNamespace(ctx, "test-namespace")
 	err := resourceProcessorService.CleanupNamespace(ctx, "test-namespace")
@@ -428,7 +430,7 @@ func TestCustomResourceProcessorService_GetStatus(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	trackingId := rand.Int63()
 	waitListDao.EXPECT().GetByTrackingId(ctx, trackingId).Return(&CustomResourceWaitEntity{
@@ -459,7 +461,7 @@ func TestCustomResourceProcessorService_Terminate(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	waitListDao.EXPECT().UpdateStatus(ctx, gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, trackingId int64, status CustomResourceWaitStatus) (*CustomResourceWaitEntity, error) {
 		assert.Equal(t, CustomResourceStatusTerminated, status)
@@ -490,7 +492,7 @@ func TestCustomResourceProcessorService_Delete_Topic(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	gomock.InOrder(
 		configuratorService.EXPECT().ApplyKafkaDeleteTopic(gomock.Any(), &model.TopicDeleteConfig{
@@ -537,7 +539,7 @@ func TestCustomResourceProcessorService_Delete_TopicTemplate(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	gomock.InOrder(
 		configuratorService.EXPECT().ApplyKafkaDeleteTopicTemplate(gomock.Any(), &model.TopicTemplateDeleteConfig{
@@ -578,7 +580,7 @@ func TestCustomResourceProcessorService_Unknown_Kind(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	_, err := resourceProcessorService.Apply(ctx, &CustomResourceRequest{
 		ApiVersion: configurator_service.CoreNcV1ApiVersion,
@@ -606,7 +608,7 @@ func TestCustomResourceProcessorService_Create_Vhost(t *testing.T) {
 	configuratorService := mockconfiguratorservice.NewMockConfiguratorService(mockCtrl)
 	kafkaService := kafka.NewMockKafkaService(mockCtrl)
 	rabbitService := mock_rabbit_service.NewMockRabbitService(mockCtrl)
-	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService)
+	resourceProcessorService := NewCustomResourceProcessorService(waitListDao, configuratorService, kafkaService, rabbitService, nil)
 
 	gomock.InOrder(
 		configuratorService.EXPECT().ApplyRabbitConfiguration(gomock.Any(), gomock.Any(), "test-namespace"),
@@ -646,4 +648,63 @@ func TestCustomResourceProcessorService_Create_Vhost(t *testing.T) {
 		},
 	}, ActionCreate)
 	assert.NoError(t, err)
+}
+
+func TestCheckNamespacePermission_SameNamespace(t *testing.T) {
+	ctx := model.WithSecurityContext(
+		context.Background(),
+		model.NewSecurityContext(&model.Account{
+			Username:  "user",
+			Namespace: "origin-ns",
+		}, false),
+	)
+	mockCtrl := gomock.NewController(t)
+	bgDomainService := mock_domain.NewMockBGDomainService(mockCtrl)
+	service := &CustomResourceProcessorService{bgDomainService: bgDomainService}
+
+	err := service.checkNamespacePermission(ctx, "origin-ns")
+	assert.NoError(t, err)
+}
+
+func TestCheckNamespacePermission_BgPeerAllowed(t *testing.T) {
+	ctx := model.WithSecurityContext(
+		context.Background(),
+		model.NewSecurityContext(&model.Account{
+			Username:  "user",
+			Namespace: "origin-ns",
+		}, false),
+	)
+	mockCtrl := gomock.NewController(t)
+	bgDomainService := mock_domain.NewMockBGDomainService(mockCtrl)
+	bgDomainService.EXPECT().
+		FindByNamespace(gomock.Any(), "origin-ns").
+		Return(&domain.BGNamespaces{
+			Origin:              "origin-ns",
+			Peer:                "peer-ns",
+			ControllerNamespace: "controller-ns",
+		}, nil)
+
+	service := &CustomResourceProcessorService{bgDomainService: bgDomainService}
+	err := service.checkNamespacePermission(ctx, "peer-ns")
+	assert.NoError(t, err)
+}
+
+func TestCheckNamespacePermission_UnboundNamespaceDenied(t *testing.T) {
+	ctx := model.WithSecurityContext(
+		context.Background(),
+		model.NewSecurityContext(&model.Account{
+			Username:  "user",
+			Namespace: "origin-ns",
+		}, false),
+	)
+	mockCtrl := gomock.NewController(t)
+	bgDomainService := mock_domain.NewMockBGDomainService(mockCtrl)
+	bgDomainService.EXPECT().
+		FindByNamespace(gomock.Any(), "origin-ns").
+		Return(nil, nil)
+
+	service := &CustomResourceProcessorService{bgDomainService: bgDomainService}
+	err := service.checkNamespacePermission(ctx, "foreign-ns")
+	assert.ErrorIs(t, err, msg.AuthError)
+	assert.ErrorContains(t, err, "namespace 'foreign-ns' is not allowed")
 }
