@@ -147,7 +147,7 @@ func main() {
 	bgManagerService := bg2.NewManager(bgDomainService, kafkaService, rabbitService)
 
 	waitListDao := cr.NewPGWaitListDao(pg)
-	customResourceProcessorService := cr.NewCustomResourceProcessorService(waitListDao, configService, kafkaService, rabbitService)
+	customResourceProcessorService := cr.NewCustomResourceProcessorService(waitListDao, configService, kafkaService, rabbitService, bgDomainService)
 
 	cleanupService := cleanup.NewNamespaceCleanupService(
 		kafkaService.CleanupNamespace,

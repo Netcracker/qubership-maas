@@ -3,8 +3,10 @@ package cr
 import (
 	"context"
 	"fmt"
+
 	"github.com/netcracker/qubership-maas/model"
 	"github.com/netcracker/qubership-maas/msg"
+	"github.com/netcracker/qubership-maas/service/bg2/domain"
 	"github.com/netcracker/qubership-maas/service/configurator_service"
 	"github.com/netcracker/qubership-maas/service/kafka"
 	"github.com/netcracker/qubership-maas/service/rabbit_service"
@@ -32,14 +34,19 @@ type WaitListDao interface {
 type CustomResourceProcessorService struct {
 	resourceApplier *applier
 	waitListDao     WaitListDao
+	bgDomainService domain.BGDomainService
 }
 
-func NewCustomResourceProcessorService(waitListDao WaitListDao, configuratorService configurator_service.ConfiguratorService, kafkaService kafka.KafkaService, rabbitService rabbit_service.RabbitService) *CustomResourceProcessorService {
-	return &CustomResourceProcessorService{waitListDao: waitListDao, resourceApplier: newApplier(configuratorService, kafkaService, rabbitService, waitListDao)}
+func NewCustomResourceProcessorService(waitListDao WaitListDao, configuratorService configurator_service.ConfiguratorService, kafkaService kafka.KafkaService, rabbitService rabbit_service.RabbitService, bgDomainService domain.BGDomainService) *CustomResourceProcessorService {
+	return &CustomResourceProcessorService{
+		waitListDao:     waitListDao,
+		resourceApplier: newApplier(configuratorService, kafkaService, rabbitService, waitListDao),
+		bgDomainService: bgDomainService,
+	}
 }
 
 func (s *CustomResourceProcessorService) Apply(ctx context.Context, customResource *CustomResourceRequest, action Action) (*CustomResourceWaitEntity, error) {
-	if err := checkNamespacePermission(ctx, customResource.Metadata.Namespace); err != nil {
+	if err := s.checkNamespacePermission(ctx, customResource.Metadata.Namespace); err != nil {
 		return nil, err
 	}
 
@@ -66,7 +73,7 @@ func (s *CustomResourceProcessorService) GetStatus(ctx context.Context, tracking
 	if waitEntity == nil {
 		return nil, utils.LogError(log, ctx, "no entity found for trackingId '%d: %w", trackingId, msg.NotFound)
 	}
-	if err := checkNamespacePermission(ctx, waitEntity.Namespace); err != nil {
+	if err := s.checkNamespacePermission(ctx, waitEntity.Namespace); err != nil {
 		return nil, err
 	}
 
@@ -78,7 +85,7 @@ func (s *CustomResourceProcessorService) Terminate(ctx context.Context, tracking
 	if err != nil {
 		return nil, err
 	}
-	if err := checkNamespacePermission(ctx, waitEntity.Namespace); err != nil {
+	if err := s.checkNamespacePermission(ctx, waitEntity.Namespace); err != nil {
 		return nil, err
 	}
 
@@ -92,9 +99,24 @@ func (s *CustomResourceProcessorService) CleanupNamespace(ctx context.Context, n
 	return nil
 }
 
-func checkNamespacePermission(ctx context.Context, namespace string) error {
-	if !model.SecurityContextOf(ctx).UserHasAccessToNamespace(namespace) {
+func (s *CustomResourceProcessorService) checkNamespacePermission(ctx context.Context, namespace string) error {
+	sec := model.SecurityContextOf(ctx)
+	if sec.UserHasAccessToNamespace(namespace) {
+		return nil
+	}
+
+	account := sec.GetAccount()
+	if account == nil {
 		return fmt.Errorf("namespace '%s' is not allowed: %w", namespace, msg.AuthError)
 	}
-	return nil
+
+	namespaces, err := s.bgDomainService.FindByNamespace(ctx, account.Namespace)
+	if err != nil {
+		return fmt.Errorf("namespace '%s' is not allowed: %w", namespace, msg.AuthError)
+	}
+	if namespaces != nil && namespaces.IsMember(namespace) {
+		return nil
+	}
+
+	return fmt.Errorf("namespace '%s' is not allowed: %w", namespace, msg.AuthError)
 }
