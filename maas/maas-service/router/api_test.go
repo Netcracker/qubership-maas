@@ -152,7 +152,7 @@ func initApp(t *testing.T, baseDao *dao.BaseDaoImpl, tokenVerifier mockTokenVeri
 	bgManagerService := bg2.NewManager(bgDomainService, kafkaService, rabbitService)
 
 	waitListDao := cr.NewPGWaitListDao(baseDao)
-	customResourceProcessorService := cr.NewCustomResourceProcessorService(waitListDao, configService, kafkaService, rabbitService)
+	customResourceProcessorService := cr.NewCustomResourceProcessorService(waitListDao, configService, kafkaService, rabbitService, bgDomainService)
 
 	cleanupService := cleanup.NewNamespaceCleanupService(
 		kafkaService.CleanupNamespace,
