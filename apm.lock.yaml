@@ -1,5 +1,9 @@
-lockfile_version: '1'
-apm_version: 0.35.0
+lockfile_version: '4'
+apm_version: 0.38.0
+manifest_targets:
+- claude
+- copilot
+- cursor
 dependencies:
 - repo_url: _local/troubleshoot-maas
   name: troubleshoot-maas
@@ -25,7 +29,7 @@ dependencies:
     .github/instructions/troubleshoot-maas.instructions.md: sha256:9832732172e95e39d974f36107c5f2ba00301707374f82cc4360454e715f9ed9
   source: local
   local_path: ./agent-packages/troubleshoot-maas/
-  content_hash: sha256:fce18e6b60cc5991e1454de41d206b8830d8cb5efd16dd08ba4842570732d7d1
+  content_hash: sha256:f14737fc2e5a384ff3ffd273adc66d55c2fa697886db685c9149965a6356f703
   is_dev: true
 deployments:
 - kind: project-relative
