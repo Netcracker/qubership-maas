@@ -10,7 +10,7 @@ services:
       - "22181:2181"
 
   kafka-1:
-    image: confluentinc/cp-kafka:latest@sha256:dfc55ae0803ae960c7aaa4f669f74fc884938b6d8e9ef2f9107078b49628642f
+    image: confluentinc/cp-kafka:latest@sha256:aacc720b6b59b90ca1e27676dc4524e45e1cf60ae23fe6a149c7958eac2af3f5
     depends_on:
       - zookeeper
     ports:
@@ -24,7 +24,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   kafka-2:
-    image: confluentinc/cp-kafka:latest@sha256:dfc55ae0803ae960c7aaa4f669f74fc884938b6d8e9ef2f9107078b49628642f
+    image: confluentinc/cp-kafka:latest@sha256:aacc720b6b59b90ca1e27676dc4524e45e1cf60ae23fe6a149c7958eac2af3f5
     depends_on:
       - zookeeper
     ports:
@@ -38,7 +38,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   kafka-3:
-    image: confluentinc/cp-kafka:latest@sha256:dfc55ae0803ae960c7aaa4f669f74fc884938b6d8e9ef2f9107078b49628642f
+    image: confluentinc/cp-kafka:latest@sha256:aacc720b6b59b90ca1e27676dc4524e45e1cf60ae23fe6a149c7958eac2af3f5
     depends_on:
       - zookeeper
     ports:
