@@ -80,6 +80,8 @@ spec:
               value: "{{ .Values.DB_POOL_SIZE }}"
             - name: KAFKA_CLIENT_TIMEOUT
               value: "{{ .Values.KAFKA_CLIENT_TIMEOUT }}"
+            - name: KAFKA_TOPIC_DELETION_TIMEOUT
+              value: "{{ .Values.KAFKA_TOPIC_DELETION_TIMEOUT }}"
             - name: LOG_LEVEL
               value: "{{ .Values.LOG_LEVEL }}"
 {{ if .Values.MEMORY_LIMIT }}

@@ -277,6 +277,10 @@ func TestKafkaService_CleanupNamespace(t *testing.T) {
 			GetById(eqCtx, gomock.Any()).
 			Return(kafkaInstance, nil).
 			Times(1),
+		kafkaHelper.EXPECT().
+			DeleteTopics(eqCtx, []*model.TopicRegistration{topicReg}).
+			Return(nil).
+			Times(1),
 		mockDao.EXPECT().
 			DeleteTopicRegistration(eqCtx, topicReg, gomock.Any()).
 			Return(nil),
@@ -2900,6 +2904,10 @@ func TestKafkaServiceImpl_Commit(t *testing.T) {
 					}`,
 				},
 			}, nil).
+			Times(1),
+		kafkaHelper.EXPECT().
+			DeleteTopics(gomock.Eq(ctx), gomock.Any()).
+			Return(nil).
 			Times(1),
 		dao.EXPECT().
 			DeleteTopicRegistration(gomock.Eq(ctx), gomock.Eq(&expectedFirstTopicReg), gomock.Any()),

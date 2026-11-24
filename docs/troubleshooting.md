@@ -205,6 +205,12 @@ like list/update/create/delete, you may want to increase timeout for Kafka
 broker client. You can do it by changing client timeout property via env
 variable `KAFKA_CLIENT_TIMEOUT`. Default value is 10s.
 
+Topic deletion is accepted by Kafka immediately and finishes later. MaaS waits
+until the topic is gone from metadata before it removes the registry row. That
+wait is `KAFKA_TOPIC_DELETION_TIMEOUT` (default `3m`), separate from
+`KAFKA_CLIENT_TIMEOUT`. Raise it when topic deletion is slow because of broker
+load or under-replicated partitions.
+
 ## Recover Kafka topics and Rabbit vhosts
 
 If you created topics or vhosts via MaaS then information about these

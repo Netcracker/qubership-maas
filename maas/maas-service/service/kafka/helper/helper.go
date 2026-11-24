@@ -22,6 +22,8 @@ var ErrInvalidDeleteRequest = errors.New("kafka: received INVALID_REQUEST respon
 var ErrSettingsAreNotUpdated = errors.New("kafka: topic settings are not updated (possibly the new values resulted in the same settings as were before changes)")
 var ErrInvalidPartitionsUpdate = errors.New("kafka: number of partitions for topic is bigger than actual")
 
+const defaultTopicDeletionTimeout = 3 * time.Minute
+
 var createMethodMetric = newMetricCounter("createTopic")
 var deleteMethodMetric = newMetricCounter("deleteTopic")
 var updateMethodMetric = newMetricCounter("updateTopic")
@@ -44,13 +46,22 @@ func CreateKafkaHelper(ctx context.Context) Helper {
 		log.PanicC(ctx, "wrong parameter value for 'kafka.client.timeout': '%v'. It should have time format, for example '10s'", topicClientTimeoutStr)
 	}
 
-	return NewHelperImpl(clientTimeout)
+	topicDeletionTimeout := defaultTopicDeletionTimeout
+	if topicDeletionTimeoutStr := configloader.GetKoanf().String("kafka.topic.deletion.timeout"); topicDeletionTimeoutStr != "" {
+		topicDeletionTimeout, err = time.ParseDuration(topicDeletionTimeoutStr)
+		if err != nil {
+			log.PanicC(ctx, "wrong parameter value for 'kafka.topic.deletion.timeout': '%v'. It should have time format, for example '3m'", topicDeletionTimeoutStr)
+		}
+	}
+
+	return NewHelperImpl(clientTimeout, topicDeletionTimeout)
 }
 
 //go:generate mockgen -source=helper.go -destination=mock/helper.go
 type Helper interface {
 	CreateTopic(ctx context.Context, topic *model.TopicRegistration) (*model.TopicRegistrationRespDto, error)
 	DeleteTopic(ctx context.Context, topic *model.TopicRegistration) error
+	DeleteTopics(ctx context.Context, topics []*model.TopicRegistration) map[*model.TopicRegistration]error
 	UpdateTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
 	GetTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error
 	GetExistingTopics(ctx context.Context, instance *model.KafkaInstance, topicNames []string) (map[string]bool, error)
@@ -61,12 +72,20 @@ type Helper interface {
 }
 
 type HelperImpl struct {
-	KafkaClientTimeout time.Duration
-	client             SaramaClient
+	KafkaClientTimeout   time.Duration
+	TopicDeletionTimeout time.Duration
+	client               SaramaClient
 }
 
-func NewHelperImpl(kafkaClientTimeout time.Duration) *HelperImpl {
-	return &HelperImpl{KafkaClientTimeout: kafkaClientTimeout, client: &SaramaClientImpl{}}
+func NewHelperImpl(kafkaClientTimeout, topicDeletionTimeout time.Duration) *HelperImpl {
+	if topicDeletionTimeout <= 0 {
+		topicDeletionTimeout = defaultTopicDeletionTimeout
+	}
+	return &HelperImpl{
+		KafkaClientTimeout:   kafkaClientTimeout,
+		TopicDeletionTimeout: topicDeletionTimeout,
+		client:               &SaramaClientImpl{},
+	}
 }
 
 func (helper HelperImpl) CheckHealth(ctx context.Context, kafkaInstance *model.KafkaInstance) (ret error) {
@@ -150,51 +169,126 @@ func (helper *HelperImpl) CreateTopic(ctx context.Context, topic *model.TopicReg
 }
 
 func (helper *HelperImpl) DeleteTopic(ctx context.Context, topic *model.TopicRegistration) error {
-	return measureTime(deleteMethodMetric, func() error {
-		if topic.ExternallyManaged {
-			log.InfoC(ctx, "Topic `%v' is externally managed, skip deletion", topic.Topic)
-			return nil
-		}
-		admin, err := helper.createClusterAdmin(ctx, topic.InstanceRef)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := admin.Close(); err != nil {
-				log.WarnC(ctx, "Failed to close kafka admin client for topic %s in instance %s: %v", topic.Topic, topic.Instance, err)
-			}
-		}()
-		log.InfoC(ctx, "Try delete topic: `%v'", topic.Topic)
+	if err, failed := helper.DeleteTopics(ctx, []*model.TopicRegistration{topic})[topic]; failed {
+		return err
+	}
+	return nil
+}
 
+// DeleteTopics deletes topics on their Kafka instances. One admin client is used per instance.
+// A single topic is a list of one. Externally managed topics are skipped.
+// A topic already absent on the broker is success. The returned map contains only topics that
+// were not confirmed deleted.
+func (helper *HelperImpl) DeleteTopics(ctx context.Context, topics []*model.TopicRegistration) map[*model.TopicRegistration]error {
+	if len(topics) == 0 {
+		return nil
+	}
+	failures := map[*model.TopicRegistration]error{}
+	_ = measureTime(deleteMethodMetric, func() error {
+		grouped := make(map[string][]*model.TopicRegistration)
+		var order []string
+		for _, topic := range topics {
+			if topic.ExternallyManaged {
+				log.InfoC(ctx, "Topic `%v' is externally managed, skip deletion", topic.Topic)
+				continue
+			}
+			if _, found := grouped[topic.Instance]; !found {
+				order = append(order, topic.Instance)
+			}
+			grouped[topic.Instance] = append(grouped[topic.Instance], topic)
+		}
+		for _, instanceID := range order {
+			for topic, deleteErr := range helper.deleteTopicsOnInstance(ctx, grouped[instanceID]) {
+				failures[topic] = deleteErr
+			}
+		}
+		return nil
+	})
+	if len(failures) == 0 {
+		return nil
+	}
+	return failures
+}
+
+func (helper *HelperImpl) deleteTopicsOnInstance(ctx context.Context, topics []*model.TopicRegistration) map[*model.TopicRegistration]error {
+	failures := map[*model.TopicRegistration]error{}
+	instance := topics[0].InstanceRef
+	admin, err := helper.newClusterAdmin(ctx, instance, false)
+	if err != nil {
+		for _, topic := range topics {
+			failures[topic] = err
+		}
+		return failures
+	}
+	defer func() {
+		if err := admin.Close(); err != nil {
+			log.WarnC(ctx, "Failed to close kafka admin client for instance %s: %v", instance.Id, err)
+		}
+	}()
+
+	var names []string
+	byName := make(map[string]*model.TopicRegistration, len(topics))
+	for _, topic := range topics {
+		log.InfoC(ctx, "Try delete topic: `%v'", topic.Topic)
 		if err := admin.DeleteTopic(topic.Topic); err != nil {
 			log.ErrorC(ctx, "Failed to delete kafka topic %s in instance %s: %v", topic.Topic, topic.Instance, err)
 			switch { // proxying sarama errors so other MaaS packages do not depend on sarama kafka client
 			case errors.Is(err, sarama.ErrTopicDeletionDisabled):
-				return ErrTopicDeletionDisabled
+				failures[topic] = ErrTopicDeletionDisabled
 			case errors.Is(err, sarama.ErrInvalidRequest):
-				return ErrInvalidDeleteRequest
+				failures[topic] = ErrInvalidDeleteRequest
 			case errors.Is(err, sarama.ErrUnknownTopicOrPartition):
 				log.Warnf("Topic %s is not found in broker %v, bu topic was deleted from database. Continue processing delete request.", topic.Topic, topic.InstanceRef.Addresses)
-				return nil
 			default:
-				return fmt.Errorf("unexepcted error during topic deletion: %w", err)
+				failures[topic] = fmt.Errorf("unexepcted error during topic deletion: %w", err)
 			}
+			continue
 		}
+		names = append(names, topic.Topic)
+		byName[topic.Topic] = topic
+	}
+	if len(names) == 0 {
+		return failures
+	}
 
-		return utils.Retry(ctx, 30*time.Second, 1*time.Second, func(ctx context.Context) error {
-			result, err := admin.DescribeTopics([]string{topic.Topic})
-			if err != nil {
-				return err
-			}
-			for _, desc := range result {
-				if errors.Is(desc.Err, sarama.ErrUnknownTopicOrPartition) {
-					log.InfoC(ctx, "Kafka topic %s has been successfully deleted in instance %s", topic.Topic, topic.Instance)
-					return nil
-				}
-			}
-			return fmt.Errorf("topic deletion timed out: %v", topic.Topic)
-		})
-	})
+	timeout := helper.TopicDeletionTimeout
+	if timeout <= 0 {
+		timeout = defaultTopicDeletionTimeout
+	}
+	if err := utils.Retry(ctx, timeout, time.Second, func(ctx context.Context) error {
+		return topicsDeletionConfirmed(ctx, admin, names)
+	}); err != nil {
+		for _, name := range names {
+			failures[byName[name]] = err
+		}
+	}
+	return failures
+}
+
+func topicsDeletionConfirmed(ctx context.Context, admin sarama.ClusterAdmin, names []string) error {
+	result, err := admin.DescribeTopics(names)
+	if err != nil {
+		return err
+	}
+	gone := make(map[string]bool, len(result))
+	for _, desc := range result {
+		if errors.Is(desc.Err, sarama.ErrUnknownTopicOrPartition) {
+			gone[desc.Name] = true
+		}
+	}
+	var still []string
+	for _, name := range names {
+		if !gone[name] {
+			still = append(still, name)
+		}
+	}
+	if len(still) > 0 {
+		return fmt.Errorf("topic deletion timed out: %v", still)
+	}
+	for _, name := range names {
+		log.InfoC(ctx, "Kafka topic %s has been successfully deleted", name)
+	}
+	return nil
 }
 
 func (helper *HelperImpl) UpdateTopicSettings(ctx context.Context, topic *model.TopicRegistrationRespDto) error {
@@ -656,7 +750,7 @@ func (helper *HelperImpl) bulkEnrichTopicSettings(ctx context.Context, kafkaInst
 }
 
 func IsInstanceAvailable(kafkaInstance *model.KafkaInstance) error {
-	healthChecker := NewInstanceHealthChecker(*kafkaInstance, NewHelperImpl(10*time.Second))
+	healthChecker := NewInstanceHealthChecker(*kafkaInstance, NewHelperImpl(10*time.Second, defaultTopicDeletionTimeout))
 	return healthChecker.IsAvailable()
 }
 
@@ -777,7 +871,6 @@ func newMetricCounter(methodName string) prometheus.Histogram {
 	}
 	return metric
 }
-
 
 func measureTime(m prometheus.Histogram, f func() error) error {
 	_, err := measureTimeValue(m, func() (any, error) { return nil, f() })

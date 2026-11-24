@@ -92,6 +92,20 @@ func (mr *MockHelperMockRecorder) DeleteTopic(ctx, topic interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopic", reflect.TypeOf((*MockHelper)(nil).DeleteTopic), ctx, topic)
 }
 
+// DeleteTopics mocks base method.
+func (m *MockHelper) DeleteTopics(ctx context.Context, topics []*model.TopicRegistration) map[*model.TopicRegistration]error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTopics", ctx, topics)
+	ret0, _ := ret[0].(map[*model.TopicRegistration]error)
+	return ret0
+}
+
+// DeleteTopics indicates an expected call of DeleteTopics.
+func (mr *MockHelperMockRecorder) DeleteTopics(ctx, topics interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTopics", reflect.TypeOf((*MockHelper)(nil).DeleteTopics), ctx, topics)
+}
+
 // DoesTopicExistOnKafka mocks base method.
 func (m *MockHelper) DoesTopicExistOnKafka(ctx context.Context, instance *model.KafkaInstance, topicName string) (bool, error) {
 	m.ctrl.T.Helper()
