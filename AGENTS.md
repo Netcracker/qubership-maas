@@ -89,7 +89,7 @@ mvn -pl maas-integration-tests verify
 CI for Go runs via `.github/workflows/maas---build-on-push.yaml` with `go-module-dir: maas/maas-service`. Prefer
 matching that module path locally.
 
-Before every commit check linters, build, tests.
+Before every commit check linters, build, tests, test coverage >80%.
 
 ## Code style & conventions
 
