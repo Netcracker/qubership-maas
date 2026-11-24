@@ -11,13 +11,15 @@ Entities can be created via declarative configuration or REST API. MaaS also sup
 deployments. It persists state in PostgreSQL and returns broker connection metadata/credentials to clients — it does
 **not** proxy traffic to brokers.
 
-Applications talk to MaaS through **maas-agent** (security proxy) with M2M tokens, not directly.
+Applications can reach MaaS through maas-agent. Auth mode is M2M_AUTH_MODE: legacy
+(Basic only, chart default), hybrid, or k8s. An unsupported value aborts startup. Do not
+reintroduce KUBERNETES_M2M_ENABLED. Kubernetes token audience is KUBERNETES_M2M_AUDIENCE.
 
 Module path: `github.com/netcracker/qubership-maas`
 
 ## Tech stack
 
-- **Language:** Go 1.26.5
+- **Language:** Golang
 - **HTTP:** Fiber v3 (`github.com/gofiber/fiber/v3`)
 - **DB:** PostgreSQL (`go-pg`, `pgx`), SQLite for some tests
 - **Kafka client:** IBM Sarama
@@ -87,10 +89,12 @@ mvn -pl maas-integration-tests verify
 CI for Go runs via `.github/workflows/maas---build-on-push.yaml` with `go-module-dir: maas/maas-service`. Prefer
 matching that module path locally.
 
+Before every commit check linters, build, tests, test coverage >80%.
+
 ## Code style & conventions
 
 - Prefer small, focused changes; match existing package layout (`controller` / `service` / `dao` / `model`).
-- Keep Go version in sync: `go.mod` (`go 1.26.5`) and `maas/Dockerfile` builder image.
+- Keep Go version in sync: `go.mod`, and `maas/Dockerfile` builder image, build file.
 - After adding/updating Go deps: run `go mod tidy` and `go mod vendor` so CI and offline builds stay consistent.
 - Do not edit files under `maas/maas-service/vendor/` by hand.
 - Conventional Commits are enforced on PRs (`.github/workflows/pr-conventional-commits.yaml`).
@@ -119,6 +123,13 @@ Team path for larger changes: Jira → `/opsx-propose` artifacts → SPEC PR →
 Cursor commands (filename form `/opsx-propose`): explore, propose, apply, update, verify, archive, sync. They live in
 `.cursor/commands/`. After Node is available, `npx @fission-ai/openspec init` / `update` can refresh generated tool
 files; do not hand-edit a vendored CLI copy.
+
+## Troubleshooting
+
+For 403/502, missing broker registration, unhealthy Kafka or Rabbit, topic or vhost drift,
+instance recovery, Cloud-Core validation, or DR standby, follow
+`.cursor/rules/troubleshoot-maas.mdc` and the troubleshoot-maas skill. Do not hand-edit the
+skill copies independently; the sync workflow is the source of alignment.
 
 ## Git workflow (strict)
 
