@@ -1,10 +1,12 @@
-FROM ghcr.io/netcracker/qubership-core-base:alpine-2.5.9@sha256:ab860790e4ecce56f8df673495cd5745ce587fffa7d7eb210d6d098563ccb26d
+FROM ghcr.io/netcracker/qubership-core-base:alpine-2.5.15@sha256:a3af3751d9187ce7f8ffd67a5aa8465fee78056c79f964bfa7727ea00da681da
 LABEL maintainer="qubership"
 
 ADD ./install /tmp/
 
 USER root
-RUN chmod +x /tmp/install.sh && /tmp/install.sh
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories \
+    && echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && chmod +x /tmp/install.sh && /tmp/install.sh
 USER 1000
 
 ENTRYPOINT ["/validation.sh"]

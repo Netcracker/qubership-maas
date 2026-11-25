@@ -3,5 +3,8 @@
   "assignAutomerge" : true,
   "assigneesFromCodeOwners" : true,
   "reviewersFromCodeOwners" : true,
-  "extends" : [ "github>Netcracker/qubership-core-infra:renovate-core-config" ]
+  "extends" : [
+    "github>Netcracker/qubership-core-infra:renovate-core-config",
+    "github>Netcracker/renovate-config:apm"
+  ]
 }
