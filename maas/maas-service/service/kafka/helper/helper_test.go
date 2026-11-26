@@ -348,7 +348,7 @@ func TestDeleteTopic(t *testing.T) {
 	initTest(t)
 	gomock.InOrder(
 		saramaClient.EXPECT().
-			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), deleteAdminConfigMatcher{}).
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
 			Return(clusterAdmin, nil).
 			Times(1),
 		clusterAdmin.EXPECT().
@@ -373,7 +373,7 @@ func TestDeleteTopic_TopicNotFound(t *testing.T) {
 	initTest(t)
 	gomock.InOrder(
 		saramaClient.EXPECT().
-			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), deleteAdminConfigMatcher{}).
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
 			Return(clusterAdmin, nil).
 			Times(1),
 		clusterAdmin.EXPECT().
@@ -396,7 +396,7 @@ func TestDeleteTopics_Batch(t *testing.T) {
 	second.Topic = TestTopicName + "-2"
 	gomock.InOrder(
 		saramaClient.EXPECT().
-			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), deleteAdminConfigMatcher{}).
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
 			Return(clusterAdmin, nil).
 			Times(1),
 		clusterAdmin.EXPECT().
@@ -430,7 +430,7 @@ func TestDeleteTopics_AlreadyGoneSkipsDescribe(t *testing.T) {
 	second.Topic = TestTopicName + "-2"
 	gomock.InOrder(
 		saramaClient.EXPECT().
-			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), deleteAdminConfigMatcher{}).
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
 			Return(clusterAdmin, nil).
 			Times(1),
 		clusterAdmin.EXPECT().
@@ -457,7 +457,7 @@ func TestDeleteTopics_SharedTimeout(t *testing.T) {
 	second.Topic = TestTopicName + "-2"
 	gomock.InOrder(
 		saramaClient.EXPECT().
-			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), deleteAdminConfigMatcher{}).
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
 			Return(clusterAdmin, nil).
 			Times(1),
 		clusterAdmin.EXPECT().
@@ -485,6 +485,100 @@ func TestDeleteTopics_SharedTimeout(t *testing.T) {
 	assert.Len(failures, 2)
 	assert.ErrorContains(failures[topic], "topic deletion timed out")
 	assert.ErrorContains(failures[&second], "topic deletion timed out")
+}
+
+func TestDeleteTopic_ReportsFailure(t *testing.T) {
+	initTest(t)
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil),
+		clusterAdmin.EXPECT().
+			DeleteTopic(gomock.Eq(TestTopicName)).
+			Return(errors.New("boom")),
+		clusterAdmin.EXPECT().
+			Close().
+			Return(nil),
+	)
+
+	err := helper.DeleteTopic(ctx, topic)
+	assert.ErrorContains(err, "unexepcted error during topic deletion")
+}
+
+func TestDeleteTopics_EmptyAndExternallyManaged(t *testing.T) {
+	initTest(t)
+	assert.Nil(helper.DeleteTopics(ctx, nil))
+
+	topic.ExternallyManaged = true
+	assert.Nil(helper.DeleteTopics(ctx, []*model.TopicRegistration{topic}))
+}
+
+func TestDeleteTopics_AdminConnectError(t *testing.T) {
+	initTest(t)
+	saramaClient.EXPECT().
+		NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+		Return(nil, errors.New("connect"))
+
+	failures := helper.DeleteTopics(ctx, []*model.TopicRegistration{topic})
+	assert.EqualError(failures[topic], "connect")
+}
+
+func TestDeleteTopics_DeleteErrorKinds(t *testing.T) {
+	initTest(t)
+	disabled := *topic
+	disabled.Topic = "disabled"
+	invalid := *topic
+	invalid.Topic = "invalid"
+	unexpected := *topic
+	unexpected.Topic = "unexpected"
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil),
+		clusterAdmin.EXPECT().DeleteTopic("disabled").Return(sarama.ErrTopicDeletionDisabled),
+		clusterAdmin.EXPECT().DeleteTopic("invalid").Return(sarama.ErrInvalidRequest),
+		clusterAdmin.EXPECT().DeleteTopic("unexpected").Return(errors.New("boom")),
+		clusterAdmin.EXPECT().Close().Return(nil),
+	)
+
+	failures := helper.DeleteTopics(ctx, []*model.TopicRegistration{&disabled, &invalid, &unexpected})
+	assert.ErrorIs(failures[&disabled], ErrTopicDeletionDisabled)
+	assert.ErrorIs(failures[&invalid], ErrInvalidDeleteRequest)
+	assert.ErrorContains(failures[&unexpected], "unexepcted error during topic deletion")
+}
+
+func TestDeleteTopics_CloseAndDescribeErrors(t *testing.T) {
+	initTest(t)
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil),
+		clusterAdmin.EXPECT().DeleteTopic(TestTopicName).Return(nil),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{TestTopicName})).
+			Return(nil, errors.New("describe")),
+		clusterAdmin.EXPECT().Close().Return(errors.New("close")),
+	)
+
+	failures := helper.DeleteTopics(ctx, []*model.TopicRegistration{topic})
+	assert.ErrorContains(failures[topic], "describe")
+}
+
+func TestDeleteTopics_ZeroTimeoutUsesDefaultWhenAlreadyGone(t *testing.T) {
+	initTest(t)
+	helper.TopicDeletionTimeout = 0
+	gomock.InOrder(
+		saramaClient.EXPECT().
+			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
+			Return(clusterAdmin, nil),
+		clusterAdmin.EXPECT().DeleteTopic(TestTopicName).Return(nil),
+		clusterAdmin.EXPECT().
+			DescribeTopics(gomock.Eq([]string{TestTopicName})).
+			Return([]*sarama.TopicMetadata{{Name: TestTopicName, Err: sarama.ErrUnknownTopicOrPartition}}, nil),
+		clusterAdmin.EXPECT().Close().Return(nil),
+	)
+
+	assert.Nil(helper.DeleteTopics(ctx, []*model.TopicRegistration{topic}))
 }
 
 func TestPropagateConfigsToTopicDetail(t *testing.T) {
@@ -781,17 +875,6 @@ type closerStub struct {
 func (c *closerStub) Close() error {
 	c.closed = true
 	return nil
-}
-
-type deleteAdminConfigMatcher struct{}
-
-func (deleteAdminConfigMatcher) Matches(x interface{}) bool {
-	cfg, ok := x.(*sarama.Config)
-	return ok && cfg.Version == saramaProtocolVersion && !cfg.Metadata.Full
-}
-
-func (deleteAdminConfigMatcher) String() string {
-	return "sarama admin config with Metadata.Full=false and the supported Kafka protocol version"
 }
 
 type VersionMatcher struct {

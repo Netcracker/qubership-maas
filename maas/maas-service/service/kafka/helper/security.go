@@ -29,15 +29,10 @@ var ErrNoCACert = errors.New("kafka: CA certificate must be configured for SSL c
 var saramaProtocolVersion = sarama.V2_7_0_0
 
 func (helper *HelperImpl) createClusterAdmin(ctx context.Context, instance *model.KafkaInstance) (sarama.ClusterAdmin, error) {
-	return helper.newClusterAdmin(ctx, instance, true)
-}
-
-func (helper *HelperImpl) newClusterAdmin(ctx context.Context, instance *model.KafkaInstance, fullMetadata bool) (sarama.ClusterAdmin, error) {
 	config, err := helper.buildConfig(ctx, instance, model.Admin)
 	if err != nil {
 		return nil, err
 	}
-	config.Metadata.Full = fullMetadata
 	addresses := instance.Addresses[instance.MaasProtocol]
 	admin, err := helper.client.NewClusterAdmin(addresses, config)
 	if err != nil {

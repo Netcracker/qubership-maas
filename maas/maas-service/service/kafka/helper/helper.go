@@ -213,7 +213,7 @@ func (helper *HelperImpl) DeleteTopics(ctx context.Context, topics []*model.Topi
 func (helper *HelperImpl) deleteTopicsOnInstance(ctx context.Context, topics []*model.TopicRegistration) map[*model.TopicRegistration]error {
 	failures := map[*model.TopicRegistration]error{}
 	instance := topics[0].InstanceRef
-	admin, err := helper.newClusterAdmin(ctx, instance, false)
+	admin, err := helper.createClusterAdmin(ctx, instance)
 	if err != nil {
 		for _, topic := range topics {
 			failures[topic] = err

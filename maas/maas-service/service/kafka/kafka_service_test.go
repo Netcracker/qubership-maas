@@ -306,6 +306,89 @@ func TestKafkaService_CleanupNamespace(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestKafkaService_DeleteTopics_BrokerAndDbFailures(t *testing.T) {
+	testInitializer(t)
+	defer mockCtrl.Finish()
+
+	eqCtx := gomock.Eq(ctx)
+	instance := &model.KafkaInstance{Id: "test_kafka"}
+	failedTopic := &model.TopicRegistration{
+		Classifier:  &model.Classifier{Name: "failed", Namespace: "test-namespace"},
+		Topic:       "failed-topic",
+		Instance:    "test_kafka",
+		Namespace:   "test-namespace",
+		InstanceRef: instance,
+	}
+	dbTopic := &model.TopicRegistration{
+		Classifier:  &model.Classifier{Name: "db", Namespace: "test-namespace"},
+		Topic:       "db-topic",
+		Instance:    "test_kafka",
+		Namespace:   "test-namespace",
+		InstanceRef: instance,
+	}
+
+	mockDao.EXPECT().
+		FindTopicsBySearchRequest(eqCtx, &model.TopicSearchRequest{Namespace: "test-namespace"}).
+		Return([]*model.TopicRegistration{}, nil)
+	service := NewKafkaService(mockDao, kafkaInstanceServiceMock, kafkaHelper, auditService, bgDomainService, nil, nil)
+	empty, err := service.DeleteTopics(ctx, &model.TopicSearchRequest{Namespace: "test-namespace"})
+	assertion.NoError(err)
+	assertion.Empty(empty.DeletedSuccessfully)
+	assertion.Empty(empty.FailedToDelete)
+
+	mockDao.EXPECT().
+		FindTopicsBySearchRequest(eqCtx, &model.TopicSearchRequest{Namespace: "ns-fail"}).
+		Return([]*model.TopicRegistration{failedTopic}, nil)
+	kafkaInstanceServiceMock.EXPECT().GetById(eqCtx, "test_kafka").Return(instance, nil)
+	kafkaHelper.EXPECT().
+		DeleteTopics(eqCtx, []*model.TopicRegistration{failedTopic}).
+		Return(map[*model.TopicRegistration]error{failedTopic: errors.New("timed out")})
+	failed, err := service.DeleteTopics(ctx, &model.TopicSearchRequest{Namespace: "ns-fail"})
+	assertion.NoError(err)
+	assertion.Empty(failed.DeletedSuccessfully)
+	assertion.Equal("timed out", failed.FailedToDelete[0].Message)
+
+	mockDao.EXPECT().
+		FindTopicsBySearchRequest(eqCtx, &model.TopicSearchRequest{Namespace: "ns-db"}).
+		Return([]*model.TopicRegistration{dbTopic}, nil)
+	kafkaInstanceServiceMock.EXPECT().GetById(eqCtx, "test_kafka").Return(instance, nil)
+	kafkaHelper.EXPECT().DeleteTopics(eqCtx, []*model.TopicRegistration{dbTopic}).Return(nil)
+	mockDao.EXPECT().DeleteTopicRegistration(eqCtx, dbTopic, nil).Return(errors.New("db"))
+	dbFailed, err := service.DeleteTopics(ctx, &model.TopicSearchRequest{Namespace: "ns-db"})
+	assertion.NoError(err)
+	assertion.Empty(dbFailed.DeletedSuccessfully)
+	assertion.Equal("db", dbFailed.FailedToDelete[0].Message)
+
+	mockDao.EXPECT().
+		FindTopicsBySearchRequest(eqCtx, &model.TopicSearchRequest{Namespace: "ns-search"}).
+		Return(nil, errors.New("search"))
+	_, err = service.DeleteTopics(ctx, &model.TopicSearchRequest{Namespace: "ns-search"})
+	assertion.ErrorContains(err, "search")
+}
+
+func TestKafkaService_DeleteTopic_BrokerAndLeaveIntact(t *testing.T) {
+	testInitializer(t)
+	defer mockCtrl.Finish()
+
+	eqCtx := gomock.Eq(ctx)
+	topicReg := &model.TopicRegistration{
+		Classifier: &model.Classifier{Name: "one", Namespace: "test-namespace"},
+		Topic:      "one-topic",
+		Namespace:  "test-namespace",
+	}
+	service := NewKafkaService(mockDao, kafkaInstanceServiceMock, kafkaHelper, auditService, bgDomainService, nil, nil)
+
+	kafkaHelper.EXPECT().DeleteTopic(eqCtx, topicReg).Return(errors.New("broker"))
+	assertion.EqualError(service.DeleteTopic(ctx, topicReg, false), "broker")
+
+	kafkaHelper.EXPECT().DeleteTopic(eqCtx, topicReg).Return(nil)
+	mockDao.EXPECT().DeleteTopicRegistration(eqCtx, topicReg, nil).Return(nil)
+	assertion.NoError(service.DeleteTopic(ctx, topicReg, false))
+
+	mockDao.EXPECT().DeleteTopicRegistration(eqCtx, topicReg, nil).Return(nil)
+	assertion.NoError(service.DeleteTopic(ctx, topicReg, true))
+}
+
 func TestKafkaService_GetDiscrepancyReport(t *testing.T) {
 	testInitializer(t)
 	defer mockCtrl.Finish()
