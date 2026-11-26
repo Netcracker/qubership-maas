@@ -251,11 +251,7 @@ func (helper *HelperImpl) deleteTopicsOnInstance(ctx context.Context, topics []*
 		return failures
 	}
 
-	timeout := helper.TopicDeletionTimeout
-	if timeout <= 0 {
-		timeout = defaultTopicDeletionTimeout
-	}
-	if err := utils.Retry(ctx, timeout, time.Second, func(ctx context.Context) error {
+	if err := utils.Retry(ctx, helper.TopicDeletionTimeout, time.Second, func(ctx context.Context) error {
 		return topicsDeletionConfirmed(ctx, admin, names)
 	}); err != nil {
 		for _, name := range names {

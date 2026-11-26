@@ -564,21 +564,13 @@ func TestDeleteTopics_CloseAndDescribeErrors(t *testing.T) {
 	assert.ErrorContains(failures[topic], "describe")
 }
 
-func TestDeleteTopics_ZeroTimeoutUsesDefaultWhenAlreadyGone(t *testing.T) {
-	initTest(t)
-	helper.TopicDeletionTimeout = 0
-	gomock.InOrder(
-		saramaClient.EXPECT().
-			NewClusterAdmin(gomock.Eq([]string{TestKafkaAddr}), &VersionMatcher{Expected: sarama.V2_8_0_0.String()}).
-			Return(clusterAdmin, nil),
-		clusterAdmin.EXPECT().DeleteTopic(TestTopicName).Return(nil),
-		clusterAdmin.EXPECT().
-			DescribeTopics(gomock.Eq([]string{TestTopicName})).
-			Return([]*sarama.TopicMetadata{{Name: TestTopicName, Err: sarama.ErrUnknownTopicOrPartition}}, nil),
-		clusterAdmin.EXPECT().Close().Return(nil),
-	)
+func TestNewHelperImpl_DefaultDeletionTimeout(t *testing.T) {
+	assertion := _assert.New(t)
+	withDefault := NewHelperImpl(time.Second, 0)
+	assertion.Equal(defaultTopicDeletionTimeout, withDefault.TopicDeletionTimeout)
 
-	assert.Nil(helper.DeleteTopics(ctx, []*model.TopicRegistration{topic}))
+	configured := NewHelperImpl(time.Second, 5*time.Minute)
+	assertion.Equal(5*time.Minute, configured.TopicDeletionTimeout)
 }
 
 func TestPropagateConfigsToTopicDetail(t *testing.T) {
