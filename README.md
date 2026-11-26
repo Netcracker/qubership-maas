@@ -22,11 +22,15 @@ deployments.
 
 MaaS should be installed in cloud in its own namespace. MaaS requires
 PostgresSQL database to persist its data. Kafka or Rabbit instance
-registration is optional for MaaS to start; when needed, pass
-install-time parameters `MAAS_KAFKA_INSTANCE_BODY` /
-`MAAS_RABBIT_INSTANCE_BODY` (envgen → ArgoCD) or use the manager REST
-API. `KafkaInstance` / `RabbitInstance` CRs are a future registration
-path.
+registration is optional for MaaS to start. Register with the manager
+REST API, install-time parameters `MAAS_KAFKA_INSTANCE_BODY` /
+`MAAS_RABBIT_INSTANCE_BODY` (envgen → ArgoCD), or `KafkaInstance` /
+`RabbitInstance` CRs. CRDs live in `crds/` (not the MaaS chart). Chart
+values and apply order: [broker instance CRs](docs/broker_instance_crs.md).
+Architecture: [operator_design.md](docs/operator_design.md).
+Designators and `instanceId` use the PostgreSQL id. ProcessCR writes it
+to `status.alias` (the namespace after a new Register, the kept REST id
+after adopt).
 
 An application that plans to use MaaS must enable MaaS integration in
 CMDB for its namespace. Application microservices shouldn't interact

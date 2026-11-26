@@ -37,8 +37,8 @@ ProcessCR SHALL apply a CR only when `spec.operatorNamespace` equals this MaaS `
 
 ### Requirement: Reconcile backoff
 
-Transient apply failures SHALL retry with exponential workqueue backoff. Expected InUse SHALL use `RequeueAfter` without
-that limiter. Permanent stall SHALL wait for the next CR change.
+Transient apply failures SHALL retry with exponential workqueue backoff. Permanent stall SHALL wait for the next CR
+change.
 
 #### Scenario: Secret or health-check failure
 
@@ -47,18 +47,9 @@ that limiter. Permanent stall SHALL wait for the next CR change.
 - THEN the workqueue SHALL retry from a 1s base, doubling, cap 5m, with jitter
 - AND a previous good PG row SHALL NOT be Unregistered because of `HealthCheckFailed`
 
-#### Scenario: Instance still in use
-
-- GIVEN Unregister returns 400 because topics or vhosts still reference the instance
-- WHEN ProcessCR handles Terminating
-- THEN it SHALL PATCH `Ready=False` reason `InstanceInUse` once
-- AND it SHALL keep the finalizer
-- AND it SHALL `RequeueAfter` 30s
-- AND it SHALL NOT re-PATCH that reason on every retry while it is already `InstanceInUse`
-
 #### Scenario: Invalid spec
 
-- GIVEN `InvalidSpec` or `DuplicateInstanceName`
+- GIVEN `InvalidSpec`, `DuplicateInstanceName` or `DuplicateNamespace`
 - WHEN ProcessCR finishes
 - THEN `Stalled` SHALL be True
 - AND the key SHALL NOT be requeued until a CR change (spec or refresh annotation)
@@ -90,7 +81,7 @@ applies, without waiting for the resync. The operator SHALL NOT Watch Secrets.
 ### Requirement: Kubernetes Events
 
 When `K8S_EVENTS_ENABLED` is true, ProcessCR SHALL emit a Kubernetes Event on the instance CR in the CR namespace, using
-the same reason strings as status except `ForcedDefault`.
+the `Ready` / `Stalled` reason strings. The `Default` condition SHALL be status-only.
 
 #### Scenario: Events disabled
 
@@ -101,35 +92,37 @@ the same reason strings as status except `ForcedDefault`.
 
 #### Scenario: Emit once per reason change
 
-- GIVEN status reason is already `InstanceInUse`
-- WHEN a 30s retry still sees Unregister 400
+- GIVEN status reason is already `SecretError`
+- WHEN a retry still sees the same missing Secret
 - THEN ProcessCR SHALL NOT emit another Event for that reason
 
-#### Scenario: ForcedDefault is status-only
+#### Scenario: Default condition is status-only
 
 - GIVEN the first Register of a kind became the PG default
-- WHEN ProcessCR PATCHes `ForcedDefault`
-- THEN it SHALL NOT emit an Event for `ForcedDefault`
+- WHEN ProcessCR PATCHes the `Default` condition with reason `ForcedDefault`
+- THEN it SHALL NOT emit an Event for it
 
 ### Requirement: Restricted environment
 
-When `restrictedEnvironment` is true, the chart SHALL create only namespaced objects (ServiceAccount, Lease Role). CRDs,
-ClusterRole, and ClusterRoleBinding SHALL be applied out of band. Watch SHALL remain cluster-wide.
+When `restrictedEnvironment` is true, the chart SHALL skip ClusterRole and ClusterRoleBinding. Those SHALL be applied
+out of band. Instance CRDs SHALL NOT be in the chart (platform zero wave installs `crds/` before MaaS). Watch SHALL
+remain cluster-wide.
 
-#### Scenario: Restricted env without cluster objects
+#### Scenario: Restricted env without ClusterRole
 
-- GIVEN `restrictedEnvironment` is true and cluster-scoped objects are missing
+- GIVEN `restrictedEnvironment` is true and ClusterRole is missing
 - WHEN the leader starts informers
-- THEN instance kinds SHALL be unknown and Watch SHALL fail
+- THEN Watch SHALL fail
 - AND this SHALL NOT be implemented as “watch only `CLOUD_NAMESPACE`”
 
 ### Requirement: Prerequisites
 
 Instance CRDs SHALL require Kubernetes 1.32 or newer (CEL validations and selectable fields on
-`spec.operatorNamespace`).
+`spec.operatorNamespace`). Platform zero wave SHALL install the YAML in `crds/` before MaaS starts. Instance CRs SHALL
+be applied after MaaS.
 
-#### Scenario: MaaS first
+#### Scenario: CRDs before MaaS
 
-- GIVEN the MaaS Application has Synced CRDs and `maas-service`
+- GIVEN zero wave has applied the CRDs from `crds/` and the MaaS Application has Synced `maas-service`
 - WHEN a later Application applies `KafkaInstance` / `RabbitInstance`
 - THEN kinds exist and ProcessCR SHALL run on create

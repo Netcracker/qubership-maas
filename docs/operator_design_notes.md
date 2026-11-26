@@ -278,8 +278,8 @@ When a CR changes, Kubernetes tells each watching pod: “run ProcessCR for this
 stays valid until ProcessCR finishes.
 
 The race is possible: pod B already read the CR while it still existed, then spends time on a broker health-check. Pod A
-deletes the CR and Unregisters. Pod B then Registers from the old read, without looking at the API again. PostgreSQL
-gets the instance back; the CR is already gone.
+deletes the CR and clears `cr_namespace` (the PostgreSQL row stays). Pod B then Registers from the old read, without
+looking at the API again, and sets `cr_namespace` on a row whose CR is already gone.
 
 A Lease keeps one ProcessCR at a time. Without that, these cases happen.
 
@@ -292,9 +292,10 @@ A Lease keeps one ProcessCR at a time. Without that, these cases happen.
 1. Pod B Gets the CR (create, it exists). GetById is empty → Register. Health-check starts (can take seconds). Spec
    stays in memory for that call.
 2. User runs `kubectl delete`.
-3. Pod A Gets NotFound (or `deletionTimestamp`), Unregisters, removes the finalizer. CR gone, PG row gone.
-4. Pod B’s health-check returns OK. It Registers from step 1 **without Get’ing again**. Insert succeeds. Status PATCH is
-   NotFound (CR already gone). **PG has an instance with no CR.**
+3. Pod A Gets NotFound (or `deletionTimestamp`), clears `cr_namespace` / `cr_name`, removes the finalizer. CR gone. The
+   PG row stays.
+4. Pod B’s health-check returns OK. It Registers from step 1 **without Get’ing again**. It sets `cr_namespace` again.
+   Status PATCH is NotFound (CR already gone). **REST stays locked on a row with no CR.**
 
 ```mermaid
 sequenceDiagram
@@ -312,31 +313,31 @@ sequenceDiagram
   Note over PodB: Register health check 10s create snapshot
   User->>etcd: kubectl delete CR
   PodA->>etcd: Get NotFound or deletionTimestamp
-  PodA->>DB: Unregister
+  PodA->>DB: clear cr_namespace row stays
   PodA->>etcd: remove finalizer object gone
-  PodB->>DB: Register insert from snapshot
-  Note over DB: row is back no CR
+  PodB->>DB: Register sets cr_namespace again
+  Note over DB: row locked no CR
 ```
 
-Two pods both handling the **same delete** (both Get Terminating, Unregister, remove finalizer) is **not** this bug.
-NotFound → Skip. Finalizer only after Unregister 200/404. Extra 409s and retries, not an orphan.
+Two pods both handling the **same delete** (both Get Terminating, clear `cr_namespace`, remove finalizer) is **not**
+this bug. NotFound → Skip. The finalizer comes off only after ownership is cleared. Extra retries, not a second row.
 
 ### Case 2. Two CRs / two pods and the default
 
 MaaS allows one default Kafka and one default Rabbit per database. First insert into an empty DB becomes default even if
 ProcessCR sent `default: false` (`ForcedDefault`). That “first” is whichever Register commits first — not a chosen id.
 
-- Two replicas Register two new instance CRs at once: whichever insert lands first is default. Status `isDefault` on
+- Two replicas Register two new instance CRs at once: whichever insert lands first is default. The `Default` condition on
   both CRs can disagree until the next Get. Lease keeps one ProcessCR at a time.
 - Switching default is `DEFAULT_KAFKA_INSTANCE` / `DEFAULT_RABBIT_INSTANCE` on the MaaS Application, not `spec.default`
   on two instance CRs. Two pods both applying `SetDefault` still flap without a Lease; with a Lease it is one writer.
 
-Update refuses `default: false` on the current default. Unregister refuses deleting the default while another instance
-exists.
+Update refuses `default: false` on the current default. Manager REST Unregister refuses deleting the default while
+another instance exists. CR delete does not Unregister, so it does not hit that 400.
 
-- User deletes the current default instance while others remain: Unregister 400. `DEFAULT_*_INSTANCE` still names that
-  CR. Update the MaaS Application with another registered name and Sync (`SetDefault`), then retry delete. Do not clear
-  the PG flag just because Unregister failed.
+- Deleting the CR of the current default leaves the PG row and its default flag. `DEFAULT_*_INSTANCE` still names that
+  namespace until the MaaS Application is updated. To drop the registration, Unregister it through manager REST after
+  `cr_namespace` is cleared, and only after another instance is the default.
 
 ### Case 3. CR status does not match PostgreSQL
 
@@ -349,13 +350,13 @@ special-cases “already exists → Update.”
 **Case 4. Two CRs, same `metadata.name`, different namespaces**
 
 Both pods GetById, both see “name free,” both Register. One insert wins; the other hits PK. The losing CR may still show
-Ready if it then GETs the row and assumes it owns it. Adopt / `managed_by_operator` has the same check-then-write hole.
+Ready if it then GETs the row and assumes it owns it. Adopt / `cr_namespace` has the same check-then-write hole.
 
-### Case 5. User is deleting (topics still there) while the other pod Updates
+### Case 5. User is deleting while the other pod Updates
 
-Unregister returns 400 InUse; CR stays Terminating; finalizer stays. The other replica still has a live reconcile
-(Secret rotation or spec edit): it Updates, health-checks, and can **refresh credentials** on the instance the user is
-trying to remove. Not a revive; cleanup is blocked and the broker is poked again.
+CR delete does not Unregister, so topics and vhosts do not block it. Without a Lease, the other replica can still
+Update (Secret rotation or spec edit) and set `cr_namespace` again after the delete handler cleared it. The CR is gone
+and REST stays locked.
 
 A Lease keeps one ProcessCR at a time.
 

@@ -34,6 +34,10 @@ Let's observe this example of config:
   production-topic` and topic has classifier `{ "name" : "production-topic",  "namespace" : "my-namespace"}`, then
   selector will be chosen for this topic. That's how you can declare instance for all topics of particular tenant.
 
+`instance` / `defaultInstance` is the PostgreSQL instance id (the same value as manager REST `id` and topic/vhost
+`instanceId`). For a `KafkaInstance` / `RabbitInstance` CR, copy `status.alias`, not `metadata.namespace`. After a new
+Register they match; after the CR adopts an existing REST row, `status.alias` is the old REST id.
+
 Note, that order in selectors list is important and declares matching priority. In our example at first selector with
 classifier match with name `name: topic-in-internal-kafka` will be tried. And, if it is not compatible with topic
 classifier, next selector with classifier match with `name: production-topic` will be tried and so on.
