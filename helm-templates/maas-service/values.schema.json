@@ -265,6 +265,16 @@
         ],
         "default": "10s"
       },
+      "KAFKA_TOPIC_DELETION_TIMEOUT": {
+        "$id": "#/properties/KAFKA_TOPIC_DELETION_TIMEOUT",
+        "type": "string",
+        "title": "Kafka topic deletion timeout",
+        "description": "How long MaaS waits for a topic to disappear from Kafka metadata after a delete request",
+        "examples": [
+          "3m"
+        ],
+        "default": "3m"
+      },
       "LOG_LEVEL": {
         "$id": "#/properties/LOG_LEVEL",
         "type": "string",

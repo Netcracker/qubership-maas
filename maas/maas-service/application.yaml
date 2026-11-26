@@ -40,6 +40,8 @@ production.mode: false
 
 # kafka.topics.update.timeout: 10s - deprecated property
 kafka.client.timeout: 10s
+# how long to wait until a topic disappears from Kafka metadata after DeleteTopic
+kafka.topic.deletion.timeout: 3m
 health.check.interval: 5s
 
 # how often maas compares its registry against the actual state of the brokers

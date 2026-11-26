@@ -562,27 +562,39 @@ func (srv *KafkaServiceImpl) DeleteTopics(ctx context.Context, searchReq *model.
 	}
 	response := new(model.TopicDeletionResp)
 
+	var failures map[*model.TopicRegistration]error
+	if !searchReq.LeaveRealTopicIntact && len(topics) > 0 {
+		failures = srv.helper.DeleteTopics(ctx, topics)
+	}
 	for _, topic := range topics {
-		if err = srv.DeleteTopic(ctx, topic, searchReq.LeaveRealTopicIntact); err != nil {
+		if deleteErr, failed := failures[topic]; failed {
+			log.ErrorC(ctx, "Error deleting kafka topic %s: %v", topic, deleteErr)
+			response.FailedToDelete = append(response.FailedToDelete, model.TopicDeletionError{
+				Topic:   topic.ToResponseDto(),
+				Message: deleteErr.Error(),
+			})
+			continue
+		}
+		if err = srv.dao.DeleteTopicRegistration(ctx, topic, nil); err != nil {
 			log.ErrorC(ctx, "Error deleting kafka topic %s: %v", topic, err)
 			response.FailedToDelete = append(response.FailedToDelete, model.TopicDeletionError{
 				Topic:   topic.ToResponseDto(),
 				Message: err.Error(),
 			})
-		} else {
-			response.DeletedSuccessfully = append(response.DeletedSuccessfully, *topic.ToResponseDto())
+			continue
 		}
+		response.DeletedSuccessfully = append(response.DeletedSuccessfully, *topic.ToResponseDto())
 	}
 	return response, nil
 }
 
 func (srv *KafkaServiceImpl) DeleteTopic(ctx context.Context, topic *model.TopicRegistration, leaveRealTopicIntact bool) error {
-	return srv.dao.DeleteTopicRegistration(ctx, topic, func(reg *model.TopicRegistration) error {
-		if !leaveRealTopicIntact {
-			return srv.helper.DeleteTopic(ctx, topic)
+	if !leaveRealTopicIntact {
+		if err := srv.helper.DeleteTopic(ctx, topic); err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return srv.dao.DeleteTopicRegistration(ctx, topic, nil)
 }
 
 func (srv *KafkaServiceImpl) SyncAllTopicsToKafka(ctx context.Context, namespace string) ([]model.KafkaTopicSyncReport, error) {
